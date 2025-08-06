@@ -35,7 +35,7 @@ export class MemgraphService {
 
   async connect(): Promise<void> {
     const uri = `bolt://${this.config.host}:${this.config.port}`;
-    this.driver = neo4j.driver(uri, neo4j.auth.basic(this.config.username, this.config.password));
+    this.driver = neo4j.driver(uri, neo4j.auth.basic(this.config.username || '', this.config.password || ''));
   }
 
   async disconnect(): Promise<void> {
@@ -188,5 +188,104 @@ export class MemgraphService {
     const result = await this.runQuery(query, { userId, name, updatedAt });
     const personNode = result.records[0].get('p');
     return personNode.properties as PersonNode;
+  }
+
+  /**
+   * Search for HumanConnection nodes that contain a specific user name
+   */
+  async searchHumanConnectionsByName(userName: string): Promise<HumanConnectionNode[]> {
+    const query = `
+      MATCH (hc:HumanConnection)
+      WHERE $userName IN hc.partners
+      RETURN hc
+    `;
+
+    const result = await this.runQuery(query, { userName });
+    
+    return result.records.map((record: any) => {
+      const connectionNode = record.get('hc');
+      return connectionNode.properties as HumanConnectionNode;
+    });
+  }
+
+  /**
+   * Find HumanConnection by partners and secret for authentication
+   * Uses flexible name matching (case-insensitive, first name matching)
+   */
+  async findHumanConnectionByAuth(
+    userName: string, 
+    partnerName: string, 
+    secret: string
+  ): Promise<HumanConnectionNode | null> {
+    // Extract first names and convert to lowercase for flexible matching
+    const userFirstName = userName.split(' ')[0].toLowerCase();
+    const partnerFirstName = partnerName.split(' ')[0].toLowerCase();
+    
+    const query = `
+      MATCH (hc:HumanConnection)
+      WHERE hc.secret = $secret 
+      AND (
+        (toLower(hc.partners[0]) = $userFirstName AND toLower(hc.partners[1]) = $partnerFirstName) OR
+        (toLower(hc.partners[0]) = $partnerFirstName AND toLower(hc.partners[1]) = $userFirstName)
+      )
+      RETURN hc
+    `;
+
+    const result = await this.runQuery(query, { 
+      userFirstName, 
+      partnerFirstName, 
+      secret 
+    });
+    
+    if (result.records.length === 0) {
+      return null;
+    }
+
+    const connectionNode = result.records[0].get('hc');
+    return connectionNode.properties as HumanConnectionNode;
+  }
+
+  /**
+   * Create relationship between Person and existing HumanConnection
+   */
+  async linkPersonToHumanConnection(
+    userId: string, 
+    humanConnection: HumanConnectionNode
+  ): Promise<boolean> {
+    const updatedAt = new Date().toISOString();
+    
+    const query = `
+      MATCH (p:Person {userId: $userId})
+      MATCH (hc:HumanConnection {secret: $secret})
+      WHERE hc.partners = $partners
+      CREATE (p)-[:PARTICIPATES_IN {role: "partner", updatedAt: $updatedAt}]->(hc)
+      RETURN p, hc
+    `;
+
+    const result = await this.runQuery(query, {
+      userId,
+      secret: humanConnection.secret,
+      partners: humanConnection.partners,
+      updatedAt,
+    });
+
+    return result.records.length > 0;
+  }
+
+  /**
+   * Get all HumanConnection nodes for potential matching
+   */
+  async getAllHumanConnections(): Promise<HumanConnectionNode[]> {
+    const query = `
+      MATCH (hc:HumanConnection)
+      RETURN hc
+    `;
+
+    const result = await this.runQuery(query);
+    
+    return result.records.map((record: any) => {
+      const connectionNode = record.get('hc');
+      return connectionNode.properties as HumanConnectionNode;
+    });
   }
 }
