@@ -8,6 +8,7 @@ import {
   type Memory,
   type State,
   type Task,
+  type UUID,
 } from '@elizaos/core';
 
 /**
@@ -45,7 +46,7 @@ export class TaskService extends Service {
    */
   static async start(runtime: IAgentRuntime): Promise<Service> {
     const service = new TaskService(runtime);
-    await service.startTimer();
+    service.startTimer();
     await service.createTestTasks(); // This will create the daily check-in task
     return service;
   }
@@ -79,7 +80,7 @@ export class TaskService extends Service {
 
           // Get all rooms from the database
           const allWorlds = await runtime.getAllWorlds();
-          const allRoomIds: string[] = [];
+          const allRoomIds: UUID[] = [];
 
           // Collect all room IDs from all worlds
           for (const world of allWorlds) {
@@ -108,7 +109,7 @@ export class TaskService extends Service {
                 entityId: runtime.agentId,
                 agentId: runtime.agentId,
                 content: checkInContent,
-                roomId: roomId,
+                roomId: roomId as UUID,
                 createdAt: Date.now(),
               };
 
@@ -158,24 +159,18 @@ export class TaskService extends Service {
     });
 
     // Get the first available world ID for task creation
-    let worldId;
+    let worldId: UUID;
     try {
       const worlds = await this.runtime.getAllWorlds();
       if (worlds.length > 0) {
         worldId = worlds[0].id;
       } else {
-        // Create a default world if none exists
-        const defaultWorld = await this.runtime.ensureWorldExists({
-          id: '00000000-0000-0000-0000-000000000000' as any,
-          name: 'Default World',
-          serverId: 'default',
-          metadata: {}
-        });
-        worldId = defaultWorld.id;
+        // Use default world ID if no worlds exist
+        worldId = '00000000-0000-0000-0000-000000000000' as UUID;
       }
     } catch (error) {
       logger.warn('[Seren] Using default world for task creation');
-      worldId = '00000000-0000-0000-0000-000000000000' as any;
+      worldId = '00000000-0000-0000-0000-000000000000' as UUID;
     }
 
     // Check if the daily check-in task exists

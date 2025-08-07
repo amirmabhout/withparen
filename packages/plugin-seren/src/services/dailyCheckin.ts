@@ -1,7 +1,6 @@
 import {
     logger,
     Service,
-    ServiceType,
     type IAgentRuntime,
     type UUID,
     type Content,
@@ -67,24 +66,18 @@ export class DailyCheckinService extends Service {
 
         if (existingTasks.length === 0) {
             // Get the first available world ID for task creation
-            let worldId;
+            let worldId: UUID;
             try {
                 const worlds = await this.runtime.getAllWorlds();
                 if (worlds.length > 0) {
                     worldId = worlds[0].id;
                 } else {
-                    // Create a default world if none exists
-                    const defaultWorld = await this.runtime.ensureWorldExists({
-                        id: '00000000-0000-0000-0000-000000000000' as any,
-                        name: 'Default World',
-                        serverId: 'default',
-                        metadata: {}
-                    });
-                    worldId = defaultWorld.id;
+                    // Use default world ID if no worlds exist
+                    worldId = '00000000-0000-0000-0000-000000000000' as UUID;
                 }
             } catch (error) {
                 logger.warn('[Seren] Using default world for daily checkin task creation');
-                worldId = '00000000-0000-0000-0000-000000000000' as any;
+                worldId = '00000000-0000-0000-0000-000000000000' as UUID;
             }
 
             await this.runtime.createTask({
@@ -115,11 +108,16 @@ export class DailyCheckinService extends Service {
 
             // Daily check-in message content with variations
             const checkInMessages = [
-                "Good afternoon! How are you feeling about your connection today? I'm here if you'd like to reflect on any relationship that's on your mind.",
-                "Hello! Taking a moment to check in - how are your relationships feeling today? What's on your heart?",
-                "Hi there! How are you doing with the connections that matter most to you today?",
-                "Good afternoon! I'm curious - what's one thing about your relationships that you're grateful for today?",
-                "Hello! How are you feeling about the people closest to you today? Anything you'd like to explore together?",
+                "How connected do you feel in your relationship today? Rate it 1-5 and tell me what's on your heart.",
+                "Quick check-in: How's your relationship feeling today? 1-5?",
+                "On a scale of 1-5, how close do you feel to your person right now?",
+                "How's your connection energy today? Give me a number 1-5 and share what's stirring.",
+                "Rate your relationship satisfaction today, 1-5. What's behind that number?",
+                "How connected are you feeling to your person today? 1-5 and tell me more.",
+                "Quick pulse check: How's your heart feeling about your relationship today? 1-5?",
+                "On a 1-5 scale, how's your connection feeling right now?",
+                "How's your relationship today? Rate it 1-5 and share what's alive for you.",
+                "Connection check: How are you feeling about your relationship today? 1-5?"
             ];
 
             // Select a random message for variety
