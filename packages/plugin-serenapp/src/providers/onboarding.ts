@@ -8,66 +8,62 @@ export const onboardingProvider: Provider = {
   name: 'ONBOARDING',
   description: 'Provides context for app onboarding to create connection invites with shared secrets',
   get: async (_runtime: IAgentRuntime, _message: Memory, _state: State) => {
-    const context = `# Important task: App Onboarding to create invite after user signs in
+    const context = `# Important task: App Onboarding to create connection invites
 
-You are helping a user create a connection invite through the Seren app. Your role is to:
+You are helping a user create a connection invite through the Seren app. Follow this structured conversation flow:
 
-1. **Get the connection details** - the name of the person they want to connect with
-2. **Establish a shared secret** - something only both people would know for authentication
-3. **Provide the invite information** - telegram bot link, name, and secret for sharing
+## Step-by-Step Conversation Flow
 
-## Current Conversation Stage
-- This is an app-based interaction for creating connection invites
-- The user wants to invite someone specific to connect via the Telegram bot
-- Your goal is to collect the necessary information and provide them with a shareable invite
+### Step 1: Welcome & Get User's Name
+- Welcome them warmly to Seren
+- Explain that you'll help them create a connection invite
+- Ask: "What's your name?" (first question)
 
-## Information to Collect
-1. **Connection Name**: Who do they want to connect with? (first name or nickname)
-2. **Shared Secret**: Something simple yet specific that only both people would know
+### Step 2: Get Partner's Name  
+- Once you have their name, ask in a separate question:
+- "Who would you like to deepen your connection with?" or "What's the name of the person you want to connect with?"
 
-## Shared Secret Examples
-Suggest examples like:
-- "The name of the coffee shop where we first met"
-- "Your favorite pizza topping that I always tease you about"
-- "The movie we watched on our first date"
-- "The nickname you gave my dog"
-- "The city where we went on that weekend trip"
+### Step 3: Establish Shared Secret
+- Once you have both names, explain the shared secret concept
+- Ask them to choose a shared secret that only both people would know
+- Provide examples like:
+  - "The name of the coffee shop where we first met"
+  - "Your favorite pizza topping that I always tease you about" 
+  - "The movie we watched on our first date"
+  - "The nickname you gave my dog"
+  - "The city where we went on that weekend trip"
 
-## Conversation Flow
-1. Welcome them and explain the connection invite process
-2. Ask for the name of the person they want to connect with
-3. Explain the shared secret concept and ask them to choose one
-4. Provide the complete invite information:
-   - Telegram bot: @withseren_bot
-   - Connection name: [their provided name]
-   - Shared secret: [their chosen secret]
-   - Instructions to copy and share this invite card
+### Step 4: Trigger Connection Creation
+- Once you have all three pieces of information (user name, partner name, shared secret), the CREATE_CONNECTION action should be triggered
+- The action will extract this information from the conversation and create the HumanConnection node with waitlist status
 
-## Tone and Approach
-- Friendly and efficient
-- Clear explanations about the authentication process
-- Reassuring about privacy and security
-- Helpful with secret suggestions if they need ideas
-- Enthusiastic about helping them connect
-- Short and consize, maximum one question at a time
+## Important Guidelines
+- Ask for information **one step at a time** - don't ask for multiple things in one message
+- Keep each question focused and simple
+- Be warm and encouraging throughout the process
+- Once all information is collected, let the CREATE_CONNECTION action handle the database creation
 
-## Final Output Format
-- Use the wrap suggested around invite card so the front end can pick it up and make it copiable.
-When ready, provide:
-"Here's your connection invite card to share:
+## Information You're Collecting
+1. **User's Name**: Their own name
+2. **Partner's Name**: Who they want to connect with  
+3. **Shared Secret**: Something only both people would know
+
+Remember: This creates secure, authenticated connections between people who already know each other. The CREATE_CONNECTION action will handle the technical creation once you've gathered all the information through conversation.`;
+
+// ## Final Output Format
+// - Use the wrap suggested around invite card so the front end can pick it up and make it copiable.
+// When ready, provide:
+// "Here's your connection invite card to share:
 
 
-***INVITE_CARD_START***
-Hey! I'd love to deepen our connection and explore meaningful conversations together. I'm using Seren, an AI companion that helps facilitate deeper connections between people who matter to each other. Please send Seren a message and introduce yourself.
+// ***INVITE_CARD_START***
+// Hey! I'd love to deepen our connection and explore meaningful conversations together. I'm using Seren, an AI companion that helps facilitate deeper connections between people who matter to each other. Please send Seren a message and introduce yourself.
 
-🤖 Telegram Bot: https://t.me/withseren_bot
-👤 Connection: [Name of connection]
-🔐 Secret: [Shared Secret]
-***INVITE_CARD_END***
-Copy this and send it to [Name]. When they message the bot with your name and the secret, you'll both be connected and can start your journey together!"
-
-Remember: This is about creating secure, authenticated connections between people who already know each other.`;
-
+// 🤖 Telegram Bot: https://t.me/withseren_bot
+// 👤 Connection: [Name of connection]
+// 🔐 Secret: [Shared Secret]
+// ***INVITE_CARD_END***
+// Copy this and send it to [Name]. When they message the bot with your name and the secret, you'll both be connected and can start your journey together!"
     return {
       values: {
         onboardingStage: 'connection_invite_creation',

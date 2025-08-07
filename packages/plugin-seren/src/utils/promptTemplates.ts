@@ -76,7 +76,7 @@ Go directly to the XML response format without any preamble or explanation.
 Respond using XML format like this:
 <response>
     <thought>Your thought here</thought>
-    <actions>ACTION1</actions>
+    <actions>ACTION</actions>
     <text>Your response text here</text>
 </response>
 

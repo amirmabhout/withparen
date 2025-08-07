@@ -403,7 +403,7 @@ const messageReceivedHandler = async ({
 
         let state = await runtime.composeState(
           message,
-          ['ANXIETY', 'SHOULD_RESPOND', 'ENTITIES', 'CHARACTER', 'RECENT_MESSAGES', 'ACTIONS'],
+          ['ANXIETY', 'SHOULD_RESPOND', 'ENTITIES', 'CHARACTER', 'RECENT_MESSAGES', 'ACTIONS', 'PERSONA_MEMORY', 'CONNECTION_MEMORY'],
           true
         );
 
@@ -476,7 +476,7 @@ const messageReceivedHandler = async ({
         console.log('shouldSkipShouldRespond', shouldSkipShouldRespond);
 
         if (shouldRespond) {
-          state = await runtime.composeState(message, ['ACTIONS']);
+          state = await runtime.composeState(message, ['ACTIONS', 'PERSONA_MEMORY', 'CONNECTION_MEMORY']);
           if (!state.values.actionNames) {
             logger.warn('actionNames data missing from state, even though it was requested');
           }
@@ -1436,12 +1436,12 @@ export const serenappPlugin: Plugin = {
   evaluators: [evaluators.reflectionEvaluator],
   providers: [
     providers.onboardingProvider,
-    providers.anxietyProvider,
     providers.timeProvider,
-    providers.roleProvider,
     providers.actionsProvider,
     providers.characterProvider,
     providers.recentMessagesProvider,
+    providers.personaMemoryProvider,
+    providers.connectionMemoryProvider,
   ],
   services: [TaskService],
 };

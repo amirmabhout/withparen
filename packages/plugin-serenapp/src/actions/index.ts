@@ -1,3 +1,4 @@
+export { createConnectionAction } from './createConnection';
 //export { generateImageAction } from './imageGeneration';
 //export { choiceAction } from './choice';
 //export { followRoomAction } from './followRoom';
