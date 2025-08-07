@@ -497,11 +497,11 @@ const messageReceivedHandler = async ({
               prompt,
             });
 
-            logger.debug('[serenapp] *** Raw LLM Response ***\n', response);
+            // logger.debug('[serenapp] *** Raw LLM Response ***\n', response);
 
             // Attempt to parse the XML response
             const parsedXml = parseKeyValueXml(response);
-            logger.debug('[serenapp] *** Parsed XML Content ***\n', parsedXml);
+            // logger.debug('[serenapp] *** Parsed XML Content ***\n', parsedXml);
 
             // Map parsed XML to Content type, handling potential missing fields
             if (parsedXml) {
