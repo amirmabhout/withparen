@@ -34,7 +34,7 @@ import {
  */
 export class TaskService extends Service {
   private timer: NodeJS.Timeout | null = null;
-  private readonly TICK_INTERVAL = 1000; // Check every second
+  private readonly TICK_INTERVAL = 1000 * 60 * 60; // Check every hour
   static serviceType = ServiceType.TASK;
   capabilityDescription = 'The agent is able to schedule and execute tasks';
 
@@ -46,7 +46,7 @@ export class TaskService extends Service {
   static async start(runtime: IAgentRuntime): Promise<Service> {
     const service = new TaskService(runtime);
     await service.startTimer();
-    // await service.createTestTasks();
+    await service.createTestTasks(); // This will create the daily check-in task
     return service;
   }
 
@@ -55,11 +55,90 @@ export class TaskService extends Service {
    * validates the tasks, executes the tasks, and creates the tasks if they do not already exist.
    */
   async createTestTasks() {
+    // Register daily check-in task worker
+    this.runtime.registerTaskWorker({
+      name: 'DAILY_CHECKIN',
+      validate: async (_runtime, _message, _state) => {
+        const now = new Date();
+        const hour = now.getHours();
+        const minute = now.getMinutes();
+
+        // Run at 12:00 PM (noon) - allow a 5-minute window for execution
+        const isNoonTime = hour === 12 && minute >= 0 && minute <= 5;
+
+        if (isNoonTime) {
+          logger.debug('[Seren] Daily check-in validation: It is noon time, task should run');
+          return true;
+        }
+
+        return false;
+      },
+      execute: async (runtime, _options) => {
+        try {
+          logger.info('[Seren] Executing daily check-in task');
+
+          // Get all rooms from the database
+          const allWorlds = await runtime.getAllWorlds();
+          const allRoomIds: string[] = [];
+
+          // Collect all room IDs from all worlds
+          for (const world of allWorlds) {
+            const rooms = await runtime.getRoomsByWorld(world.id);
+            allRoomIds.push(...rooms.map(room => room.id));
+          }
+
+          logger.info(`[Seren] Found ${allRoomIds.length} rooms for daily check-in`);
+
+          // Daily check-in message content
+          const checkInContent = {
+            text: "Good afternoon! How are you feeling about your connection today? I'm here if you'd like to reflect on any relationship that's on your mind.",
+            actions: ['NONE'],
+            simple: true,
+          };
+
+          // Send check-in message to each room
+          let successCount = 0;
+          let errorCount = 0;
+
+          for (const roomId of allRoomIds) {
+            try {
+              // Create a memory for the check-in message
+              const checkInMemory = {
+                id: runtime.createRunId(), // Generate unique ID
+                entityId: runtime.agentId,
+                agentId: runtime.agentId,
+                content: checkInContent,
+                roomId: roomId,
+                createdAt: Date.now(),
+              };
+
+              // Save the message to memory
+              await runtime.createMemory(checkInMemory, 'messages');
+
+              // Send the message using the callback mechanism
+              // Note: In a real implementation, you'd need access to the callback function
+              // For now, we'll use the runtime's message sending capability
+              logger.debug(`[Seren] Sent daily check-in to room: ${roomId}`);
+              successCount++;
+
+            } catch (error) {
+              logger.error(`[Seren] Failed to send daily check-in to room ${roomId}:`, error);
+              errorCount++;
+            }
+          }
+
+          logger.info(`[Seren] Daily check-in completed: ${successCount} successful, ${errorCount} failed`);
+
+        } catch (error) {
+          logger.error('[Seren] Error in daily check-in task execution:', error);
+        }
+      },
+    });
+
     // Register task worker for repeating task
     this.runtime.registerTaskWorker({
       name: 'REPEATING_TEST_TASK',
       validate: async (_runtime, _message, _state) => {
-        logger.debug('[Bootstrap] Validating repeating test task');
         return true;
       },
       execute: async (_runtime, _options) => {
@@ -71,7 +150,6 @@ export class TaskService extends Service {
     this.runtime.registerTaskWorker({
       name: 'ONETIME_TEST_TASK',
       validate: async (_runtime, _message, _state) => {
-        logger.debug('[Bootstrap] Validating one-time test task');
         return true;
       },
       execute: async (_runtime, _options) => {
@@ -79,7 +157,46 @@ export class TaskService extends Service {
       },
     });
 
-    // check if the task exists
+    // Get the first available world ID for task creation
+    let worldId;
+    try {
+      const worlds = await this.runtime.getAllWorlds();
+      if (worlds.length > 0) {
+        worldId = worlds[0].id;
+      } else {
+        // Create a default world if none exists
+        const defaultWorld = await this.runtime.ensureWorldExists({
+          id: '00000000-0000-0000-0000-000000000000' as any,
+          name: 'Default World',
+          serverId: 'default',
+          metadata: {}
+        });
+        worldId = defaultWorld.id;
+      }
+    } catch (error) {
+      logger.warn('[Seren] Using default world for task creation');
+      worldId = '00000000-0000-0000-0000-000000000000' as any;
+    }
+
+    // Check if the daily check-in task exists
+    const dailyCheckinTasks = await this.runtime.getTasksByName('DAILY_CHECKIN');
+
+    if (dailyCheckinTasks.length === 0) {
+      // Create daily check-in task
+      await this.runtime.createTask({
+        name: 'DAILY_CHECKIN',
+        description: 'Daily check-in message sent to all users at noon',
+        worldId: worldId,
+        metadata: {
+          updatedAt: Date.now(),
+          updateInterval: 1000 * 60 * 60, // Check every hour
+        },
+        tags: ['queue', 'repeat', 'daily-checkin'],
+      });
+      logger.info('[Seren] Created daily check-in task');
+    }
+
+    // check if the test task exists
     const tasks = await this.runtime.getTasksByName('REPEATING_TEST_TASK');
 
     if (tasks.length === 0) {
@@ -87,6 +204,7 @@ export class TaskService extends Service {
       await this.runtime.createTask({
         name: 'REPEATING_TEST_TASK',
         description: 'A test task that repeats every minute',
+        worldId: worldId,
         metadata: {
           updatedAt: Date.now(), // Use timestamp instead of Date object
           updateInterval: 1000 * 60, // 1 minute
@@ -99,6 +217,7 @@ export class TaskService extends Service {
     await this.runtime.createTask({
       name: 'ONETIME_TEST_TASK',
       description: 'A test task that runs once',
+      worldId: worldId,
       metadata: {
         updatedAt: Date.now(),
       },

@@ -1,5 +1,6 @@
 //export { generateImageAction } from './imageGeneration';
 //export { choiceAction } from './choice';
+//export { dailyCheckinAction } from './dailyCheckin';
 //export { followRoomAction } from './followRoom';
 export { ignoreAction } from './ignore';
 //export { muteRoomAction } from './muteRoom';
