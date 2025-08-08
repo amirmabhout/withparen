@@ -43,7 +43,6 @@ import { messageHandlerTemplate } from './utils/promptTemplates.ts';
 
 import { TaskService } from './services/task.ts';
 import { DailyCheckinService } from './services/dailyCheckin.ts';
-import { WeeklyReflectionService } from './services/weeklyReflection.ts';
 
 export * from './actions/index.ts';
 export * from './evaluators/index.ts';
@@ -615,7 +614,7 @@ const messageReceivedHandler = async ({
           // Simplified action handling for Seren Web plugin
           if (responseContent && responseContent.actions && responseContent.actions.length > 0) {
             const action = responseContent.actions[0].toUpperCase();
-            
+
             if (action === 'NONE' && responseContent.text) {
               // NONE action: callback the message and do nothing extra
               logger.debug('[serenapp] NONE action: sending callback with message');
@@ -1128,14 +1127,14 @@ const syncSingleUser = async (
     const worldMetadata =
       type === ChannelType.DM
         ? {
-            ownership: {
-              ownerId: entityId,
-            },
-            roles: {
-              [entityId]: Role.OWNER,
-            },
-            settings: {}, // Initialize empty settings for onboarding
-          }
+          ownership: {
+            ownerId: entityId,
+          },
+          roles: {
+            [entityId]: Role.OWNER,
+          },
+          settings: {}, // Initialize empty settings for onboarding
+        }
         : undefined;
 
     logger.info(
@@ -1430,7 +1429,6 @@ export const serenappPlugin: Plugin = {
   name: 'serenapp',
   description: 'Agent serenapp with connection invite functionality',
   actions: [
-    actions.ignoreAction,
     actions.noneAction,
   ],
   // this is jank, these events are not valid
@@ -1445,7 +1443,7 @@ export const serenappPlugin: Plugin = {
     providers.personaMemoryProvider,
     providers.connectionMemoryProvider,
   ],
-  services: [TaskService, DailyCheckinService, WeeklyReflectionService],
+  services: [TaskService, DailyCheckinService],
 };
 
 export default serenappPlugin;

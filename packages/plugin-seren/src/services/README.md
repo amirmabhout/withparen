@@ -9,14 +9,6 @@ This directory contains the background services for the Seren plugin.
 - **Schedule**: Every day at 12:00 PM (with 5-minute window)
 - **Functionality**: Asks users to rate their relationship connection on a 1-5 scale
 
-### WeeklyReflectionService
-- **Purpose**: Analyzes agent's strategy effectiveness weekly
-- **Schedule**: Every Friday at 5:00 PM (with 30-minute window)
-- **Functionality**: 
-  - Reviews the week's conversations and extracted insights
-  - Analyzes how well the agent is bringing people closer together
-  - Generates strategic reflections for improvement
-  - Stores reflections in the 'reflections' memory table
 
 ### TaskService
 - **Purpose**: Manages and executes scheduled tasks
@@ -24,21 +16,6 @@ This directory contains the background services for the Seren plugin.
 
 ## Testing
 
-### Manual Testing of Weekly Reflection
-
-You can manually trigger a weekly reflection for testing purposes:
-
-```typescript
-// Get the service instance
-const weeklyReflectionService = runtime.getService('weekly-reflection');
-
-// Trigger test reflection (bypasses time validation)
-await weeklyReflectionService.triggerTestReflection();
-
-// Check last reflection status
-const status = await weeklyReflectionService.getLastReflectionStatus();
-console.log('Last reflection status:', status);
-```
 
 ### Manual Testing of Daily Check-in
 
@@ -59,7 +36,6 @@ console.log('Last check-in status:', status);
 - **messages**: Stores conversation messages
 - **persona_memories**: Stores persona insights extracted from conversations
 - **connection_memories**: Stores connection insights extracted from conversations
-- **reflections**: Stores weekly strategy reflections (created by WeeklyReflectionService)
 
 ## Configuration
 

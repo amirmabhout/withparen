@@ -35,7 +35,7 @@ import {
  */
 export class TaskService extends Service {
   private timer: NodeJS.Timeout | null = null;
-  private readonly TICK_INTERVAL = 1000 * 60 * 60; // Check every hour
+  private readonly TICK_INTERVAL = 1000 * 60 * 15; // Check every 15 minutes
   static serviceType = ServiceType.TASK;
   capabilityDescription = 'The agent is able to schedule and execute tasks';
 
@@ -64,8 +64,8 @@ export class TaskService extends Service {
         const hour = now.getHours();
         const minute = now.getMinutes();
 
-        // Run at 12:00 PM (noon) - allow a 5-minute window for execution
-        const isNoonTime = hour === 12 && minute >= 0 && minute <= 5;
+        // Run at 12:00 PM (noon) - allow a 30-minute window for execution
+        const isNoonTime = hour === 12 && minute >= 0 && minute <= 30;
 
         if (isNoonTime) {
           logger.debug('[Seren] Daily check-in validation: It is noon time, task should run');

@@ -14,7 +14,7 @@ export class DailyCheckinService extends Service {
     capabilityDescription = 'Sends daily check-in messages to all users at noon';
 
     private readonly CHECKIN_HOUR = 12; // 12 PM (noon)
-    private readonly CHECKIN_MINUTE_WINDOW = 5; // 5-minute window for execution
+    private readonly CHECKIN_MINUTE_WINDOW = 30; // 30-minute window for execution
     private lastCheckinDate: string | null = null;
 
     /**

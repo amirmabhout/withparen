@@ -4,7 +4,7 @@
  * Unified Memgraph management script
  * Usage:
  *   npx tsx updateMemgraph.ts clear
- *   npx tsx updateMemgraph.ts addConnection "amir, bianca, popcorn"
+ *   npx tsx updateMemgraph.ts addConnection "amir, bianca, popcorn, active"
  */
 
 import neo4j from 'neo4j-driver';
@@ -47,19 +47,20 @@ class MemgraphManager {
     console.log('➕ Adding HumanConnection...');
     
     try {
-      // Parse the connection string "person1, person2, secret"
+      // Parse the connection string "person1, person2, secret, status"
       const parts = connectionString.split(',').map(part => part.trim());
       
-      if (parts.length !== 3) {
-        throw new Error('Connection string must be in format: "person1, person2, secret"');
+      if (parts.length !== 4) {
+        throw new Error('Connection string must be in format: "person1, person2, secret, status"');
       }
 
-      const [person1, person2, secret] = parts;
+      const [person1, person2, secret, status] = parts;
       
       const query = `
         CREATE (connection:HumanConnection {
           partners: [$person1, $person2],
           secret: $secret,
+          status: $status,
           updatedAt: toString(datetime())
         })
         RETURN connection
@@ -68,7 +69,8 @@ class MemgraphManager {
       const result = await this.session.run(query, {
         person1,
         person2,
-        secret
+        secret,
+        status
       });
 
       if (result.records.length > 0) {
@@ -77,6 +79,7 @@ class MemgraphManager {
         console.log('Connection details:');
         console.log(`  Partners: ${JSON.stringify(connection.partners)}`);
         console.log(`  Secret: ${connection.secret}`);
+        console.log(`  Status: ${connection.status}`);
         console.log(`  Updated At: ${connection.updatedAt}`);
       }
 
@@ -123,6 +126,7 @@ class MemgraphManager {
         console.log(`${index + 1}. HumanConnection:`);
         console.log(`   Partners: ${JSON.stringify(connection.partners)}`);
         console.log(`   Secret: ${connection.secret}`);
+        console.log(`   Status: ${connection.status}`);
         console.log(`   Updated At: ${connection.updatedAt}`);
         console.log('');
       });
@@ -141,12 +145,12 @@ async function main() {
     console.log(`
 Usage:
   npx tsx updateMemgraph.ts clear
-  npx tsx updateMemgraph.ts addConnection "person1, person2, secret"
+  npx tsx updateMemgraph.ts addConnection "person1, person2, secret, status"
   npx tsx updateMemgraph.ts list
 
 Examples:
   npx tsx updateMemgraph.ts clear
-  npx tsx updateMemgraph.ts addConnection "amir, bianca, popcorn"
+  npx tsx updateMemgraph.ts addConnection "amir, bianca, popcorn, active"
   npx tsx updateMemgraph.ts list
     `);
     process.exit(1);
@@ -166,7 +170,7 @@ Examples:
       case 'addConnection':
         if (args.length < 2) {
           console.error('❌ Connection string required for addConnection command');
-          console.log('Example: npx tsx updateMemgraph.ts addConnection "amir, bianca, popcorn"');
+          console.log('Example: npx tsx updateMemgraph.ts addConnection "amir, bianca, popcorn, active"');
           process.exit(1);
         }
         await manager.addConnection(args[1]);
