@@ -1,5 +1,6 @@
 import { type IAgentRuntime, Memory, ModelType, Provider, State } from '@elizaos/core';
 import { logger } from '@elizaos/core';
+import { MemgraphService } from '../services/memgraph.js';
 
 /**
  * Formats an array of connection memories into a single string with each memory content text separated by a new line.
@@ -25,6 +26,37 @@ const connectionMemoryProvider: Provider = {
   dynamic: true,
   get: async (runtime: IAgentRuntime, message: Memory, _state?: State) => {
     try {
+      // Initialize Memgraph service to get connection partner information
+      const memgraphService = new MemgraphService();
+      await memgraphService.connect();
+
+      // Get the current user's ID from the message
+      const userId = message.entityId;
+      let connectionPartners: string[] = [];
+      let currentUserName = '';
+
+      try {
+        // Get the Person node to find their name
+        const person = await memgraphService.getPersonByUserId(userId);
+        currentUserName = person?.name || 'User';
+
+        // Get HumanConnections for this user to find their partner(s)
+        const humanConnections = await memgraphService.getHumanConnections(userId);
+        
+        if (humanConnections.length > 0) {
+          // Get the first connection's partners (assuming one primary connection for now)
+          const connection = humanConnections[0];
+          connectionPartners = connection.partners.filter(partner => 
+            partner.toLowerCase() !== currentUserName.toLowerCase()
+          );
+          logger.debug(`Found connection partners: ${connectionPartners.join(', ')} for user: ${currentUserName}`);
+        }
+      } catch (error) {
+        logger.warn('Failed to get connection partner information:', error);
+      } finally {
+        await memgraphService.disconnect();
+      }
+
       // Get recent messages for context
       const recentMessages = await runtime.getMemories({
         tableName: 'messages',
@@ -116,6 +148,15 @@ const connectionMemoryProvider: Provider = {
       }
 
       if (allConnectionMemories.length === 0) {
+        // Create personalized "no insights" message
+        let noInsightsText = '';
+        if (connectionPartners.length > 0 && currentUserName) {
+          const partnerName = connectionPartners[0];
+          noInsightsText = `# ${currentUserName} and ${partnerName} seek deepening the connection, but no specific insights have been learned yet.`;
+        } else {
+          noInsightsText = 'No connection insights available.';
+        }
+
         return {
           values: {
             connectionMemory: '',
@@ -123,15 +164,23 @@ const connectionMemoryProvider: Provider = {
           data: {
             connectionMemory: allConnectionMemories,
           },
-          text: 'No connection insights available.',
+          text: noInsightsText,
         };
       }
 
       const formattedConnectionMemories = formatConnectionMemories(allConnectionMemories);
 
-      const text = '# Human connection insights that {{agentName}} has learned:\n{{formattedConnectionMemories}}'
-        .replace('{{agentName}}', runtime.character.name || '')
-        .replace('{{formattedConnectionMemories}}', formattedConnectionMemories);
+      // Create personalized headline based on connection partners
+      let headline = '';
+      if (connectionPartners.length > 0 && currentUserName) {
+        const partnerName = connectionPartners[0]; // Use first partner for now
+        headline = `# ${currentUserName} and ${partnerName} seek deepening the connection and here are the insights that ${runtime.character.name || 'the agent'} has learned while talking with ${currentUserName} about the connection with ${partnerName}:`;
+      } else {
+        // Fallback to generic headline if no connection partners found
+        headline = `# Human connection insights that ${runtime.character.name || 'the agent'} has learned:`;
+      }
+
+      const text = `${headline}\n${formattedConnectionMemories}`;
 
       return {
         values: {

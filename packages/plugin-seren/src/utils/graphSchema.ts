@@ -20,6 +20,7 @@ export const graph_schema = {
   // Person Node: Represents an individual.
   Person: {
     userId: "",               // UUID as unique identifier for the person (string)
+    roomId: "",               // UUID as room/channel identifier where the person is active (string)
     name:"",              // string
     pronouns: ""          // Custom pronouns (they/them, etc.)
     updatedAt: "",        // Last updated timestamp in ISO format (string)

@@ -44,13 +44,13 @@ export class WeeklyReflectionService extends Service {
                 const dayOfWeek = now.getDay();
                 const hour = now.getHours();
                 const minute = now.getMinutes();
-                
+
                 // Get the current week identifier (year-week format)
                 const currentWeek = this.getWeekIdentifier(now);
 
                 // Check if it's Friday late afternoon
-                const isFridayAfternoon = dayOfWeek === this.REFLECTION_DAY && 
-                    hour >= this.REFLECTION_HOUR && 
+                const isFridayAfternoon = dayOfWeek === this.REFLECTION_DAY &&
+                    hour >= this.REFLECTION_HOUR &&
                     minute <= this.REFLECTION_MINUTE_WINDOW;
 
                 // Check if we haven't already reflected this week
@@ -166,42 +166,42 @@ export class WeeklyReflectionService extends Service {
     /**
      * Perform reflection analysis for a specific room
      */
-    async performRoomReflection(runtime: IAgentRuntime, roomId: UUID) {
+    async performRoomReflection(runtime: IAgentRuntime, _roomId: UUID) {
         try {
             // Get the date range for this week (Monday to Friday)
             const now = new Date();
             const weekStart = this.getWeekStart(now);
             const weekEnd = new Date(now); // Current time (Friday afternoon)
 
-            logger.debug(`[Seren] Analyzing room ${roomId} for week ${weekStart.toISOString()} to ${weekEnd.toISOString()}`);
+            logger.debug(`[Seren] Analyzing room ${_roomId} for week ${weekStart.toISOString()} to ${weekEnd.toISOString()}`);
 
             // Get messages from this week
-            const weeklyMessages = await this.getWeeklyMessages(runtime, roomId, weekStart, weekEnd);
-            
+            const weeklyMessages = await this.getWeeklyMessages(runtime, _roomId, weekStart, weekEnd);
+
             // Get memories added this week (persona and connection insights)
-            const weeklyMemories = await this.getWeeklyMemories(runtime, roomId, weekStart, weekEnd);
+            const weeklyMemories = await this.getWeeklyMemories(runtime, _roomId, weekStart, weekEnd);
 
             // Skip reflection if there's insufficient data
             if (weeklyMessages.length === 0 && weeklyMemories.length === 0) {
-                logger.debug(`[Seren] Skipping reflection for room ${roomId} - no activity this week`);
+                logger.debug(`[Seren] Skipping reflection for room ${_roomId} - no activity this week`);
                 return;
             }
 
             // Generate reflection using the analysis prompt
             const reflection = await this.generateStrategyReflection(
-                runtime, 
-                roomId, 
-                weeklyMessages, 
+                runtime,
+                _roomId,
+                weeklyMessages,
                 weeklyMemories
             );
 
             // Store the reflection as a memory
-            await this.storeReflection(runtime, roomId, reflection);
+            await this.storeReflection(runtime, _roomId, reflection);
 
-            logger.debug(`[Seren] Completed reflection for room ${roomId}`);
+            logger.debug(`[Seren] Completed reflection for room ${_roomId}`);
 
         } catch (error) {
-            logger.error(`[Seren] Error performing reflection for room ${roomId}:`, error);
+            logger.error(`[Seren] Error performing reflection for room ${_roomId}:`, error);
             throw error;
         }
     }
@@ -232,7 +232,7 @@ export class WeeklyReflectionService extends Service {
 
             // Filter messages to only include those from this week
             const weeklyMessages = allMessages.filter(message => {
-                const messageDate = new Date(message.createdAt);
+                const messageDate = new Date(message.createdAt || 0);
                 return messageDate >= weekStart && messageDate <= weekEnd;
             });
 
@@ -260,7 +260,7 @@ export class WeeklyReflectionService extends Service {
             });
 
             const weeklyPersonaMemories = personaMemories.filter(memory => {
-                const memoryDate = new Date(memory.createdAt);
+                const memoryDate = new Date(memory.createdAt || 0);
                 return memoryDate >= weekStart && memoryDate <= weekEnd;
             });
 
@@ -272,7 +272,7 @@ export class WeeklyReflectionService extends Service {
             });
 
             const weeklyConnectionMemories = connectionMemories.filter(memory => {
-                const memoryDate = new Date(memory.createdAt);
+                const memoryDate = new Date(memory.createdAt || 0);
                 return memoryDate >= weekStart && memoryDate <= weekEnd;
             });
 
@@ -291,37 +291,41 @@ export class WeeklyReflectionService extends Service {
      * Generate strategy reflection using AI analysis
      */
     async generateStrategyReflection(
-        runtime: IAgentRuntime, 
-        roomId: UUID, 
-        messages: Memory[], 
+        runtime: IAgentRuntime,
+        _roomId: UUID,
+        messages: Memory[],
         memories: Memory[]
     ): Promise<string> {
         try {
             // Format messages for analysis
             const formattedMessages = messages.map(msg => {
                 const sender = msg.entityId === runtime.agentId ? 'Seren' : 'User';
-                const timestamp = new Date(msg.createdAt).toISOString();
+                const timestamp = new Date(msg.createdAt || 0).toISOString();
                 return `[${timestamp}] ${sender}: ${msg.content.text || ''}`;
             }).join('\n');
 
             // Format memories for analysis
             const formattedMemories = memories.map(memory => {
-                const timestamp = new Date(memory.createdAt).toISOString();
-                const type = memory.tableName === 'persona_memories' ? 'Persona' : 'Connection';
+                const timestamp = new Date(memory.createdAt || 0).toISOString();
+                const type = memory.metadata?.type === 'persona_memories' ? 'Persona' : 'Connection';
                 return `[${timestamp}] ${type} Insight: ${memory.content.text || ''}`;
             }).join('\n');
 
             // Create state for template composition
             const state = {
-                messageCount: messages.length,
-                formattedMessages: formattedMessages || 'No messages this week',
-                memoryCount: memories.length,
-                formattedMemories: formattedMemories || 'No new insights this week',
+                values: {
+                    messageCount: messages.length,
+                    formattedMessages: formattedMessages || 'No messages this week',
+                    memoryCount: memories.length,
+                    formattedMemories: formattedMemories || 'No new insights this week',
+                },
+                data: {},
+                text: `Weekly reflection for room with ${messages.length} messages and ${memories.length} memories`,
             };
 
             // Use the template with state composition
             const reflectionPrompt = composePromptFromState({
-                state: { values: state },
+                state,
                 template: weeklyReflectionTemplate,
             });
 
@@ -333,7 +337,7 @@ export class WeeklyReflectionService extends Service {
 
         } catch (error) {
             logger.error(`[Seren] Error generating strategy reflection:`, error);
-            return `Error generating reflection: ${error.message}`;
+            return `Error generating reflection: ${error instanceof Error ? error.message : String(error)}`;
         }
     }
 

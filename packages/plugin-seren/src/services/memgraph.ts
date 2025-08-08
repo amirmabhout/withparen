@@ -9,6 +9,7 @@ export interface MemgraphConfig {
 
 export interface PersonNode {
   userId: string;
+  roomId?: string;
   name?: string;
   pronouns?: string;
   updatedAt: string;
@@ -80,12 +81,13 @@ export class MemgraphService {
   /**
    * Create a new Person node
    */
-  async createPerson(userId: string, name?: string, pronouns?: string): Promise<PersonNode> {
+  async createPerson(userId: string, roomId?: string, name?: string, pronouns?: string): Promise<PersonNode> {
     const updatedAt = new Date().toISOString();
     
     const query = `
       CREATE (p:Person {
         userId: $userId,
+        roomId: $roomId,
         name: $name,
         pronouns: $pronouns,
         updatedAt: $updatedAt
@@ -95,6 +97,7 @@ export class MemgraphService {
 
     const result = await this.runQuery(query, {
       userId,
+      roomId: roomId || '',
       name: name || '',
       pronouns: pronouns || '',
       updatedAt,
@@ -186,6 +189,23 @@ export class MemgraphService {
     `;
 
     const result = await this.runQuery(query, { userId, name, updatedAt });
+    const personNode = result.records[0].get('p');
+    return personNode.properties as PersonNode;
+  }
+
+  /**
+   * Update Person's roomId
+   */
+  async updatePersonRoomId(userId: string, roomId: string): Promise<PersonNode> {
+    const updatedAt = new Date().toISOString();
+    
+    const query = `
+      MATCH (p:Person {userId: $userId})
+      SET p.roomId = $roomId, p.updatedAt = $updatedAt
+      RETURN p
+    `;
+
+    const result = await this.runQuery(query, { userId, roomId, updatedAt });
     const personNode = result.records[0].get('p');
     return personNode.properties as PersonNode;
   }

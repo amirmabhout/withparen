@@ -115,14 +115,19 @@ export const onboardingProvider: Provider = {
 
       // Extract entityId from message (this is the userId)
       const userId = message.entityId;
+      const roomId = message.roomId;
 
       // Check if Person node exists
       let person = await memgraphService.getPersonByUserId(userId);
 
-      // If Person doesn't exist, create it
+      // If Person doesn't exist, create it with roomId
       if (!person) {
-        person = await memgraphService.createPerson(userId);
-        logger.info(`[onboarding] Created new Person node for userId: ${userId}`);
+        person = await memgraphService.createPerson(userId, roomId);
+        logger.info(`[onboarding] Created new Person node for userId: ${userId} with roomId: ${roomId}`);
+      } else if (person.roomId !== roomId) {
+        // If Person exists but roomId is different, update it
+        person = await memgraphService.updatePersonRoomId(userId, roomId);
+        logger.info(`[onboarding] Updated Person node roomId for userId: ${userId} to roomId: ${roomId}`);
       }
 
       // Check if Person has any HumanConnection relationships
