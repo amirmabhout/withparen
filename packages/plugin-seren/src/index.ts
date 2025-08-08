@@ -43,6 +43,7 @@ import { messageHandlerTemplate } from './utils/promptTemplates.ts';
 
 import { TaskService } from './services/task.ts';
 import { DailyCheckinService } from './services/dailyCheckin.ts';
+import { WeeklyReflectionService } from './services/weeklyReflection.ts';
 
 export * from './actions/index.ts';
 export * from './evaluators/index.ts';
@@ -1444,7 +1445,7 @@ export const serenappPlugin: Plugin = {
     providers.personaMemoryProvider,
     providers.connectionMemoryProvider,
   ],
-  services: [TaskService, DailyCheckinService],
+  services: [TaskService, DailyCheckinService, WeeklyReflectionService],
 };
 
 export default serenappPlugin;
