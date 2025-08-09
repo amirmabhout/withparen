@@ -158,4 +158,4 @@ const personaMemoryProvider: Provider = {
   },
 };
 
-export { personaMemoryProvider };
+export { personaMemoryProvider, formatPersonaMemories };

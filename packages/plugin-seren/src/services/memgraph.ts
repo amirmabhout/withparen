@@ -18,6 +18,7 @@ export interface PersonNode {
 export interface HumanConnectionNode {
   partners: string[];
   secret: string;
+  status?: string;
   updatedAt: string;
 }
 
@@ -307,5 +308,56 @@ export class MemgraphService {
       const connectionNode = record.get('hc');
       return connectionNode.properties as HumanConnectionNode;
     });
+  }
+
+  /**
+   * Get all active HumanConnection nodes that have exactly two Person nodes participating
+   */
+  async getActiveHumanConnections(): Promise<Array<{
+    connection: HumanConnectionNode;
+    participants: PersonNode[];
+  }>> {
+    const query = `
+      MATCH (hc:HumanConnection)
+      WHERE hc.status = "active" OR hc.status IS NULL
+      MATCH (p:Person)-[:PARTICIPATES_IN]->(hc)
+      WITH hc, collect(p) as participants
+      WHERE size(participants) = 2
+      RETURN hc, participants
+    `;
+
+    const result = await this.runQuery(query);
+    
+    return result.records.map((record: any) => {
+      const connectionNode = record.get('hc');
+      const participantNodes = record.get('participants');
+      
+      return {
+        connection: connectionNode.properties as HumanConnectionNode,
+        participants: participantNodes.map((p: any) => p.properties as PersonNode),
+      };
+    });
+  }
+
+  /**
+   * Update HumanConnection status
+   */
+  async updateHumanConnectionStatus(partners: string[], secret: string, status: string): Promise<boolean> {
+    const updatedAt = new Date().toISOString();
+    
+    const query = `
+      MATCH (hc:HumanConnection {partners: $partners, secret: $secret})
+      SET hc.status = $status, hc.updatedAt = $updatedAt
+      RETURN hc
+    `;
+
+    const result = await this.runQuery(query, {
+      partners,
+      secret,
+      status,
+      updatedAt,
+    });
+
+    return result.records.length > 0;
   }
 }

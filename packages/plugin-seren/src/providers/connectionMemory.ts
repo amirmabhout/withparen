@@ -206,4 +206,4 @@ const connectionMemoryProvider: Provider = {
   },
 };
 
-export { connectionMemoryProvider };
+export { connectionMemoryProvider, formatConnectionMemories };

@@ -7,19 +7,19 @@ import {
   type Memory,
   type State,
 } from '@elizaos/core';
-import { DailyCheckinService } from '../services/dailyCheckin.ts';
+import { DailyPlanningService } from '../services/dailyPlanning.js';
 
-export const dailyCheckinAction: Action = {
-  name: 'DAILY_CHECKIN_TEST',
-  similes: ['TEST_DAILY_CHECKIN', 'TRIGGER_CHECKIN', 'SEND_CHECKIN'],
-  description: 'Manually trigger daily check-in messages for testing purposes',
+export const dailyPlanningAction: Action = {
+  name: 'DAILY_PLANNING_TEST',
+  similes: ['TEST_DAILY_PLANNING', 'TRIGGER_PLANNING', 'GENERATE_PLANS'],
+  description: 'Manually trigger daily planning for testing purposes',
   validate: async (_runtime: IAgentRuntime, message: Memory, _state?: State) => {
     // Only allow this action for admin/testing purposes
     // You might want to add additional validation here
     const messageText = message.content.text?.toLowerCase() || '';
-    return messageText.includes('test daily checkin') || 
-           messageText.includes('trigger checkin') ||
-           messageText.includes('send daily checkin');
+    return messageText.includes('test daily planning') ||
+      messageText.includes('trigger planning') ||
+      messageText.includes('generate daily plans');
   },
   handler: async (
     runtime: IAgentRuntime,
@@ -30,40 +30,40 @@ export const dailyCheckinAction: Action = {
     _responses?: Memory[]
   ) => {
     try {
-      logger.info('[Seren] Manual daily check-in triggered by user');
-      
-      // Get the DailyCheckinService
-      const dailyCheckinService = runtime.getService('daily-checkin') as DailyCheckinService;
-      
-      if (!dailyCheckinService) {
+      logger.info('[Seren] Manual daily planning triggered by user');
+
+      // Get the DailyPlanningService
+      const dailyPlanningService = runtime.getService('daily-planning') as DailyPlanningService;
+
+      if (!dailyPlanningService) {
         await callback?.({
-          text: 'Daily check-in service is not available.',
-          actions: ['DAILY_CHECKIN_ERROR'],
+          text: 'Daily planning service is not available.',
+          actions: ['DAILY_PLANNING_ERROR'],
         });
         return;
       }
 
-      // Trigger the daily check-in
-      await dailyCheckinService.triggerTestCheckin();
-      
+      // Trigger the daily planning
+      await dailyPlanningService.triggerTestPlanning();
+
       // Get the status
-      const status = await dailyCheckinService.getLastCheckinStatus() as any;
-      
-      const responseText = status 
-        ? `Daily check-in sent successfully! Reached ${status.successCount || 0} rooms (${status.errorCount || 0} failed).`
-        : 'Daily check-in triggered, but status is not available.';
+      const status = await dailyPlanningService.getLastPlanningStatus() as any;
+
+      const responseText = status
+        ? `Daily planning completed successfully! Processed ${status.connectionsProcessed || 0} connections.`
+        : 'Daily planning triggered, but status is not available.';
 
       await callback?.({
         text: responseText,
-        actions: ['DAILY_CHECKIN_SUCCESS'],
+        actions: ['DAILY_PLANNING_SUCCESS'],
       });
 
     } catch (error) {
-      logger.error('[Seren] Error in daily check-in action:', error);
-      
+      logger.error('[Seren] Error in daily planning action:', error);
+
       await callback?.({
-        text: `Failed to trigger daily check-in: ${(error as Error).message}`,
-        actions: ['DAILY_CHECKIN_ERROR'],
+        text: `Failed to trigger daily planning: ${(error as Error).message}`,
+        actions: ['DAILY_PLANNING_ERROR'],
       });
     }
   },
@@ -71,26 +71,26 @@ export const dailyCheckinAction: Action = {
     [
       {
         name: '{{user1}}',
-        content: { text: 'test daily checkin' },
+        content: { text: 'test daily planning' },
       },
       {
         name: '{{agentName}}',
         content: {
-          text: 'Daily check-in sent successfully! Reached 5 rooms (0 failed).',
-          actions: ['DAILY_CHECKIN_SUCCESS'],
+          text: 'Daily planning completed successfully! Processed 3 connections.',
+          actions: ['DAILY_PLANNING_SUCCESS'],
         },
       },
     ],
     [
       {
         name: '{{user1}}',
-        content: { text: 'trigger checkin messages' },
+        content: { text: 'trigger planning for relationships' },
       },
       {
         name: '{{agentName}}',
         content: {
-          text: 'Daily check-in sent successfully! Reached 3 rooms (1 failed).',
-          actions: ['DAILY_CHECKIN_SUCCESS'],
+          text: 'Daily planning completed successfully! Processed 2 connections.',
+          actions: ['DAILY_PLANNING_SUCCESS'],
         },
       },
     ],

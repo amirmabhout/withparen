@@ -6,6 +6,7 @@ export { actionsProvider } from './actions';
 export { characterProvider } from './character';
 //export { choiceProvider } from './choice';
 export { connectionMemoryProvider } from './connectionMemory';
+export { dailyPlanProvider } from './dailyPlan';
 //export { entitiesProvider } from './entities';
 //export { evaluatorsProvider } from './evaluators';
 //export { factsProvider } from './facts';

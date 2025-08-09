@@ -42,7 +42,7 @@ import * as providers from './providers/index.ts';
 import { messageHandlerTemplate } from './utils/promptTemplates.ts';
 
 import { TaskService } from './services/task.ts';
-import { DailyCheckinService } from './services/dailyCheckin.ts';
+import { DailyPlanningService } from './services/dailyPlanning.ts';
 
 export * from './actions/index.ts';
 export * from './evaluators/index.ts';
@@ -494,7 +494,7 @@ const messageReceivedHandler = async ({
           const maxRetries = 3;
 
           while (retries < maxRetries && (!responseContent?.thought || !responseContent?.actions)) {
-            let response = await runtime.useModel(ModelType.TEXT_LARGE, {
+            let response = await runtime.useModel(ModelType.TEXT_SMALL, {
               prompt,
             });
 
@@ -1430,6 +1430,7 @@ export const serenappPlugin: Plugin = {
   description: 'Agent serenapp with connection invite functionality',
   actions: [
     actions.noneAction,
+    actions.dailyPlanningAction,
   ],
   // this is jank, these events are not valid
   events: events as any as PluginEvents,
@@ -1442,8 +1443,9 @@ export const serenappPlugin: Plugin = {
     providers.recentMessagesProvider,
     providers.personaMemoryProvider,
     providers.connectionMemoryProvider,
+    providers.dailyPlanProvider,
   ],
-  services: [TaskService, DailyCheckinService],
+  services: [TaskService, DailyPlanningService],
 };
 
 export default serenappPlugin;

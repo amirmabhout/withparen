@@ -86,13 +86,14 @@ Note: Include only the insights you can extract from the conversation. If there 
 async function storePersonaInsight(
   runtime: IAgentRuntime,
   agentId: UUID,
+  userId: UUID,
   roomId: UUID,
   description: string,
   dimension: string
 ) {
   const memory = await runtime.addEmbeddingToMemory({
-    entityId: agentId,
-    agentId,
+    entityId: userId, // Store with user's ID - the person the insight is ABOUT
+    agentId,         // Agent who created the insight
     content: { text: description },
     roomId,
     createdAt: Date.now(),
@@ -109,13 +110,14 @@ async function storePersonaInsight(
 async function storeConnectionInsight(
   runtime: IAgentRuntime,
   agentId: UUID,
+  userId: UUID,
   roomId: UUID,
   description: string,
   dimension: string
 ) {
   const memory = await runtime.addEmbeddingToMemory({
-    entityId: agentId,
-    agentId,
+    entityId: userId, // Store with user's ID - the person the insight is ABOUT
+    agentId,         // Agent who created the insight
     content: { text: description },
     roomId,
     createdAt: Date.now(),
@@ -126,12 +128,16 @@ async function storeConnectionInsight(
   return runtime.createMemory(memory, tableName, true);
 }
 async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
-  const { agentId, roomId } = message;
+  const { agentId, roomId, entityId } = message;
 
   if (!agentId || !roomId) {
     logger.warn('Missing agentId or roomId in message', message);
     return;
   }
+
+  // Get the user ID - for DM conversations, roomId typically equals userId
+  // But we can also use entityId from the message if it's not the agent
+  const userId = entityId !== agentId ? entityId : roomId;
 
   // Get recent messages for context
   const recentMessages = await runtime.getMemories({
@@ -299,7 +305,7 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
     await Promise.all(
       personaInsights.map(async (insight) => {
         try {
-          return await storePersonaInsight(runtime, agentId, roomId, insight.description, insight.dimension);
+          return await storePersonaInsight(runtime, agentId, userId, roomId, insight.description, insight.dimension);
         } catch (error) {
           logger.error('Error storing persona insight:', error);
         }
@@ -310,18 +316,18 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
     await Promise.all(
       connectionInsights.map(async (insight) => {
         try {
-          return await storeConnectionInsight(runtime, agentId, roomId, insight.description, insight.dimension);
+          return await storeConnectionInsight(runtime, agentId, userId, roomId, insight.description, insight.dimension);
         } catch (error) {
           logger.error('Error storing connection insight:', error);
         }
       })
     );
 
-    // Store reflection thought
+    // Store reflection thought (this can stay with agentId since it's the agent's reflection)
     if (reflection.thought) {
       try {
         const thoughtMemory = await runtime.addEmbeddingToMemory({
-          entityId: agentId,
+          entityId: agentId, // Agent's reflection about their own performance
           agentId,
           content: { text: reflection.thought },
           roomId,
