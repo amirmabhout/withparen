@@ -94,6 +94,7 @@ export async function getDailyPlan(runtime: IAgentRuntime, userId: UUID, date?: 
 export const dailyPlanProvider = {
   name: 'DAILY_PLAN',
   description: 'Provides the user\'s daily plan for relationship growth and connection',
+  position: 0,
   get: async (runtime: IAgentRuntime, message: Memory, _state?: State) => {
     try {
       // Get the user ID from the message

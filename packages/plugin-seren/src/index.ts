@@ -683,8 +683,8 @@ const messageReceivedHandler = async ({
             latestResponseIds.delete(runtime.agentId);
           }
 
-          // Optionally, evaluate the decision to ignore (if relevant evaluators exist)
-          // await runtime.evaluate(message, state, shouldRespond, callback, []);
+          // Evaluate the decision to ignore (evaluators should run regardless of response)
+          await runtime.evaluate(message, state, shouldRespond, callback, []);
         }
 
         // Emit run ended event on successful completion

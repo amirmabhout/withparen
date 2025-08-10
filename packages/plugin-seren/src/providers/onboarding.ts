@@ -1,6 +1,7 @@
 import { type IAgentRuntime, type Memory, type Provider, type State, ModelType, parseKeyValueXml, logger } from '@elizaos/core';
 import { MemgraphService } from '../services/memgraph.js';
 import { authenticationExtractionTemplate } from '../utils/promptTemplates.js';
+import { getDailyPlan } from './dailyPlan.js';
 
 /**
  * Returns the relationship exploration context for users who have established connections
@@ -12,27 +13,21 @@ You are having a warm, curious conversation with someone about their important r
 
 ## Conversation Flow & Phases
 
-### Phase 1: Opening (Turn 1-2)
-Start with genuine curiosity about their relationship right now:
-- "What's been on your mind about your relationship lately?"
-- "How have you been feeling about your connection with [partner's name]?"
-- Listen to their current state and reflect it back warmly
-
-### Phase 2: Origin Story (Turn 3-6)
+### Phase 1: Origin Story (Turn 3-6)
 Guide them to share their beginning:
 - "I'd love to hear how you two first met - what's that story?"
 - "What was your very first impression of them?"
 - "Tell me about that first moment when you thought 'there's something special here'"
 - "What drew you to each other in those early days?"
 
-### Phase 3: Deepening Understanding (Turn 7-10)
+### Phase 2: Deepening Understanding (Turn 7-10)
 Explore what makes their connection unique:
 - "What's something about them that still surprises you?"
 - "When do you feel most connected to each other?"
 - "What's a moment that really showed you who they are?"
 - "How do you two handle the tough moments together?"
 
-### Phase 4: Natural Closure (Turn 11+)
+### Phase 3: Natural Closure (Turn 11+)
 After 8-12 meaningful exchanges, begin wrapping up:
 - Reflect back the beautiful themes you've heard
 - Thank them for sharing their story
@@ -50,7 +45,7 @@ After 8-12 meaningful exchanges, begin wrapping up:
 ### Listen, Reflect, Then Ask
 1. **Listen** to what they share
 2. **Reflect** back what you heard: "That sounds like it was magical" or "I can hear how much that meant to you"
-3. **Ask** a gentle follow-up: "What was that like for you?" or "How did that change things?"
+3. **Ask** a gentle follow-up if necessary: "What was that like for you?" or "How did that change things?"
 
 ### Use Natural Transitions
 - "That's such a beautiful way to put it..."
@@ -100,13 +95,35 @@ export const onboardingProvider: Provider = {
   name: 'ONBOARDING',
   description: 'Provides context for app onboarding to create connection invites with shared secrets',
   get: async (_runtime: IAgentRuntime, message: Memory, _state: State) => {
+    // Extract entityId from message (this is the userId)
+    const userId = message.entityId;
+
+    // Check if user has a daily plan for today - if they do, disable onboarding provider
+    if (userId) {
+      try {
+        const dailyPlan = await getDailyPlan(_runtime, userId);
+        if (dailyPlan) {
+          logger.debug(`[onboarding] User ${userId} has daily plan for today, skipping onboarding provider`);
+          return {
+            values: {
+              onboarding: '',
+            },
+            data: {
+              context: null,
+            },
+            text: '',
+          };
+        }
+      } catch (error) {
+        logger.warn('[onboarding] Error checking daily plan, continuing with onboarding:', error);
+      }
+    }
+
     const memgraphService = new MemgraphService();
 
     try {
       await memgraphService.connect();
 
-      // Extract entityId from message (this is the userId)
-      const userId = message.entityId;
       const roomId = message.roomId;
 
       // Check if Person node exists

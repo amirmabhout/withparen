@@ -20,7 +20,7 @@ export class DailyPlanningService extends Service {
     capabilityDescription = 'Generates daily plans and schedules personalized check-ins for relationship partners';
 
     private readonly PLANNING_HOUR = 6; // 6 AM for daily planning
-    private readonly CHECKIN_HOUR = 12; // 12 PM (noon) for check-ins
+    private readonly CHECKIN_HOUR = 11; // 12 PM (noon) for check-ins
     private readonly PLANNING_MINUTE_WINDOW = 30; // 30-minute window for execution
     private lastPlanningDate: string | null = null;
     private memgraphService: MemgraphService;
@@ -258,7 +258,6 @@ export class DailyPlanningService extends Service {
             // Generate the daily plans using the runtime's model
             const response = await runtime.useModel(ModelType.TEXT_LARGE, {
                 prompt: prompt,
-                stop: ['</response>'],
             });
 
             // Parse the response

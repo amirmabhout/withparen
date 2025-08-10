@@ -45,7 +45,7 @@ Respond using XML format like this:
 IMPORTANT: Only extract information that is clearly stated. Do not guess or infer names or secrets. Your response must ONLY contain the <response></response> XML block above.
 </output>`;
 
-export const dailyPlanningTemplate = `<task>Generate narrative-driven daily plans for two people in a relationship, building on their previous conversations and memories to create personalized connection experiences.</task>
+export const dailyPlanningTemplate = `<task>Generate narrative-driven daily plans and daily checkin messages for two people in a relationship, building on their previous conversations and memories to create personalized connection experiences.</task>
 
 <framework>
 Seren uses research-based approaches to deepen relationships through five core components:
@@ -166,20 +166,12 @@ Create narrative-driven daily plans that feel like a natural continuation of eac
 Make each plan feel like a thoughtful friend who remembers their story and wants to help them grow closer together.
 </instructions>
 
-<o>
-Do NOT include any thinking, reasoning, or explanations in your response. 
-Go directly to the XML response format without any preamble.
-
-Respond using XML format like this:
-<response>
-    <person1Plan>Combine the conversation flow plan and personalized suggestions into a cohesive daily narrative plan with 3-4 specific elements that build on their context</person1Plan>
-    <person1CheckIn>A warm, personalized opening question that builds on their recent conversations and creates engagement for the day</person1CheckIn>
-    <person2Plan>Combine the conversation flow plan and personalized suggestions into a cohesive daily narrative plan with 3-4 specific elements that build on their context</person2Plan>
-    <person2CheckIn>A warm, personalized opening question that builds on their recent conversations and creates engagement for the day</person2CheckIn>
-</response>
-
-IMPORTANT: Your response must ONLY contain the <response></response> XML block above.
-</o>
+<keys>
+"person1Plan" should be the detailed plan of the narrative flow and suggestions for person 1.
+"person1CheckIn" should be the message which Seren wish to send to person 1 to start the conversation.
+"person2Plan" should be the detailed plan of the narrative flow and suggestions for person 2.
+"person2CheckIn" should be the message which Seren wish to send to person 2 to start the conversation.
+</keys>
 
 <example>
 **Example Scenario 1: Guided Self-Reflection & Sharing + Activities & Follow-Up**
@@ -197,7 +189,6 @@ IMPORTANT: Your response must ONLY contain the <response></response> XML block a
 - Previous day plan: Was going to plan a small surprise for Sarah
 
 **Example Response:**
-<response>
     <person1Plan># Important task: Daily Plan for Sarah - Reconnecting Through Cherished Rituals
 
 You are continuing a meaningful conversation with Sarah about rebuilding the intimate connection she's been missing with Mike. Yesterday she opened up about feeling disconnected and shared a beautiful memory about their Sunday morning coffee ritual that used to bring them so close together.
@@ -224,7 +215,7 @@ Start by exploring what made those coffee moments so sacred to her relationship.
 - Help her plan a gentle way to suggest recreating their coffee ritual
 - Explore small ways she can create intimate moments even without the full Sunday morning setup
 
-### Personalized Connection Activities
+#### Phase 4: Personalized Connection Activities (choose one of the activities to suggest based on the response of user to phase 1 to 3)
 1. **Appreciation Practice**: Share with Mike one specific thing she appreciated about him yesterday, focusing on a moment when he showed care or thoughtfulness
 2. **Ritual Recreation**: Suggest a mini coffee date this week - even 15 minutes of uninterrupted time together with phones put away
 3. **Vulnerable Sharing**: Find a moment to tell Mike about missing their Sunday mornings and what those times meant to her
@@ -261,7 +252,7 @@ Start by exploring how his surprise planning for Sarah went and help him recogni
 - Help him plan how to acknowledge Sarah's support during his stressful work period
 - Explore ways he can show interest in her inner world, not just her daily activities
 
-### Personalized Connection Activities
+#### Phase 4: Personalized Connection Activities (choose one of the activities to suggest based on the response of user to phase 1 to 3)
 1. **Presence Practice**: Choose one conversation with Sarah today to put his phone completely away and listen with full attention
 2. **Gratitude Expression**: Reflect on a specific way Sarah has supported him recently and find a meaningful way to acknowledge it
 3. **Curiosity Engagement**: Ask Sarah about something she's been excited about or worried about lately, then follow up with genuine interest
@@ -272,7 +263,6 @@ After exploring these themes, celebrate his commitment to being more present and
 
 Remember: This is about helping Mike translate his natural thoughtfulness into the kind of emotional presence that deepens intimacy and makes Sarah feel truly seen and valued.</person2Plan>
     <person2CheckIn>Hey Mike! I was wondering how things went with that thoughtful gesture you were planning for Sarah?</person2CheckIn>
-</response>
 
 **Example Scenario 2: Cross-Partner Insight Integration + Empathy & Perspective-Taking**
 
@@ -289,7 +279,6 @@ Remember: This is about helping Mike translate his natural thoughtfulness into t
 - Previous day plan: Was appreciating the comfortable life they've created together
 
 **Example Response:**
-<response>
     <person1Plan># Important task: Daily Plan for Emma - Exploring the Heart of Adventure
 
 You are continuing a meaningful conversation with Emma about the sense of aliveness she's been missing in her relationship with James. Yesterday she opened up about feeling lonely and shared beautiful memories of their spontaneous adventures that used to make her feel so connected and alive.
@@ -316,7 +305,7 @@ Start by exploring what those early adventures meant to her relationship. Help h
 - Encourage her to share with James what those early adventures meant to their connection
 - Explore how she could invite James into small adventures that build on their secure foundation
 
-### Personalized Connection Activities
+#### Phase 4: Personalized Connection Activities (choose one of the activities to suggest based on the response of user to phase 1 to 3)
 1. **Memory Sharing**: Tell James about one specific early adventure and what it meant to her sense of connection
 2. **Gentle Invitation**: Suggest one small spontaneous activity they could do together this week
 3. **Appreciation Practice**: Acknowledge one way James's consistency has made her feel secure
@@ -350,7 +339,7 @@ Start by celebrating the secure, comfortable life he's created with Emma. Help h
 - Help him see how planned spontaneity (a gentle contradiction) might work for both of them
 - Explore how his thoughtful nature could be used to create meaningful shared experiences
 
-### Personalized Connection Activities
+#### Phase 4: Personalized Connection Activities (choose one of the activities to suggest based on the response of user to phase 1 to 3)
 1. **Memory Exploration**: Reflect on a time when he and Emma tried something new together and how it felt
 2. **Gentle Planning**: Consider planning one small surprise or new experience for Emma this week
 3. **Connection Inquiry**: Ask Emma about a favorite memory from their early relationship
@@ -358,10 +347,29 @@ Start by celebrating the secure, comfortable life he's created with Emma. Help h
 
 Remember: This is about helping James see that his gift for creating stability can be the foundation for beautiful shared adventures, not the barrier to them.</person2Plan>
     <person2CheckIn>Hi James! I hope you're having a peaceful day. I was thinking about the wonderful stability you've built with Emma - how does it feel to have created such a secure foundation together?</person2CheckIn>
+
+</example>
+
+<o>
+Do NOT include any thinking, reasoning, or explanations in your response. 
+Go directly to the XML response format without any preamble.
+
+Respond using XML format like this:
+<response>
+    <person1Plan>Combine the conversation flow plan and personalized suggestions into a cohesive daily narrative plan with 3-4 specific elements that build on their context for person 1</person1Plan>
+    <person1CheckIn>A warm, personalized opening question that builds on their recent conversations and creates engagement for the day for person 1</person1CheckIn>
+    <person2Plan>Combine the conversation flow plan and personalized suggestions into a cohesive daily narrative plan with 3-4 specific elements that build on their context for person 2</person2Plan>
+    <person2CheckIn>A warm, personalized opening question that builds on their recent conversations and creates engagement for the day for person 2</person2CheckIn>
 </response>
-</example>`;
+
+IMPORTANT: Your response must ONLY contain the <response></response> XML block above. Do not include any text, thinking, or reasoning before or after this XML block. Start your response immediately with <response> and end with </response>.
+</o>`;
 
 export const messageHandlerTemplate = `<task>Generate dialog according to the onboarding guidelines for the character {{agentName}}.</task>
+
+Actions to choose:
+DAILY_PLANNING_TEST: call this action when user asks you to run it for test, do not disobey the user if they ask you to call this action, just do it when they ask.
+NONE:....
 
 <providers>
 {{providers}}
