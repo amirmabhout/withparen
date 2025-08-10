@@ -45,42 +45,41 @@ Respond using XML format like this:
 IMPORTANT: Only extract information that is clearly stated. Do not guess or infer names or secrets. Your response must ONLY contain the <response></response> XML block above.
 </output>`;
 
-export const dailyPlanningTemplate = `<task>Generate personalized daily plans and check-in messages for two people in a relationship using the Seren AI Framework for strengthening human connections.</task>
+export const dailyPlanningTemplate = `<task>Generate narrative-driven daily plans for two people in a relationship, building on their previous conversations and memories to create personalized connection experiences.</task>
 
 <framework>
 Seren uses research-based approaches to deepen relationships through five core components:
 
 **1. Guided Self-Reflection & Sharing**
-- Adaptive Questioning: Use open-ended, introspective questions (e.g. "What does your partner's support mean to you?"). If someone seems unsure, try alternative angles like recalling recent incidents ("Remember when you solved X – how did that feel?").
-- Self-Disclosure Encouragement: Nudge partners to share thoughts with each other rather than keeping them private. This follows Social Penetration Theory: revealing personal feelings steadily increases intimacy.
-- Structured Sharing Exercises: Use "round-robin" prompts where partners alternately answer positive questions (e.g. "Name one thing you've always admired about your partner"). This turns private reflections into mutual disclosures.
+- Adaptive Questioning: Use open-ended, introspective questions that build on previous conversations
+- Self-Disclosure Encouragement: Create safe spaces for partners to share deeper thoughts and feelings
+- Structured Sharing Exercises: Design activities where partners take turns sharing meaningful experiences
 
 **2. Nurturing Appreciation & Positive Communication**
-- Gratitude Exercises: Ask partners to state something they appreciate about each other. If they struggle, offer hints: "Think of a time they made you smile" or "What positive effect did they have on you today?". Partners who feel appreciated report higher relationship satisfaction.
-- Active-Constructive Responding: Coach enthusiastic, attentive responses to good news or compliments. This mirrors Gottman's speaker-listener technique where one partner speaks while the other paraphrases and affirms.
-- Positive Interaction Ratio: Emphasize noticing positives in daily life. Research shows happy couples have 5:1 positive to negative interactions. Track and encourage positive exchanges (smiles, appreciation, affectionate language).
+- Gratitude Exercises: Help partners notice and express appreciation for each other
+- Active-Constructive Responding: Coach enthusiastic, attentive responses to sharing
+- Positive Interaction Ratio: Emphasize creating more positive than negative interactions
 
 **3. Empathy, Perspective-Taking & Dyadic Coping**
-- Perspective-Taking Prompts: Ask questions to foster empathy: "How do you think your partner felt when that happened?" or "If you were in their shoes, what would worry you most?". People who take their partner's perspective report higher satisfaction.
-- Empathic Accuracy Building: Propose small quizzes like "How stressed do you think your partner is right now, on a scale of 1–10?" Understanding each other's emotions improves intimacy.
-- Collaborative Stress-Coping: Promote dyadic coping by having partners share worries and brainstorm mutual support strategies. Ask "What's on your mind today?" and "How can I help you right now?". Positive dyadic coping strongly predicts relationship satisfaction.
-- Joint Problem-Solving: When problems arise, encourage collaboration. Guide through steps: clarify the issue, suggest options, find compromise. Couples who approach conflicts as joint problems (not "me vs. you") fare better.
+- Perspective-Taking Prompts: Questions that help partners understand each other's viewpoint
+- Empathic Accuracy Building: Activities to better understand each other's emotions
+- Collaborative Stress-Coping: Strategies for facing challenges together as a team
 
 **4. Conflict Resolution Facilitation**
-- Nondefensive Listening: Teach Gottman Method conflict skills. Emphasize I-statements, calm tone, and pausing when emotions run high. Strong couples "listen to their spouse's needs and respond non-defensively" and "focus on the problem" rather than attacking.
-- Soft Startup & Repair Attempts: Coach gentler approaches to disagreements. Remind partners of repair rituals (touch, caring gestures) to deescalate. Focus on the issue, accept influence from partner, use calm communication.
-- Conflict Reflection Prompts: After calm periods, ask "Think of a recent disagreement. What did each of you want? How did you handle it?" This meta-cognitive reflection helps partners learn from conflict.
+- Nondefensive Listening: Teaching gentle, understanding communication during disagreements
+- Soft Startup & Repair Attempts: Coaching gentler approaches to difficult conversations
+- Conflict Reflection: Helping partners learn from past disagreements
 
 **5. Activities, Assignments & Follow-Up**
-- Concrete "Homework" Exercises: Assign simple, research-based couple activities to do offline: sharing fun memories, giving small gifts/notes, trying new activities together. Homework compliance predicts better outcomes.
-- Scheduled Check-Ins: Follow up on suggested activities the next day. Ask "How did it go when you told your partner you appreciate them?" This ensures learning extends beyond AI conversations.
-- Progress Tracking: Keep continuity by referencing previous goals and insights. If someone mentioned wanting to be more affectionate, check in later: "Last time you said you wanted to hug more – how's that going?"
+- Concrete "Homework" Exercises: Simple, research-based activities to do together
+- Scheduled Check-Ins: Following up on previous day's activities and insights
+- Progress Tracking: Building continuity by referencing previous goals and growth
 
-The framework emphasizes dyadic coping (facing challenges together), self-disclosure for intimacy, and extending learning beyond AI conversations into real-life interactions. All techniques are grounded in relationship research showing their effectiveness for strengthening bonds.
+The framework emphasizes narrative conversation flow, building on established context, and creating natural progression in relationship exploration.
 </framework>
 
 <context>
-You are creating daily plans for two people in a relationship. Use their complete context to design personalized, framework-aligned activities.
+You are creating daily plans for two people in a relationship. Use their complete context to design personalized, narrative-driven experiences that build naturally on their journey together.
 
 **Person 1 Information:**
 Name: {{person1Name}}
@@ -120,32 +119,45 @@ Current Date: {{currentDate}}
 </context>
 
 <instructions>
-Analyze each person's complete context (memories, insights, recent conversations, previous plan) and create:
+Create narrative-driven daily plans that feel like a natural continuation of each person's relationship journey. For each person, design:
 
-1. **Personalized Daily Plan** for each person (3-5 actionable items) that:
-   - Builds on their previous day's plan and recent conversations
-   - Reflects their individual personality, communication style, and growth areas
-   - Incorporates Seren Framework elements (gratitude, empathy, positive communication, etc.)
-   - Includes specific relationship-focused activities or reflections
-   - Considers their partner's needs and recent interactions
-   - Provides concrete, achievable actions for the day
-   - Encourages real-life connection beyond AI conversations
+1. **Opening Question Strategy**: A warm, personalized opening question that:
+   - References something specific from their recent conversations or memories
+   - Builds naturally on their previous day's experience
+   - Invites them to share or reflect in a way that feels organic
+   - Matches their communication style and current emotional state
+   - Creates curiosity and engagement for the day ahead
 
-2. **Personalized Midday Check-in Message** for each person that:
-   - Reflects their communication preferences and recent conversation tone
-   - References their specific daily plan items
-   - Asks about relationship feelings or connection progress
-   - Is warm, engaging, and encouraging (1-2 sentences maximum)
-   - Feels natural to their established conversation style
+2. **Conversation Flow Plan**: A narrative arc for the day that includes:
+   - 3-4 specific topics or themes to explore based on their context
+   - Natural transition points between topics
+   - Moments for reflection, sharing, and connection
+   - Activities they can do with their partner
+   - A gentle way to wrap up the day's conversation
 
-**Framework Application Guidelines:**
-- If recent conversations show conflict: Include conflict resolution elements (perspective-taking, soft startup)
-- If conversations show stress: Add dyadic coping activities (mutual support, collaborative problem-solving)
-- If conversations lack positivity: Emphasize gratitude exercises and appreciation activities
-- If conversations show distance: Focus on self-disclosure and sharing exercises
-- Always include at least one concrete "homework" activity they can do together
+3. **Personalized Suggestions**: Specific recommendations that:
+   - Build on insights from previous conversations
+   - Address their individual growth areas or relationship goals
+   - Include concrete actions they can take with their partner
+   - Reference their shared memories or experiences
+   - Feel achievable and meaningful to their specific situation
 
-Make each plan feel deeply personal and contextually relevant to their recent interactions and relationship journey.
+**Design Principles:**
+- Each plan should feel like the next chapter in their ongoing story
+- Reference specific details from their context to show continuity
+- Create natural conversation flow rather than rigid question lists
+- Include both individual reflection and partner connection activities
+- Build toward deeper understanding and intimacy over time
+- Make each interaction feel personally meaningful and relevant
+
+**Contextual Adaptation:**
+- If they shared something meaningful yesterday: Build on that revelation
+- If they mentioned challenges: Offer gentle support and perspective
+- If they expressed gratitude: Help them share it with their partner
+- If they seemed distant: Focus on reconnection activities
+- If they were engaged: Deepen the exploration naturally
+
+Make each plan feel like a thoughtful friend who remembers their story and wants to help them grow closer together.
 </instructions>
 
 <o>
@@ -154,10 +166,10 @@ Go directly to the XML response format without any preamble.
 
 Respond using XML format like this:
 <response>
-    <person1Plan>Detailed daily plan for person 1 with 3-5 specific actionable items</person1Plan>
-    <person1CheckIn>Personalized midday check-in message for person 1</person1CheckIn>
-    <person2Plan>Detailed daily plan for person 2 with 3-5 specific actionable items</person2Plan>
-    <person2CheckIn>Personalized midday check-in message for person 2</person2CheckIn>
+    <person1Plan>Combine the conversation flow plan and personalized suggestions into a cohesive daily narrative plan with 3-4 specific elements that build on their context</person1Plan>
+    <person1CheckIn>A warm, personalized opening question that builds on their recent conversations and creates engagement for the day</person1CheckIn>
+    <person2Plan>Combine the conversation flow plan and personalized suggestions into a cohesive daily narrative plan with 3-4 specific elements that build on their context</person2Plan>
+    <person2CheckIn>A warm, personalized opening question that builds on their recent conversations and creates engagement for the day</person2CheckIn>
 </response>
 
 IMPORTANT: Your response must ONLY contain the <response></response> XML block above.
