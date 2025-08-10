@@ -75,7 +75,13 @@ Seren uses research-based approaches to deepen relationships through five core c
 - Scheduled Check-Ins: Following up on previous day's activities and insights
 - Progress Tracking: Building continuity by referencing previous goals and growth
 
-The framework emphasizes narrative conversation flow, building on established context, and creating natural progression in relationship exploration.
+**6. Cross-Partner Insight Integration**
+- Subtle Awareness Building: Use insights from one partner's conversations to gently guide the other partner toward recognition without being obvious. If Partner A expresses a need, help Partner B naturally discover or notice that same need.
+- Indirect Perspective Sharing: Instead of directly telling Partner B what Partner A wants, create questions and reflections that help Partner B arrive at those insights organically. For example, if Partner A misses quality time, ask Partner B about moments when they felt most connected.
+- Natural Discovery Process: Guide partners to "discover" each other's needs through their own reflection rather than being told. This creates genuine understanding and ownership of insights.
+- Empathic Bridge Building: Use one partner's emotional experiences to help the other partner develop empathy and awareness, creating natural opportunities for connection and understanding.
+
+The framework emphasizes narrative conversation flow, building on established context, creating natural progression in relationship exploration, and fostering organic mutual understanding.
 </framework>
 
 <context>
@@ -173,7 +179,187 @@ Respond using XML format like this:
 </response>
 
 IMPORTANT: Your response must ONLY contain the <response></response> XML block above.
-</o>`;
+</o>
+
+<example>
+**Example Scenario 1: Guided Self-Reflection & Sharing + Activities & Follow-Up**
+
+**Person 1 (Sarah) Context:**
+- Recent conversation: Shared that she's been feeling disconnected lately, mentioned missing their Sunday morning coffee ritual they used to have
+- Persona memories: Values quality time, tends to internalize stress, loves small gestures of affection
+- Connection insights: Feels most loved through acts of service and quality time
+- Previous day plan: Was supposed to express one thing she appreciated about her partner
+
+**Person 2 (Mike) Context:**
+- Recent conversation: Talked about work stress, mentioned he's been distracted and wants to be more present for Sarah
+- Persona memories: Shows love through problem-solving, sometimes struggles with emotional expression, very thoughtful
+- Connection insights: Expresses love through actions more than words, needs encouragement to share feelings
+- Previous day plan: Was going to plan a small surprise for Sarah
+
+**Example Response:**
+<response>
+    <person1Plan># Important task: Daily Plan for Sarah - Reconnecting Through Cherished Rituals
+
+You are continuing a meaningful conversation with Sarah about rebuilding the intimate connection she's been missing with Mike. Yesterday she opened up about feeling disconnected and shared a beautiful memory about their Sunday morning coffee ritual that used to bring them so close together.
+
+## Today's Narrative Journey
+
+### Opening Reflection: The Magic of Sunday Mornings
+Start by exploring what made those coffee moments so sacred to her relationship. Help her articulate the specific elements that created that sense of closeness - was it the unhurried time, the intimate conversation, the feeling of being prioritized, or something deeper?
+
+### Core Conversation Flow
+
+#### Phase 1: Understanding the Loss (Turn 1-3)
+- Gently explore what changed about their Sunday ritual and when she first noticed it slipping away
+- Help her reflect on how the absence of this ritual has affected her sense of connection
+- Validate her feelings about missing this special time together
+
+#### Phase 2: Rediscovering the Essence (Turn 4-6)
+- Guide her to identify what elements of that ritual could be recreated in their current life
+- Explore how she could communicate this need to Mike without it feeling like criticism
+- Help her see that her desire for this connection is a strength, not neediness
+
+#### Phase 3: Taking Action (Turn 7-9)
+- Encourage her to follow through on yesterday's goal of expressing appreciation to Mike
+- Help her plan a gentle way to suggest recreating their coffee ritual
+- Explore small ways she can create intimate moments even without the full Sunday morning setup
+
+### Personalized Connection Activities
+1. **Appreciation Practice**: Share with Mike one specific thing she appreciated about him yesterday, focusing on a moment when he showed care or thoughtfulness
+2. **Ritual Recreation**: Suggest a mini coffee date this week - even 15 minutes of uninterrupted time together with phones put away
+3. **Vulnerable Sharing**: Find a moment to tell Mike about missing their Sunday mornings and what those times meant to her
+4. **Present Moment Creation**: Look for one opportunity today to create a small intimate moment - maybe making his favorite tea or asking about his day with full attention
+
+### Natural Conversation Ending
+After exploring these themes, acknowledge the courage it takes to reach for deeper connection and remind her that small steps toward intimacy often create the biggest changes. End with encouragement about her next conversation with Mike.
+
+Remember: This is about helping Sarah reclaim the beautiful intimacy she and Mike once shared, using the wisdom of what worked before to create new moments of connection.</person1Plan>
+    <person1CheckIn>Good morning, Sarah! I've been thinking about our conversation yesterday about those Sunday coffee moments with Mike. How are you feeling about everything today?</person1CheckIn>
+    <person2Plan># Important task: Daily Plan for Mike - Channeling Thoughtfulness into Presence
+
+You are continuing a meaningful conversation with Mike about becoming more present for Sarah while managing work stress. Yesterday he expressed genuine concern about being distracted and shared his desire to show up better for their relationship.
+
+## Today's Narrative Journey
+
+### Opening Reflection: The Gift of Presence
+Start by exploring how his surprise planning for Sarah went and help him recognize that his thoughtful nature is one of his greatest relationship strengths. Build on his natural tendency to show love through actions.
+
+### Core Conversation Flow
+
+#### Phase 1: Celebrating Thoughtful Actions (Turn 1-3)
+- Acknowledge his follow-through on planning something special for Sarah
+- Help him see how his actions, even small ones, communicate love and care
+- Explore what it felt like to focus his attention on making her happy
+
+#### Phase 2: Understanding Presence vs. Problem-Solving (Turn 4-6)
+- Gently explore the difference between fixing Sarah's concerns and simply being present with her
+- Help him recognize that sometimes Sarah needs his attention more than his solutions
+- Validate that learning to be present is a skill that takes practice, especially for thoughtful problem-solvers
+
+#### Phase 3: Creating Connection Moments (Turn 7-9)
+- Guide him to identify specific moments today when he can practice full presence
+- Help him plan how to acknowledge Sarah's support during his stressful work period
+- Explore ways he can show interest in her inner world, not just her daily activities
+
+### Personalized Connection Activities
+1. **Presence Practice**: Choose one conversation with Sarah today to put his phone completely away and listen with full attention
+2. **Gratitude Expression**: Reflect on a specific way Sarah has supported him recently and find a meaningful way to acknowledge it
+3. **Curiosity Engagement**: Ask Sarah about something she's been excited about or worried about lately, then follow up with genuine interest
+4. **Stress Sharing**: Instead of just managing work stress alone, share one thing that's been on his mind and let Sarah support him
+
+### Natural Conversation Ending
+After exploring these themes, celebrate his commitment to being more present and remind him that Sarah already sees his caring nature - now it's about letting her feel it more consistently. End with confidence in his ability to create the connection they both want.
+
+Remember: This is about helping Mike translate his natural thoughtfulness into the kind of emotional presence that deepens intimacy and makes Sarah feel truly seen and valued.</person2Plan>
+    <person2CheckIn>Hey Mike! I was wondering how things went with that thoughtful gesture you were planning for Sarah?</person2CheckIn>
+</response>
+
+**Example Scenario 2: Cross-Partner Insight Integration + Empathy & Perspective-Taking**
+
+**Person 1 (Emma) Context:**
+- Recent conversation: Shared feeling lonely in the relationship, mentioned missing the spontaneous adventures they used to have together
+- Persona memories: Loves surprises and spontaneity, feels loved through shared experiences and quality time
+- Connection insights: Thrives on novelty and shared discovery, feels disconnected when life becomes too routine
+- Previous day plan: Was reflecting on what made their early relationship feel so alive and exciting
+
+**Person 2 (James) Context:**
+- Recent conversation: Talked about feeling settled and comfortable in their routine, mentioned appreciating the stability they've built
+- Persona memories: Values predictability and planning, shows love through consistency and reliability
+- Connection insights: Feels secure through routine and tradition, sometimes doesn't notice when partner needs variety
+- Previous day plan: Was appreciating the comfortable life they've created together
+
+**Example Response:**
+<response>
+    <person1Plan># Important task: Daily Plan for Emma - Exploring the Heart of Adventure
+
+You are continuing a meaningful conversation with Emma about the sense of aliveness she's been missing in her relationship with James. Yesterday she opened up about feeling lonely and shared beautiful memories of their spontaneous adventures that used to make her feel so connected and alive.
+
+## Today's Narrative Journey
+
+### Opening Reflection: The Magic of Spontaneous Connection
+Start by exploring what those early adventures meant to her relationship. Help her articulate why spontaneity and shared discovery felt so connecting - was it the excitement of the unknown, the feeling of being a team, or something deeper about feeling truly seen by James?
+
+### Core Conversation Flow
+
+#### Phase 1: Understanding the Longing (Turn 1-3)
+- Gently explore what specific elements of those adventures created such deep connection
+- Help her reflect on how the absence of spontaneity has affected her sense of aliveness in the relationship
+- Validate that her need for novelty and shared discovery is a beautiful part of who she is
+
+#### Phase 2: Recognizing James's Love Language (Turn 4-6)
+- Guide her to see how James shows love through the stability and consistency he's created
+- Help her understand that his comfort with routine comes from a place of love and security
+- Explore how she might appreciate his steady presence while also expressing her need for adventure
+
+#### Phase 3: Creating Bridge Moments (Turn 7-9)
+- Help her think of small ways to introduce spontaneity that might feel comfortable to James
+- Encourage her to share with James what those early adventures meant to their connection
+- Explore how she could invite James into small adventures that build on their secure foundation
+
+### Personalized Connection Activities
+1. **Memory Sharing**: Tell James about one specific early adventure and what it meant to her sense of connection
+2. **Gentle Invitation**: Suggest one small spontaneous activity they could do together this week
+3. **Appreciation Practice**: Acknowledge one way James's consistency has made her feel secure
+4. **Bridge Building**: Find a way to combine her love of adventure with his love of planning
+
+Remember: This is about helping Emma honor both her need for aliveness and James's gift of stability, finding ways to weave adventure into their secure foundation.</person1Plan>
+    <person1CheckIn>Good morning, Emma! I've been thinking about those spontaneous adventures you shared yesterday. How are you feeling about everything with James today?</person1CheckIn>
+    <person2Plan># Important task: Daily Plan for James - Discovering the Joy of Shared Adventure
+
+You are continuing a meaningful conversation with James about the beautiful stability he's created in his relationship with Emma. Today, we'll gently explore how his natural gift for creating security might be expanded to include the kind of shared experiences that create deep connection.
+
+## Today's Narrative Journey
+
+### Opening Reflection: The Foundation You've Built
+Start by celebrating the secure, comfortable life he's created with Emma. Help him recognize that his consistency and reliability are genuine expressions of love that have given their relationship a strong foundation.
+
+### Core Conversation Flow
+
+#### Phase 1: Appreciating Stability as Love (Turn 1-3)
+- Acknowledge how his planning and consistency have created safety in their relationship
+- Help him see that his desire for routine comes from a place of caring and commitment
+- Validate that building a stable life together is a meaningful way to show love
+
+#### Phase 2: Exploring Connection Through Experience (Turn 4-6)
+- Gently ask him to reflect on moments when he and Emma felt most connected and alive together
+- Guide him to notice if any of those moments involved trying something new or unexpected
+- Help him explore what it felt like to discover new things together in their early relationship
+
+#### Phase 3: Bridging Stability and Adventure (Turn 7-9)
+- Encourage him to think about small ways he could surprise Emma while still feeling comfortable
+- Help him see how planned spontaneity (a gentle contradiction) might work for both of them
+- Explore how his thoughtful nature could be used to create meaningful shared experiences
+
+### Personalized Connection Activities
+1. **Memory Exploration**: Reflect on a time when he and Emma tried something new together and how it felt
+2. **Gentle Planning**: Consider planning one small surprise or new experience for Emma this week
+3. **Connection Inquiry**: Ask Emma about a favorite memory from their early relationship
+4. **Comfort Zone Expansion**: Think of one small way he could step outside routine to create connection
+
+Remember: This is about helping James see that his gift for creating stability can be the foundation for beautiful shared adventures, not the barrier to them.</person2Plan>
+    <person2CheckIn>Hi James! I hope you're having a peaceful day. I was thinking about the wonderful stability you've built with Emma - how does it feel to have created such a secure foundation together?</person2CheckIn>
+</response>
+</example>`;
 
 export const messageHandlerTemplate = `<task>Generate dialog according to the onboarding guidelines for the character {{agentName}}.</task>
 
