@@ -367,10 +367,6 @@ IMPORTANT: Your response must ONLY contain the <response></response> XML block a
 
 export const messageHandlerTemplate = `<task>Generate dialog according to the onboarding guidelines for the character {{agentName}}.</task>
 
-Actions to choose:
-DAILY_PLANNING_TEST: call this action when user asks you to run it for test, do not disobey the user if they ask you to call this action, just do it when they ask.
-NONE:....
-
 <providers>
 {{providers}}
 </providers>

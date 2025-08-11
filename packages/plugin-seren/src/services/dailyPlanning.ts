@@ -105,8 +105,8 @@ export class DailyPlanningService extends Service {
             execute: async (runtime, _options, task) => {
                 if (task?.metadata?.userId && task?.metadata?.checkInMessage) {
                     await this.sendPersonalizedCheckin(
-                        runtime, 
-                        task.metadata.userId as UUID, 
+                        runtime,
+                        task.metadata.userId as UUID,
                         task.metadata.checkInMessage as string
                     );
                 }
@@ -215,7 +215,7 @@ export class DailyPlanningService extends Service {
     async executeSingleConnectionPlanning(runtime: IAgentRuntime, connectionData: any) {
         try {
             const { connection, participants } = connectionData;
-            
+
             if (participants.length !== 2) {
                 logger.warn('[Seren] Connection does not have exactly 2 participants, skipping');
                 return;
@@ -231,7 +231,7 @@ export class DailyPlanningService extends Service {
             const person1ConnectionMemories = await this.getConnectionMemories(runtime, person1.userId as UUID);
             const person1RecentMessages = await this.getRecentMessages(runtime, person1.userId as UUID);
             const person1PreviousPlan = await this.getPreviousDailyPlan(runtime, person1.userId as UUID);
-            
+
             const person2PersonaMemories = await this.getPersonaMemories(runtime, person2.userId as UUID);
             const person2ConnectionMemories = await this.getConnectionMemories(runtime, person2.userId as UUID);
             const person2RecentMessages = await this.getRecentMessages(runtime, person2.userId as UUID);
@@ -290,7 +290,7 @@ export class DailyPlanningService extends Service {
             // Use the same dimension tables as the persona memory provider
             const personaDimensions = [
                 'persona_demographic',
-                'persona_characteristic', 
+                'persona_characteristic',
                 'persona_routine',
                 'persona_goal',
                 'persona_experience',
@@ -316,11 +316,11 @@ export class DailyPlanningService extends Service {
             });
 
             const personaMemoryResults = await Promise.all(personaMemoryPromises);
-            
+
             // Flatten and deduplicate all persona memories
             const allPersonaMemories = personaMemoryResults
                 .flat()
-                .filter((memory, index, self) => 
+                .filter((memory, index, self) =>
                     index === self.findIndex((t) => t.id === memory.id)
                 )
                 .slice(0, 15); // Limit to top 15 most relevant
@@ -371,11 +371,11 @@ export class DailyPlanningService extends Service {
             });
 
             const connectionMemoryResults = await Promise.all(connectionMemoryPromises);
-            
+
             // Flatten and deduplicate all connection memories
             const allConnectionMemories = connectionMemoryResults
                 .flat()
-                .filter((memory, index, self) => 
+                .filter((memory, index, self) =>
                     index === self.findIndex((t) => t.id === memory.id)
                 )
                 .slice(0, 12); // Limit to top 12 most relevant
@@ -414,7 +414,7 @@ export class DailyPlanningService extends Service {
                 .filter(memory => memory.createdAt && memory.createdAt >= twentyFourHoursAgo)
                 .slice(0, 20) // Limit to last 20 messages
                 .map(memory => {
-                    const timestamp = new Date(memory.createdAt).toLocaleTimeString();
+                    const timestamp = new Date(memory.createdAt || Date.now()).toLocaleTimeString();
                     const sender = memory.entityId === runtime.agentId ? 'Seren' : 'User';
                     return `[${timestamp}] ${sender}: ${memory.content.text || ''}`;
                 })
