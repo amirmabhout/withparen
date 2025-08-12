@@ -32,7 +32,7 @@
     "@elizaos/plugin-google-genai": "^1.0.1",
     "@elizaos/plugin-sql": "latest",
     "@elizaos/plugin-bootstrap": "1.3.1",
-    "@elizaos/plugin-serenweb":"workspace:*",
+    "@elizaos/plugin-serenapp":"workspace:*",
     "@tanstack/react-query": "^5.29.0",
     "clsx": "^2.1.1",
     "react": "^18.3.1",

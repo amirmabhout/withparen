@@ -388,6 +388,53 @@ const messageReceivedHandler = async ({
           runtime.createMemory(message, 'messages'),
         ]);
 
+        // Check for Firebase authentication payload and trigger signin action directly
+        const messageText = message.content?.text || '';
+        if (messageText.includes('Firebase identity data') &&
+          (messageText.includes('successfully authenticated') || messageText.includes('authenticated their email')) &&
+          (messageText.includes('"id":') || messageText.includes('"email":') || messageText.includes('"token":'))) {
+
+          logger.info('[serenapp] Detected Firebase authentication payload, triggering signin action directly');
+
+          try {
+            // Import and trigger signin action directly
+            const { signinAction } = await import('./actions/signin.js');
+
+            // Validate the signin action
+            const isValidSignin = await signinAction.validate(runtime, message);
+            logger.debug('[serenapp] Signin validation result:', isValidSignin);
+
+            if (isValidSignin) {
+              // Execute signin action directly
+              logger.debug('[serenapp] Executing signin action...');
+              const signinResult = await signinAction.handler(runtime, message, undefined, {});
+
+              if (signinResult) {
+                logger.info('[serenapp] Signin action completed:', {
+                  success: signinResult.success,
+                  webId: signinResult.values?.webId,
+                  hasEmail: !!signinResult.values?.email,
+                  personCreated: signinResult.values?.personCreated,
+                  personAlreadyExisted: signinResult.values?.personAlreadyExisted
+                });
+
+                if (signinResult.success) {
+                  logger.debug('[serenapp] Signin successful, continuing with normal message processing');
+                } else {
+                  logger.warn('[serenapp] Signin action failed, continuing with normal processing');
+                }
+              } else {
+                logger.warn('[serenapp] Signin action returned no result');
+              }
+            } else {
+              logger.warn('[serenapp] Signin validation failed, continuing with normal processing');
+            }
+          } catch (error) {
+            logger.error('[serenapp] Error executing signin action:', error);
+            // Continue with normal processing if signin fails
+          }
+        }
+
         const agentUserState = await runtime.getParticipantUserState(
           message.roomId,
           runtime.agentId
@@ -613,7 +660,7 @@ const messageReceivedHandler = async ({
           // Simplified action handling for Seren Web plugin
           if (responseContent && responseContent.actions && responseContent.actions.length > 0) {
             const action = responseContent.actions[0].toUpperCase();
-            
+
             if (action === 'NONE' && responseContent.text) {
               // NONE action: callback the message and do nothing extra
               logger.debug('[serenapp] NONE action: sending callback with message');
@@ -1126,14 +1173,14 @@ const syncSingleUser = async (
     const worldMetadata =
       type === ChannelType.DM
         ? {
-            ownership: {
-              ownerId: entityId,
-            },
-            roles: {
-              [entityId]: Role.OWNER,
-            },
-            settings: {}, // Initialize empty settings for onboarding
-          }
+          ownership: {
+            ownerId: entityId,
+          },
+          roles: {
+            [entityId]: Role.OWNER,
+          },
+          settings: {}, // Initialize empty settings for onboarding
+        }
         : undefined;
 
     logger.info(

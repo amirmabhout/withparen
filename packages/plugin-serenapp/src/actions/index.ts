@@ -9,6 +9,7 @@ export { noneAction } from './none';
 //export { updateRoleAction } from './roles';
 //export { sendMessageAction } from './sendMessage';
 //export { updateSettingsAction } from './settings';
+export { signinAction } from './signin';
 //export { unfollowRoomAction } from './unfollowRoom';
 //export { unmuteRoomAction } from './unmuteRoom';
 //export { updateEntityAction } from './updateEntity';

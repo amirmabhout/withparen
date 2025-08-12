@@ -7,9 +7,9 @@ export const connectionExtractionTemplate = `<task>Extract connection informatio
 
 <context>
 The user wants to create a new human connection and join the waitlist. You need to extract three key pieces of information from their recent messages:
-1. Their own name
-2. The name of their special person/partner
-3. The shared secret word or phrase they want to use
+1. Their own name (first name only, lowercase)
+2. The name of their special person/partner (first name only, lowercase)
+3. The shared secret word, phrase, or sentence they want to use
 
 Recent conversation messages:
 {{recentMessages}}
@@ -17,16 +17,12 @@ Recent conversation messages:
 
 <instructions>
 Analyze the recent messages and extract the connection information. The user should have provided:
-- Their own name (what they want to be called)
-- The name of the person they want to connect with
-- A secret word or phrase that only they and their partner will know
+- Their own name (first name only, convert to lowercase)
+- The name of the person they want to connect with (first name only, convert to lowercase)
+- A secret word, phrase, or sentence that only they and their partner will know
 
-Be careful to distinguish between their name and their partner's name. Look for phrases like:
-- "My name is..." or "I'm..."
-- "I want to connect with..." or "Their name is..."
-- "Our secret is..." or "The secret word is..." or "We chose..."
-
-If any information is missing or unclear, indicate what's missing.
+ONLY extract information that is clearly stated. Do not guess or infer names or secrets.
+If any information is missing or unclear, do not include it in the response.
 </instructions>
 
 <o>
@@ -35,14 +31,57 @@ Go directly to the XML response format without any preamble.
 
 Respond using XML format like this:
 <response>
-    <userName>extracted user name or leave empty if not found</userName>
-    <partnerName>extracted partner name or leave empty if not found</partnerName>
-    <secret>extracted secret word/phrase or leave empty if not found</secret>
-    <confidence>high/medium/low based on clarity of extraction</confidence>
-    <missing>comma-separated list of missing information if any</missing>
+    <username>extracted user first name in lowercase or leave empty if not found</username>
+    <partnername>extracted partner first name in lowercase or leave empty if not found</partnername>
+    <secret>extracted secret word/phrase/sentence or leave empty if not found</secret>
 </response>
 
-IMPORTANT: Only extract information that is clearly stated. Do not guess or infer names or secrets. Your response must ONLY contain the <response></response> XML block above.
+IMPORTANT: Only include keys that have clear values. If a value is not found, leave that key empty. Your response must ONLY contain the <response></response> XML block above.
+</o>`;
+
+export const connectionResponseTemplate = `<task>Generate a response for the connection creation process based on the current state of information.</task>
+
+<context>
+The user is in the process of creating a human connection. Based on what information we have and what's missing, generate an appropriate response.
+
+Current information:
+- Username: {{username}}
+- Partner name: {{partnername}}
+- Secret: {{secret}}
+- Missing information: {{missingInfo}}
+- Connection exists: {{connectionExists}}
+- Connection created: {{connectionCreated}}
+</context>
+
+<instructions>
+Generate a response based on the current state:
+
+1. If all information is complete and connection was created successfully:
+   - Congratulate them
+   - Confirm the details (name, partner name, secret)
+   - Mention the Telegram bot link: https://t.me/withseren_bot
+   - Welcome them to their Seren journey
+
+2. If some information is missing:
+   - Ask for the missing information in a friendly way
+   - Be specific about what's needed
+
+3. If connection already exists:
+   - Let them know it already exists
+   - Mention the current status
+</instructions>
+
+<o>
+Do NOT include any thinking, reasoning, or explanations in your response. 
+Go directly to the XML response format without any preamble.
+
+Respond using XML format like this:
+<response>
+    <thought>Brief thought about the current situation</thought>
+    <message>Your response message to the user</message>
+</response>
+
+IMPORTANT: Your response must ONLY contain the <response></response> XML block above.
 </o>`;
 
 export const messageHandlerTemplate = `<task>Generate dialog according to the onboarding guidelines for the character {{agentName}}.</task>
@@ -57,8 +96,7 @@ These are the available valid actions:
 </actionNames>
 
 <instructions>
-Write a thought and plan for {{agentName}} and decide what actions to take. Also include the providers that {{agentName}} will use to have the right context for responding and acting, if any.
-
+Write a thought and plan for {{agentName}} and decide what actions to take.
 
 First, think about what you want to do next and plan your actions. Then, write the next message in following the onboarding narritive of Seren and include the actions you plan to take.
 </instructions>

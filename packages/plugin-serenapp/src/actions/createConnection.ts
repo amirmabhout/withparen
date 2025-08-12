@@ -1,17 +1,17 @@
-import { 
-  type IAgentRuntime, 
-  type Memory, 
-  type Action, 
-  type State, 
+import {
+  type IAgentRuntime,
+  type Memory,
+  type Action,
+  type State,
   type ActionExample,
   type HandlerCallback,
   type ActionResult,
-  ModelType, 
-  parseKeyValueXml, 
-  logger 
+  ModelType,
+  parseKeyValueXml,
+  logger
 } from '@elizaos/core';
 import { MemgraphService } from '../services/memgraph.js';
-import { connectionExtractionTemplate } from '../utils/promptTemplates.js';
+import { connectionExtractionTemplate, connectionResponseTemplate } from '../utils/promptTemplates.js';
 
 /**
  * Action to create a new HumanConnection with waitlist status
@@ -26,63 +26,68 @@ export const createConnectionAction: Action = {
     'REGISTER_CONNECTION',
     'ADD_CONNECTION'
   ],
-  examples: [
-    [
-      {
-        name: '{{name1}}',
-        content: {
-          text: 'I want to create a connection. My name is Sarah and I want to connect with my partner Mike. Our secret word is "sunset".'
-        }
-      },
-      {
-        name: 'Seren',
-        content: {
-          text: 'Great, please reach out to me on Telegram https://t.me/withseren_bot and we can continue from there.',
-          actions: ['CREATE_CONNECTION']
-        }
-      }
-    ],
-    [
-      {
-        name: '{{name1}}',
-        content: {
-          text: 'Hi, I\'m Alex and I want to set up a connection with Emma. We decided our secret phrase is "morning coffee".'
-        }
-      },
-      {
-        name: 'Seren',
-        content: {
-          text: 'Great, please reach out to me on Telegram https://t.me/withseren_bot and we can continue from there.',
-          actions: ['CREATE_CONNECTION']
-        }
-      }
-    ]
-  ] as ActionExample[][],
+  examples: [] as ActionExample[][],
   validate: async (_runtime: IAgentRuntime, message: Memory) => {
-    // In serenapp context, this action should always be available
-    // since the primary purpose of this app is to create connections
     const messageText = message.content?.text?.trim() || '';
-    
+
     // Only exclude completely empty messages
-    return messageText.length > 0;
+    if (messageText.length === 0) {
+      return false;
+    }
+
+    const memgraphService = new MemgraphService();
+    try {
+      await memgraphService.connect();
+
+      // Get the user's entityId as webId (similar to how plugin-seren extracts userId)
+      const webId = message.entityId;
+
+      // Check if person node exists and has email property
+      const person = await memgraphService.findPersonByWebId(webId);
+
+      if (!person) {
+        logger.debug('[createConnection] Validation failed: No person node found for webId:', webId);
+        return false;
+      }
+
+      if (!person.email) {
+        logger.debug(
+          '[createConnection] Validation failed: Person node exists but has no email for webId:',
+          webId
+        );
+        return false;
+      }
+
+      logger.debug('[createConnection] Validation passed: Person node with email found for webId:', webId);
+      return true;
+    } catch (error) {
+      logger.error('[createConnection] Validation error:', error);
+      // If there's an error checking authentication, fail validation
+      return false;
+    } finally {
+      await memgraphService.disconnect();
+    }
   },
   handler: async (
-    runtime: IAgentRuntime, 
-    message: Memory, 
+    runtime: IAgentRuntime,
+    message: Memory,
     _state: State | undefined,
     _options: any,
-    _callback?: HandlerCallback
+    callback?: HandlerCallback
   ): Promise<ActionResult> => {
     const memgraphService = new MemgraphService();
 
     try {
       await memgraphService.connect();
 
+      // Get the user's entityId as connectionId
+      const connectionId = message.entityId;
+
       // Get recent messages for context
       const recentMessages = await runtime.getMemories({
         tableName: 'messages',
         roomId: message.roomId,
-        count: 10,
+        count: 40,
         unique: false,
       });
 
@@ -111,94 +116,209 @@ export const createConnectionAction: Action = {
         logger.debug('[createConnection] Successfully extracted connection info:', extractedInfo);
       } catch (e) {
         logger.error('[createConnection] Failed to parse connection extraction response:', e);
-        
+
+        // Generate error response using template
+        const errorResponsePrompt = connectionResponseTemplate
+          .replace('{{username}}', '')
+          .replace('{{partnername}}', '')
+          .replace('{{secret}}', '')
+          .replace('{{missingInfo}}', 'all information')
+          .replace('{{connectionExists}}', 'false')
+          .replace('{{connectionCreated}}', 'false');
+
+        const errorResponse = await runtime.useModel(ModelType.TEXT_SMALL, {
+          prompt: errorResponsePrompt,
+          temperature: 0.3,
+        });
+
+        const parsedErrorResponse = parseKeyValueXml(errorResponse);
+        const responseText = parsedErrorResponse?.message || 'I had trouble understanding the connection information. Could you please provide your name, your partner\'s name, and your shared secret more clearly?';
+
+        if (callback) {
+          await callback({
+            text: responseText,
+            thought: parsedErrorResponse?.thought || 'Failed to parse connection information',
+            actions: ['CREATE_CONNECTION']
+          });
+        }
+
         return {
-          text: 'I had trouble understanding the connection information. Could you please provide your name, your partner\'s name, and your shared secret more clearly?',
+          text: responseText,
           success: false,
           error: e instanceof Error ? e : new Error(String(e))
         };
       }
 
-      // Check if we have all required information
-      if (!extractedInfo.userName || !extractedInfo.partnerName || !extractedInfo.secret) {
-        logger.info('[createConnection] Missing required information:', {
-          userName: !!extractedInfo.userName,
-          partnerName: !!extractedInfo.partnerName,
-          secret: !!extractedInfo.secret,
-          missing: extractedInfo.missing
-        });
-        
-        // Provide feedback about missing information
-        const missingItems: string[] = [];
-        if (!extractedInfo.userName) missingItems.push('your name');
-        if (!extractedInfo.partnerName) missingItems.push('your partner\'s name');
-        if (!extractedInfo.secret) missingItems.push('your secret word or phrase');
-        
-        const missingText = missingItems.length > 1 
-          ? missingItems.slice(0, -1).join(', ') + ' and ' + missingItems[missingItems.length - 1]
-          : missingItems[0];
-        
-        return {
-          text: `I need a bit more information to create your connection. Could you please provide ${missingText}? For example: "My name is [your name], I want to connect with [partner's name], and our secret word is [secret]".`,
-          success: true,
-          values: {
-            missingInfo: missingItems,
-            partialExtraction: extractedInfo
-          }
-        };
+      // Check if connection already exists for this user
+      let existingConnection = await memgraphService.findConnectionByConnectionId(connectionId);
+
+      // Prepare updates object with only non-empty values
+      const updates: any = {};
+      if (extractedInfo.username && extractedInfo.username.trim()) {
+        updates.username = extractedInfo.username.trim();
+      }
+      if (extractedInfo.partnername && extractedInfo.partnername.trim()) {
+        updates.partnername = extractedInfo.partnername.trim();
+      }
+      if (extractedInfo.secret && extractedInfo.secret.trim()) {
+        updates.secret = extractedInfo.secret.trim();
       }
 
-      // Check if connection already exists
-      const existingConnection = await memgraphService.findExistingHumanConnection(
-        extractedInfo.userName,
-        extractedInfo.partnerName,
-        extractedInfo.secret
-      );
-
+      let connection;
       if (existingConnection) {
-        logger.info('[createConnection] Connection already exists:', existingConnection);
-        
-        return {
-          text: `It looks like a connection between ${extractedInfo.userName} and ${extractedInfo.partnerName} with that secret already exists! The status is currently: ${existingConnection.status}.`,
-          success: true,
-          values: {
-            connectionExists: true,
-            existingConnection
-          }
-        };
+        // Update existing connection with new information
+        connection = await memgraphService.updateHumanConnection(connectionId, updates);
+        logger.info('[createConnection] Updated existing HumanConnection:', connection);
+      } else {
+        // Create new connection
+        connection = await memgraphService.createHumanConnectionWithWaitlist(
+          connectionId,
+          updates.username,
+          updates.partnername,
+          updates.secret
+        );
+        logger.info('[createConnection] Created new HumanConnection:', connection);
       }
 
-      // Create new HumanConnection with waitlist status
-      const newConnection = await memgraphService.createHumanConnectionWithWaitlist(
-        extractedInfo.userName,
-        extractedInfo.partnerName,
-        extractedInfo.secret
-      );
+      // Link authenticated Person to this HumanConnection and update Person name
+      try {
+        const webId = message.entityId;
 
-      logger.info('[createConnection] Successfully created new HumanConnection:', newConnection);
+        // If we extracted a username, persist it on the Person node
+        if (updates.username && updates.username.trim().length > 0) {
+          await memgraphService.updatePersonName(webId, updates.username);
+          logger.debug('[createConnection] Updated Person name for webId:', webId);
+        }
+
+        // Create/ensure PARTICIPATES_IN relation Person -> HumanConnection
+        await memgraphService.linkPersonToConnection(webId, connectionId, 'partner');
+        logger.debug('[createConnection] Linked Person to HumanConnection via PARTICIPATES_IN');
+      } catch (linkError) {
+        logger.warn('[createConnection] Failed to link Person to HumanConnection or update name:', linkError);
+      }
+
+      // Check if we have all required information
+      const partners = connection?.partners || [];
+      const hasUsername = partners.length > 0 && partners[0]?.trim();
+      const hasPartnername = partners.length > 1 && partners[1]?.trim();
+      const hasSecret = connection?.secret && connection.secret.trim();
+      const allComplete = hasUsername && hasPartnername && hasSecret;
+
+      // Check if a complete connection with same details already exists (different from current user)
+      let duplicateConnection: any = null;
+      if (allComplete) {
+        const foundConnection = await memgraphService.findExistingHumanConnection(
+          partners[0],
+          partners[1],
+          connection.secret!
+        );
+        // Make sure it's not the same connection we just created/updated
+        if (foundConnection && foundConnection.connectionId !== connectionId) {
+          duplicateConnection = foundConnection;
+        }
+      }
+
+      // Determine missing information
+      const missingItems: string[] = [];
+      if (!hasUsername) missingItems.push('your name');
+      if (!hasPartnername) missingItems.push('your partner\'s name');
+      if (!hasSecret) missingItems.push('your secret word or phrase');
+
+      // Generate response using template
+      const responsePrompt = connectionResponseTemplate
+        .replace('{{username}}', partners[0] || '')
+        .replace('{{partnername}}', partners[1] || '')
+        .replace('{{secret}}', connection?.secret || '')
+        .replace('{{missingInfo}}', missingItems.join(', '))
+        .replace('{{connectionExists}}', duplicateConnection ? 'true' : 'false')
+        .replace('{{connectionCreated}}', allComplete && !duplicateConnection ? 'true' : 'false');
+
+      const generatedResponse = await runtime.useModel(ModelType.TEXT_SMALL, {
+        prompt: responsePrompt,
+        temperature: 0.3,
+      });
+
+      const parsedResponse = parseKeyValueXml(generatedResponse);
+      const responseText = parsedResponse?.message || 'I\'m processing your connection information.';
+
+      if (callback) {
+        await callback({
+          text: responseText,
+          thought: parsedResponse?.thought || 'Processing connection information',
+          actions: ['CREATE_CONNECTION']
+        });
+      }
 
       return {
-        text: `Perfect! I've created your connection with ${extractedInfo.partnerName} using your secret "${extractedInfo.secret}". Your connection has been added to the waitlist and you'll be notified when it's ready for deeper conversations. Welcome to your Seren journey, ${extractedInfo.userName}!`,
+        text: responseText,
         success: true,
         values: {
-          connectionCreated: true,
-          userName: extractedInfo.userName,
-          partnerName: extractedInfo.partnerName,
-          status: 'waitlist'
+          connectionExists: !!duplicateConnection,
+          connectionCreated: allComplete && !duplicateConnection,
+          username: partners[0] || '',
+          partnername: partners[1] || '',
+          hasSecret: !!hasSecret,
+          status: connection?.status,
+          missingInfo: missingItems,
+          allComplete
         },
         data: {
-          connection: newConnection
+          connection,
+          duplicateConnection
         }
       };
 
     } catch (error) {
       logger.error('[createConnection] Error creating connection:', error);
-      
-      return {
-        text: 'I encountered an issue while creating your connection. Please try again or contact support if the problem persists.',
-        success: false,
-        error: error instanceof Error ? error : new Error(String(error))
-      };
+
+      // Generate error response using template
+      const errorResponsePrompt = connectionResponseTemplate
+        .replace('{{username}}', '')
+        .replace('{{partnername}}', '')
+        .replace('{{secret}}', '')
+        .replace('{{missingInfo}}', 'system error occurred')
+        .replace('{{connectionExists}}', 'false')
+        .replace('{{connectionCreated}}', 'false');
+
+      try {
+        const errorResponse = await runtime.useModel(ModelType.TEXT_SMALL, {
+          prompt: errorResponsePrompt,
+          temperature: 0.3,
+        });
+
+        const parsedErrorResponse = parseKeyValueXml(errorResponse);
+        const responseText = parsedErrorResponse?.message || 'I encountered an issue while creating your connection. Please try again or contact support if the problem persists.';
+
+        if (callback) {
+          await callback({
+            text: responseText,
+            thought: parsedErrorResponse?.thought || 'System error occurred',
+            actions: ['CREATE_CONNECTION']
+          });
+        }
+
+        return {
+          text: responseText,
+          success: false,
+          error: error instanceof Error ? error : new Error(String(error))
+        };
+      } catch (responseError) {
+        const fallbackText = 'I encountered an issue while creating your connection. Please try again or contact support if the problem persists.';
+
+        if (callback) {
+          await callback({
+            text: fallbackText,
+            thought: 'System error occurred',
+            actions: ['CREATE_CONNECTION']
+          });
+        }
+
+        return {
+          text: fallbackText,
+          success: false,
+          error: error instanceof Error ? error : new Error(String(error))
+        };
+      }
     } finally {
       await memgraphService.disconnect();
     }
