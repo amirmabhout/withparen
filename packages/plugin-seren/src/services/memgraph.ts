@@ -13,6 +13,9 @@ export interface PersonNode {
   name?: string;
   pronouns?: string;
   updatedAt: string;
+  // Optional fields that may exist when the Person node was created via the web app
+  webId?: string;
+  email?: string;
 }
 
 export interface HumanConnectionNode {
@@ -20,6 +23,9 @@ export interface HumanConnectionNode {
   secret: string;
   status?: string;
   updatedAt: string;
+  // Optional id field used by the web app when creating connections
+  connectionId?: string;
+  createdAt?: string;
 }
 
 export class MemgraphService {
@@ -101,6 +107,38 @@ export class MemgraphService {
       roomId: roomId || '',
       name: name || '',
       pronouns: pronouns || '',
+      updatedAt,
+    });
+
+    const personNode = result.records[0].get('p');
+    return personNode.properties as PersonNode;
+  }
+
+  /**
+   * Ensure a Person exists for the given userId and update basic fields if it already exists
+   */
+  async ensurePerson(
+    userId: string,
+    roomId?: string,
+    name?: string,
+    pronouns?: string
+  ): Promise<PersonNode> {
+    const updatedAt = new Date().toISOString();
+
+    const query = `
+      MERGE (p:Person {userId: $userId})
+      SET p.roomId = COALESCE($roomId, p.roomId),
+          p.name = COALESCE($name, p.name),
+          p.pronouns = COALESCE($pronouns, p.pronouns),
+          p.updatedAt = $updatedAt
+      RETURN p
+    `;
+
+    const result = await this.runQuery(query, {
+      userId,
+      roomId: roomId || null,
+      name: name || null,
+      pronouns: pronouns || null,
       updatedAt,
     });
 
@@ -230,6 +268,30 @@ export class MemgraphService {
   }
 
   /**
+   * Find HumanConnection candidates by two partner names (case-insensitive, first-name friendly)
+   */
+  async findConnectionsByPartnerNames(
+    userName: string,
+    partnerName: string
+  ): Promise<HumanConnectionNode[]> {
+    const userFirstName = userName.split(' ')[0].toLowerCase();
+    const partnerFirstName = partnerName.split(' ')[0].toLowerCase();
+
+    const query = `
+      MATCH (hc:HumanConnection)
+      WHERE ANY(n IN hc.partners WHERE toLower(n) = $userFirstName)
+        AND ANY(n IN hc.partners WHERE toLower(n) = $partnerFirstName)
+      RETURN hc
+    `;
+
+    const result = await this.runQuery(query, { userFirstName, partnerFirstName });
+    return result.records.map((record: any) => {
+      const connectionNode = record.get('hc');
+      return connectionNode.properties as HumanConnectionNode;
+    });
+  }
+
+  /**
    * Find HumanConnection by partners and secret for authentication
    * Uses flexible name matching (case-insensitive, first name matching)
    */
@@ -275,22 +337,110 @@ export class MemgraphService {
   ): Promise<boolean> {
     const updatedAt = new Date().toISOString();
     
-    const query = `
+    if (humanConnection.connectionId) {
+      const queryById = `
+        MATCH (p:Person {userId: $userId})
+        MATCH (hc:HumanConnection {connectionId: $connectionId})
+        MERGE (p)-[r:PARTICIPATES_IN]->(hc)
+        SET r.role = "partner", r.updatedAt = $updatedAt
+        RETURN p, hc
+      `;
+      const result = await this.runQuery(queryById, {
+        userId,
+        connectionId: humanConnection.connectionId,
+        updatedAt,
+      });
+      return result.records.length > 0;
+    }
+
+    const queryBySecret = `
       MATCH (p:Person {userId: $userId})
-      MATCH (hc:HumanConnection {secret: $secret})
-      WHERE hc.partners = $partners
-      CREATE (p)-[:PARTICIPATES_IN {role: "partner", updatedAt: $updatedAt}]->(hc)
+      MATCH (hc:HumanConnection {secret: $secret, partners: $partners})
+      MERGE (p)-[r:PARTICIPATES_IN]->(hc)
+      SET r.role = "partner", r.updatedAt = $updatedAt
       RETURN p, hc
     `;
-
-    const result = await this.runQuery(query, {
+    const result2 = await this.runQuery(queryBySecret, {
       userId,
       secret: humanConnection.secret,
       partners: humanConnection.partners,
       updatedAt,
     });
+    return result2.records.length > 0;
+  }
 
-    return result.records.length > 0;
+  /**
+   * Find a Person node by name within a given HumanConnection
+   */
+  async findPersonByNameInConnection(
+    userName: string,
+    humanConnection: HumanConnectionNode
+  ): Promise<PersonNode | null> {
+    const userNameLower = userName.toLowerCase();
+
+    const byConnectionId = humanConnection.connectionId
+      ? `MATCH (hc:HumanConnection {connectionId: $connectionId})`
+      : `MATCH (hc:HumanConnection {secret: $secret, partners: $partners})`;
+
+    const query = `
+      ${byConnectionId}
+      MATCH (p:Person)-[:PARTICIPATES_IN]->(hc)
+      WHERE toLower(p.name) = $userNameLower
+      RETURN p
+      LIMIT 1
+    `;
+
+    const result = await this.runQuery(query, {
+      userNameLower,
+      connectionId: humanConnection.connectionId || null,
+      secret: humanConnection.secret,
+      partners: humanConnection.partners,
+    });
+
+    if (result.records.length === 0) return null;
+    const personNode = result.records[0].get('p');
+    return personNode.properties as PersonNode;
+  }
+
+  /**
+   * Update a Person node identified by name within a specific HumanConnection
+   * to set runtime-specific identifiers like userId and roomId
+   */
+  async updatePersonByNameInConnection(
+    userName: string,
+    humanConnection: HumanConnectionNode,
+    updates: { userId?: string; roomId?: string }
+  ): Promise<PersonNode | null> {
+    const updatedAt = new Date().toISOString();
+    const userNameLower = userName.toLowerCase();
+
+    const byConnectionId = humanConnection.connectionId
+      ? `MATCH (hc:HumanConnection {connectionId: $connectionId})`
+      : `MATCH (hc:HumanConnection {secret: $secret, partners: $partners})`;
+
+    const query = `
+      ${byConnectionId}
+      MATCH (p:Person)-[:PARTICIPATES_IN]->(hc)
+      WHERE toLower(p.name) = $userNameLower
+      SET p.userId = COALESCE($userId, p.userId),
+          p.roomId = COALESCE($roomId, p.roomId),
+          p.updatedAt = $updatedAt
+      RETURN p
+    `;
+
+    const result = await this.runQuery(query, {
+      userNameLower,
+      connectionId: humanConnection.connectionId || null,
+      secret: humanConnection.secret,
+      partners: humanConnection.partners,
+      userId: updates.userId || null,
+      roomId: updates.roomId || null,
+      updatedAt,
+    });
+
+    if (result.records.length === 0) return null;
+    const personNode = result.records[0].get('p');
+    return personNode.properties as PersonNode;
   }
 
   /**
@@ -359,5 +509,38 @@ export class MemgraphService {
     });
 
     return result.records.length > 0;
+  }
+
+  /**
+   * Deduplicate Person nodes that share the same userId by merging PARTICIPATES_IN
+   * relationships into a single kept node and deleting the extras.
+   * Returns the number of removed duplicates.
+   */
+  async deduplicatePersonsByUserId(userId: string): Promise<number> {
+    const updatedAt = new Date().toISOString();
+
+    const query = `
+      MATCH (p:Person {userId: $userId})
+      WITH collect(p) AS persons
+      WHERE size(persons) > 1
+      WITH head(persons) AS keep, tail(persons) AS dups
+      UNWIND dups AS dup
+      // Move outgoing PARTICIPATES_IN
+      OPTIONAL MATCH (dup)-[r:PARTICIPATES_IN]->(hc:HumanConnection)
+      MERGE (keep)-[r2:PARTICIPATES_IN]->(hc)
+      SET r2 += r, r2.updatedAt = $updatedAt
+      DELETE r
+      WITH keep, dup
+      // Consolidate basic properties
+      SET keep.name = COALESCE(keep.name, dup.name),
+          keep.roomId = COALESCE(keep.roomId, dup.roomId),
+          keep.pronouns = COALESCE(keep.pronouns, dup.pronouns),
+          keep.updatedAt = $updatedAt
+      DELETE dup
+      RETURN 1 AS removed
+    `;
+
+    const result = await this.runQuery(query, { userId, updatedAt });
+    return result.records.length; // number of rows processed equals number of duplicates removed
   }
 }

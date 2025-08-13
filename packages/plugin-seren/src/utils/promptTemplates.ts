@@ -9,7 +9,7 @@ export const authenticationExtractionTemplate = `<task>Extract authentication in
 The user is trying to authenticate their connection to an existing human relationship. You need to extract three key pieces of information from their recent messages:
 1. Their own name
 2. The name of their special person/partner
-3. The shared secret word or phrase they chose together
+3. The shared secret word, phrase or sentence they chose together
 
 Recent conversation messages:
 {{recentMessages}}
@@ -17,14 +17,10 @@ Recent conversation messages:
 
 <instructions>
 Analyze the recent messages and extract the authentication information. The user should have provided:
-- Their own name (what they want to be called)
+- Their own name (what they want to be called) - Name you be already known from the client the user connecting with, there fore see if in recent conversation they already gave a name and they confirm that they used the same name when they signed up.
 - The name of the person they want to connect with
 - A secret word or phrase that only they and their partner know
 
-Be careful to distinguish between their name and their partner's name. Look for phrases like:
-- "My name is..." or "I'm..."
-- "I want to connect with..." or "Their name is..."
-- "Our secret is..." or "The secret word is..."
 
 If any information is missing or unclear, indicate what's missing.
 </instructions>
@@ -43,6 +39,48 @@ Respond using XML format like this:
 </response>
 
 IMPORTANT: Only extract information that is clearly stated. Do not guess or infer names or secrets. Your response must ONLY contain the <response></response> XML block above.
+</output>`;
+
+// A second-stage verifier that can flexibly compare a user's described secret
+// against candidate HumanConnection secrets and metadata using contextual
+// understanding rather than strict exact-string match.
+export const authenticationFlexibleVerificationTemplate = `<task>Decide which, if any, of the candidate connections match the user's described shared secret and partner names, allowing for paraphrase and contextual matches.</task>
+
+<context>
+You have already extracted three fields from the conversation:
+- userName: {{userName}}
+- partnerName: {{partnerName}}
+- userSecretText: {{userSecretText}}
+
+You are also given a list of candidate HumanConnection nodes from the database that match the two partner names in some flexible way. Each candidate includes: partners[], secret (may be a phrase/sentence), optional connectionId, and status.
+
+Candidates (JSON array):
+{{candidatesJson}}
+</context>
+
+<instructions>
+Your job is to select the single best-matching connection where the user's described secret is contextually equivalent to the candidate.secret, even if the exact wording differs. Consider synonyms, paraphrases, tense changes, small omissions/additions, and minor misspellings. If none are a reasonable match, choose "none".
+
+Rules:
+- Names have already been filtered; focus mainly on secret matching.
+- Prefer a candidate whose secret best captures the core meaning of userSecretText.
+- If multiple candidates are equally good, pick the one with status "active" over others; otherwise choose the first among equals.
+- If userSecretText is empty or uninformative, return "none".
+</instructions>
+
+<output>
+Respond ONLY with this XML structure:
+<response>
+  <match>connectionId if available, otherwise the literal string "partners+secret"</match>
+  <partners>comma-separated partners of the matched connection or empty if none</partners>
+  <secret>the candidate secret you matched against (empty if none)</secret>
+  <decision>"matched" or "none"</decision>
+  <reason>very brief justification (one short sentence)</reason>
+  <confidence>high|medium|low</confidence>
+  <raw>the exact JSON object of the matched candidate or empty</raw>
+}</response>
+
+Do not include any other text.
 </output>`;
 
 export const dailyPlanningTemplate = `<task>Generate narrative-driven daily plans and daily checkin messages for two people in a relationship, building on their previous conversations and memories to create personalized connection experiences.</task>
