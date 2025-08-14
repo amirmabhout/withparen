@@ -399,9 +399,11 @@ handler: async (runtime, message, state, options, callback): Promise<ActionResul
 
 ### Testing Philosophy
 
-- **Test Framework:** Bun's built-in test runner
+- **Test Framework:** bun:test EXCLUSIVELY - NEVER use jest, vitest, mocha, or any other testing framework
+- **All tests must pass successfully before considering code complete**
+- **Prefer real integration tests that cover entire functionality flow over isolated unit tests**
 - **E2E Tests:** Use actual runtime with real integrations
-- **Unit Tests:** Use Bun test with standard primitives
+- **Unit Tests:** Use bun:test with standard primitives
 - **Always verify tests pass before declaring changes correct**
 - **First attempts are usually incorrect - test thoroughly**
 
@@ -444,7 +446,8 @@ bun run build
 ### Language & Patterns
 
 - **TypeScript with proper typing for all new code**
-- **Use functional programming patterns; avoid classes**
+- **NEVER use any, never, or unknown types - always opt for specific types that accurately represent the data**
+- **Ensure code is free of TypeScript errors or warnings - code must compile without issues**
 - **Prefer iteration and modularization over code duplication**
 - **Comprehensive error handling required**
 - **Clear separation of concerns**
@@ -574,7 +577,6 @@ SOLANA_PRIVATE_KEY=
 
 ### Compatibility
 
-- Plugin compatibility through `/specs` (currently defaulting to v2)
 - Maintain backwards compatibility in changes
 - Consider migration paths for proposed changes
 
