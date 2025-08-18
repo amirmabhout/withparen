@@ -59,10 +59,10 @@ export const dailyPlanningAction: Action = {
       });
 
     } catch (error) {
-      logger.error('[Seren] Error in daily planning action:', error);
+      logger.error(`[Seren] Error in daily planning action: ${(error instanceof Error) ? error.message : String(error)}`);
 
       await callback?.({
-        text: `Failed to trigger daily planning: ${(error as Error).message}`,
+        text: `Failed to trigger daily planning: ${(error instanceof Error) ? error.message : String(error)}`,
         actions: ['DAILY_PLANNING_ERROR'],
       });
     }

@@ -69,7 +69,7 @@ const personaMemoryProvider: Provider = {
           logger.debug(`Found ${memories.length} memories in ${tableName}`);
           return memories;
         } catch (error) {
-          logger.warn(`Failed to search ${tableName}:`, error);
+          logger.warn(`Failed to search ${tableName}: ${error}`);
           return [];
         }
       });
@@ -100,7 +100,7 @@ const personaMemoryProvider: Provider = {
             logger.debug(`Found ${memories.length} memories in ${tableName} via direct retrieval`);
             return memories;
           } catch (error) {
-            logger.warn(`Failed to get memories from ${tableName}:`, error);
+            logger.warn(`Failed to get memories from ${tableName}: ${error}`);
             return [];
           }
         });
@@ -144,7 +144,7 @@ const personaMemoryProvider: Provider = {
         text,
       };
     } catch (error) {
-      logger.error('Error in personaMemoryProvider:', error);
+      logger.error(`Error in personaMemoryProvider: ${error}`);
       return {
         values: {
           personaMemory: '',

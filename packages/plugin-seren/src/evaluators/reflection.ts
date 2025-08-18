@@ -131,7 +131,9 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
   const { agentId, roomId, entityId } = message;
 
   if (!agentId || !roomId) {
-    logger.warn('Missing agentId or roomId in message', message);
+    logger.warn(
+      `Missing agentId or roomId in message: ${JSON.stringify({ agentId, roomId, messageId: message.id })}`
+    );
     return;
   }
 
@@ -179,7 +181,11 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
             unique: true,
           });
         } catch (error) {
-          logger.warn(`Failed to get memories from ${tableName}:`, error);
+          logger.warn(
+            `Failed to get memories from ${tableName}: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          );
           return [];
         }
       })
@@ -194,7 +200,11 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
             unique: true,
           });
         } catch (error) {
-          logger.warn(`Failed to get memories from ${tableName}:`, error);
+          logger.warn(
+            `Failed to get memories from ${tableName}: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          );
           return [];
         }
       })
@@ -227,7 +237,11 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
     const reflection = parseKeyValueXml(response);
 
     if (!reflection) {
-      logger.warn('Seren reflection failed - failed to parse XML', response);
+      logger.warn(
+        `Seren reflection failed - failed to parse XML. Raw response: ${
+          typeof response === 'string' ? response : JSON.stringify(response)
+        }`
+      );
       return;
     }
 
@@ -305,9 +319,18 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
     await Promise.all(
       personaInsights.map(async (insight) => {
         try {
-          return await storePersonaInsight(runtime, agentId, userId, roomId, insight.description, insight.dimension);
+          return await storePersonaInsight(
+            runtime,
+            agentId,
+            userId,
+            roomId,
+            insight.description,
+            insight.dimension
+          );
         } catch (error) {
-          logger.error('Error storing persona insight:', error);
+          logger.error(
+            `Error storing persona insight: ${error instanceof Error ? error.message : String(error)}`
+          );
         }
       })
     );
@@ -316,9 +339,20 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
     await Promise.all(
       connectionInsights.map(async (insight) => {
         try {
-          return await storeConnectionInsight(runtime, agentId, userId, roomId, insight.description, insight.dimension);
+          return await storeConnectionInsight(
+            runtime,
+            agentId,
+            userId,
+            roomId,
+            insight.description,
+            insight.dimension
+          );
         } catch (error) {
-          logger.error('Error storing connection insight:', error);
+          logger.error(
+            `Error storing connection insight: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          );
         }
       })
     );
@@ -335,7 +369,11 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
         });
         await runtime.createMemory(thoughtMemory, 'reflections', true);
       } catch (error) {
-        logger.error('Error storing reflection thought:', error);
+        logger.error(
+          `Error storing reflection thought: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
       }
     }
 
@@ -346,7 +384,9 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
 
     logger.info(`Seren reflection processed: ${personaInsights.length} persona insights, ${connectionInsights.length} connection insights`);
   } catch (error) {
-    logger.error('Error in Seren reflection handler:', error);
+    logger.error(
+      `Error in Seren reflection handler: ${error instanceof Error ? error.message : String(error)}`
+    );
     return;
   }
 }

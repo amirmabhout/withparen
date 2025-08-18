@@ -26,7 +26,6 @@ import {
   postCreationTemplate,
   Role,
   type Room,
-  shouldRespondTemplate,
   truncateToCompleteSentence,
   type UUID,
   type WorldPayload,
@@ -216,7 +215,7 @@ export async function processAttachments(
             logger.warn(`[serenapp] Unexpected response format for image description`);
           }
         } catch (error) {
-          logger.error(`[serenapp] Error generating image description:`, error);
+          logger.error(`[serenapp] Error generating image description: ${error}`);
           // Continue processing without description
         }
       } else if (attachment.contentType === ContentType.DOCUMENT && !attachment.text) {
@@ -243,11 +242,13 @@ export async function processAttachments(
 
       processedAttachments.push(processedAttachment);
     } catch (error) {
-      logger.error(`[serenapp] Failed to process attachment ${attachment.url}:`, error);
+      logger.error(`[serenapp] Failed to process attachment ${attachment.url}: ${error}`);
       // Add the original attachment if processing fails
       processedAttachments.push(attachment);
     }
   }
+
+  logger.debug(`[serenapp] Processed attachments: ${JSON.stringify(processedAttachments)}`);
 
   return processedAttachments;
 }
@@ -402,7 +403,7 @@ const messageReceivedHandler = async ({
 
             // Validate the signin action
             const isValidSignin = await signinAction.validate(runtime, message);
-            logger.debug('[serenapp] Signin validation result:', isValidSignin);
+            logger.debug(`[serenapp] Signin validation result: ${isValidSignin}`);
 
             if (isValidSignin) {
               // Execute signin action directly
@@ -410,13 +411,13 @@ const messageReceivedHandler = async ({
               const signinResult = await signinAction.handler(runtime, message, undefined, {});
 
               if (signinResult) {
-                logger.info('[serenapp] Signin action completed:', {
+                logger.info(`[serenapp] Signin action completed: ${JSON.stringify({
                   success: signinResult.success,
                   webId: signinResult.values?.webId,
                   hasEmail: !!signinResult.values?.email,
                   personCreated: signinResult.values?.personCreated,
                   personAlreadyExisted: signinResult.values?.personAlreadyExisted
-                });
+                })}`);
 
                 if (signinResult.success) {
                   logger.debug('[serenapp] Signin successful, continuing with normal message processing');
@@ -430,7 +431,7 @@ const messageReceivedHandler = async ({
               logger.warn('[serenapp] Signin validation failed, continuing with normal processing');
             }
           } catch (error) {
-            logger.error('[serenapp] Error executing signin action:', error);
+            logger.error(`[serenapp] Error executing signin action: ${error}`);
             // Continue with normal processing if signin fails
           }
         }
@@ -476,46 +477,9 @@ const messageReceivedHandler = async ({
           }
         }
 
+        // Always respond: skip shouldRespond LLM evaluation
         let shouldRespond = true;
-
-        // Handle shouldRespond
-        if (!shouldSkipShouldRespond) {
-          const shouldRespondPrompt = composePromptFromState({
-            state,
-            template: runtime.character.templates?.shouldRespondTemplate || shouldRespondTemplate,
-          });
-
-          logger.debug(
-            `[serenapp] Evaluating response for ${runtime.character.name}\nPrompt: ${shouldRespondPrompt}`
-          );
-
-          const response = await runtime.useModel(ModelType.TEXT_SMALL, {
-            prompt: shouldRespondPrompt,
-          });
-
-          logger.debug(
-            `[serenapp] Response evaluation for ${runtime.character.name}:\n${response}`
-          );
-          logger.debug(`[serenapp] Response type: ${typeof response}`);
-
-          // Try to preprocess response by removing code blocks markers if present
-          // let processedResponse = response.replace('```json', '').replaceAll('```', '').trim(); // No longer needed for XML
-
-          const responseObject = parseKeyValueXml(response);
-          logger.debug('[serenapp] Parsed response:', responseObject);
-
-          // If an action is provided, the agent intends to respond in some way
-          // Only exclude explicit non-response actions
-          const nonResponseActions = ['IGNORE', 'NONE'];
-          shouldRespond =
-            responseObject?.action &&
-            !nonResponseActions.includes(responseObject.action.toUpperCase());
-        } else {
-          logger.debug(
-            `[serenapp] Skipping shouldRespond check for ${runtime.character.name} because ${room?.type} ${room?.source}`
-          );
-          shouldRespond = true;
-        }
+        logger.debug(`[serenapp] Skipping shouldRespond evaluation; forcing shouldRespond=true`);
 
         let responseMessages: Memory[] = [];
 
@@ -544,11 +508,11 @@ const messageReceivedHandler = async ({
               prompt,
             });
 
-            logger.debug('[serenapp] *** Raw LLM Response ***\n', response);
+            logger.debug(`[serenapp] *** Raw LLM Response ***\n${response}`);
 
             // Attempt to parse the XML response
             const parsedXml = parseKeyValueXml(response);
-            logger.debug('[serenapp] *** Parsed XML Content ***\n', parsedXml);
+            logger.debug(`[serenapp] *** Parsed XML Content ***\n${JSON.stringify(parsedXml)}`);
 
             // Map parsed XML to Content type, handling potential missing fields
             if (parsedXml) {
@@ -566,12 +530,7 @@ const messageReceivedHandler = async ({
 
             retries++;
             if (!responseContent?.thought || !responseContent?.actions) {
-              logger.warn(
-                '[serenapp] *** Missing required fields (thought or actions), retrying... ***\n',
-                response,
-                parsedXml,
-                responseContent
-              );
+              logger.warn(`[serenapp] *** Missing required fields (thought or actions), retrying... *** response: ${JSON.stringify(response)} parsedXml: ${JSON.stringify(parsedXml)} responseContent: ${JSON.stringify(responseContent)}`);
             }
           }
 
@@ -661,8 +620,12 @@ const messageReceivedHandler = async ({
           if (responseContent && responseContent.actions && responseContent.actions.length > 0) {
             const action = responseContent.actions[0].toUpperCase();
 
-            if (action === 'NONE' && responseContent.text) {
-              // NONE action: callback the message and do nothing extra
+            if (action === 'CREATE_CONNECTION') {
+              // Execute the action so it persists HumanConnection in Memgraph
+              logger.debug('[serenapp] CREATE_CONNECTION: executing processActions to persist connection');
+              await runtime.processActions(message, responseMessages, state, callback);
+            } else if (action === 'NONE' && responseContent.text) {
+              // NONE action: callback message only, no action execution
               logger.debug('[serenapp] NONE action: sending callback with message');
               await callback(responseContent);
             } else if (action === 'IGNORE') {
@@ -671,7 +634,7 @@ const messageReceivedHandler = async ({
               // Do nothing - no callback, no message sent
             } else {
               // Fallback to original logic for any other actions (future-proofing)
-              logger.debug('[serenapp] Fallback: using processActions for action:', action);
+              logger.debug(`[serenapp] Fallback: using processActions for action: ${action}`);
               await runtime.processActions(message, responseMessages, state, callback);
             }
           } else {
@@ -719,9 +682,9 @@ const messageReceivedHandler = async ({
             createdAt: Date.now(),
           };
           await runtime.createMemory(ignoreMemory, 'messages');
-          logger.debug('[serenapp] Saved ignore response to memory', {
+          logger.debug(`[serenapp] Saved ignore response to memory: ${JSON.stringify({
             memoryId: ignoreMemory.id,
-          });
+          })}`);
 
           // Clean up the response ID since we handled it
           agentResponses.delete(message.roomId);
@@ -794,7 +757,7 @@ const reactionReceivedHandler = async ({
       logger.warn('[serenapp] Duplicate reaction memory, skipping');
       return;
     }
-    logger.error('[serenapp] Error in reaction handler:', error);
+    logger.error(`[serenapp] Error in reaction handler: ${error}`);
   }
 };
 
@@ -819,11 +782,11 @@ const messageDeletedHandler = async ({
       return;
     }
 
-    logger.info('[serenapp] Deleting memory for message', message.id, 'from room', message.roomId);
+    logger.info(`[serenapp] Deleting memory for message ${message.id} from room ${message.roomId}`);
     await runtime.deleteMemory(message.id);
-    logger.debug('[serenapp] Successfully deleted memory for message', message.id);
+    logger.debug(`[serenapp] Successfully deleted memory for message ${message.id}`);
   } catch (error: unknown) {
-    logger.error('[serenapp] Error in message deleted handler:', error);
+    logger.error(`[serenapp] Error in message deleted handler: ${error}`);
   }
 };
 
@@ -867,7 +830,7 @@ const channelClearedHandler = async ({
           await runtime.deleteMemory(memory.id);
           deletedCount++;
         } catch (error) {
-          logger.warn(`[serenapp] Failed to delete message memory ${memory.id}:`, error);
+          logger.warn(`[serenapp] Failed to delete message memory ${memory.id}: ${error}`);
         }
       }
     }
@@ -876,7 +839,7 @@ const channelClearedHandler = async ({
       `[serenapp] Successfully cleared ${deletedCount}/${memories.length} message memories from channel ${channelId}`
     );
   } catch (error: unknown) {
-    logger.error('[serenapp] Error in channel cleared handler:', error);
+    logger.error(`[serenapp] Error in channel cleared handler: ${error}`);
   }
 };
 
@@ -980,12 +943,7 @@ const postGeneratedHandler = async ({
 
     retries++;
     if (!responseContent?.thought || !responseContent?.actions) {
-      logger.warn(
-        '[serenapp] *** Missing required fields, retrying... ***\n',
-        response,
-        parsedXml,
-        responseContent
-      );
+      logger.warn(`[serenapp] *** Missing required fields, retrying... ***\nresponse: ${response}\nparsedXml: ${JSON.stringify(parsedXml)}\nresponseContent: ${JSON.stringify(responseContent)}`);
     }
   }
 
@@ -1007,10 +965,7 @@ const postGeneratedHandler = async ({
   const parsedXmlResponse = parseKeyValueXml(xmlResponseText);
 
   if (!parsedXmlResponse) {
-    logger.error(
-      '[serenapp] Failed to parse XML response for post creation. Raw response:',
-      xmlResponseText
-    );
+    logger.error(`[serenapp] Failed to parse XML response for post creation. Raw response: ${xmlResponseText}`);
     // Handle the error appropriately, maybe retry or return an error state
     return;
   }
@@ -1055,7 +1010,7 @@ const postGeneratedHandler = async ({
   if (RM) {
     for (const m of RM.data.recentMessages) {
       if (cleanedText === m.content.text) {
-        logger.log('[serenapp] Already recently posted that, retrying', cleanedText);
+        logger.info(`[serenapp] Already recently posted that, retrying: ${cleanedText}`);
         postGeneratedHandler({
           runtime,
           callback,
@@ -1086,7 +1041,7 @@ const postGeneratedHandler = async ({
     googleRefusalRegex.test(cleanedText) ||
     generalRefusalRegex.test(cleanedText)
   ) {
-    logger.log('[serenapp] Got prompt moderation refusal, retrying', cleanedText);
+    logger.info(`[serenapp] Got prompt moderation refusal, retrying: ${cleanedText}`);
     postGeneratedHandler({
       runtime,
       callback,

@@ -5,7 +5,7 @@ export { createConnectionAction } from './createConnection';
 export { ignoreAction } from './ignore';
 //export { muteRoomAction } from './muteRoom';
 export { noneAction } from './none';
-//export { replyAction } from './reply';
+export { replyAction } from './reply';
 //export { updateRoleAction } from './roles';
 //export { sendMessageAction } from './sendMessage';
 //export { updateSettingsAction } from './settings';

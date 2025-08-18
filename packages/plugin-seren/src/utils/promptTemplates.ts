@@ -7,8 +7,8 @@ export const authenticationExtractionTemplate = `<task>Extract authentication in
 
 <context>
 The user is trying to authenticate their connection to an existing human relationship. You need to extract three key pieces of information from their recent messages:
-1. Their own name
-2. The name of their special person/partner
+1. Their own name (if not mentioned, take it from conversation history)
+2. The name of their connection/person/partner
 3. The shared secret word, phrase or sentence they chose together
 
 Recent conversation messages:
@@ -16,11 +16,18 @@ Recent conversation messages:
 </context>
 
 <instructions>
-Analyze the recent messages and extract the authentication information. The user should have provided:
-- Their own name (what they want to be called) - Name you be already known from the client the user connecting with, there fore see if in recent conversation they already gave a name and they confirm that they used the same name when they signed up.
-- The name of the person they want to connect with
-- A secret word or phrase that only they and their partner know
+Analyze the recent messages carefully and extract the authentication information. Look for:
 
+1. **User's name**: Usually confirmed when Seren asks "Do you confirm this is the same first name..." and user says "yes"
+2. **Partner's name**: When Seren asks "What's the name of your connection?" - the user's response is the partner name
+3. **Secret**: When Seren asks "What's the secret known between you two..." - the user's response is the secret
+
+Pay attention to the conversation flow:
+- Seren asks for name confirmation → User confirms
+- Seren asks "What's the name of your connection?" → User provides partner name  
+- Seren asks "What's the secret..." → User provides secret
+
+IMPORTANT: Do not confuse the partner's name with the secret. They are different pieces of information.
 
 If any information is missing or unclear, indicate what's missing.
 </instructions>

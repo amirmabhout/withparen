@@ -6,22 +6,26 @@
 export const connectionExtractionTemplate = `<task>Extract connection information from user messages for creating a new Seren human connection.</task>
 
 <context>
-The user wants to create a new human connection and join the waitlist. You need to extract three key pieces of information from their recent messages:
+The user wants to create a new human connection and join the waitlist. You need to extract three key pieces of information from their recent messages. Messages are chronologically ordered and labeled with an ISO timestamp and sender as "Seren:" or "User:".
 1. Their own name (first name only, lowercase)
 2. The name of their special person/partner (first name only, lowercase)
 3. The shared secret word, phrase, or sentence they want to use
 
-Recent conversation messages:
+Recent conversation messages (oldest to newest):
 {{recentMessages}}
 </context>
 
 <instructions>
-Analyze the recent messages and extract the connection information. The user should have provided:
+Analyze the recent messages and extract the connection information strictly from the User's messages. The user should have provided:
 - Their own name (first name only, convert to lowercase)
 - The name of the person they want to connect with (first name only, convert to lowercase)
 - A secret word, phrase, or sentence that only they and their partner will know
 
-ONLY extract information that is clearly stated. Do not guess or infer names or secrets.
+Rules:
+- ONLY extract information that is clearly stated in User lines. Do not use Seren's lines as source of values.
+- If Seren gives examples of possible secrets, IGNORE those examples. Extract the secret only from the User's most recent reply after Seren asks for a shared secret.
+- If multiple candidates appear, prefer the latest User line.
+- Do not guess or infer names or secrets.
 If any information is missing or unclear, do not include it in the response.
 </instructions>
 

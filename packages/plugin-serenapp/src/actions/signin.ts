@@ -41,7 +41,7 @@ export const signinAction: Action = {
         const memgraphService = new MemgraphService();
 
         try {
-            logger.debug('[signin] Starting signin process for webId:', message.entityId);
+            logger.debug(`[signin] Starting signin process for webId: ${message.entityId}`);
             await memgraphService.connect();
             logger.debug('[signin] Connected to Memgraph successfully');
 
@@ -79,16 +79,16 @@ export const signinAction: Action = {
                     authorId = authorIdMatch[1];
                 }
 
-                logger.info('[signin] Extracted Firebase data:', {
+                logger.debug(`[signin] Extracted Firebase data: ${JSON.stringify({
                     webId,
                     email,
-                    firebaseId: firebaseId ? `${firebaseId.substring(0, 8)}...` : undefined,
-                    authorId,
+                    firebaseId: firebaseId || undefined,
+                    authorId: authorId || undefined,
                     hasToken: !!firebaseToken
-                });
+                })}`);
 
             } catch (error) {
-                logger.error('[signin] Error extracting Firebase data:', error);
+                logger.error(`[signin] Error extracting Firebase data: ${error}`);
                 throw new Error('Failed to extract authentication data from message');
             }
 
@@ -98,7 +98,7 @@ export const signinAction: Action = {
             let wasUpdated = false;
 
             if (firebaseId) {
-                logger.debug('[signin] Checking for existing Person by firebaseId:', firebaseId);
+                logger.debug(`[signin] Checking for existing Person by firebaseId: ${firebaseId}`);
                 const existingByFirebase = await memgraphService.findPersonByFirebaseId(firebaseId);
                 if (existingByFirebase) {
                     logger.info('[signin] Found existing Person by firebaseId, applying updates');
@@ -112,9 +112,9 @@ export const signinAction: Action = {
             }
 
             if (!person) {
-                logger.debug('[signin] Checking for existing Person node with webId:', webId);
+                logger.debug(`[signin] Checking if person exists in database for webId: ${webId}`);
                 const existingByWebId = await memgraphService.findPersonByWebId(webId);
-                logger.debug('[signin] Existing person by webId:', !!existingByWebId);
+                logger.debug(`[signin] Existing person by webId: ${!!existingByWebId}`);
                 if (existingByWebId) {
                     logger.info('[signin] Updating existing Person by webId');
                     person = await memgraphService.updatePersonAuthByWebId(webId, {
@@ -137,13 +137,15 @@ export const signinAction: Action = {
                     authorId
                 );
                 wasCreated = true;
-                logger.info('[signin] Created new Person node:', {
-                    webId: person.webId,
-                    email: person.email,
-                    hasFirebaseId: !!person.firebaseId,
-                    hasToken: !!person.firebaseToken
-                });
+                logger.info(`[signin] Created new Person node: webId=${person.webId}, email=${person.email}, hasFirebaseId=${!!person.firebaseId}, hasToken=${!!person.firebaseToken}`);
             }
+
+            logger.debug(`[signin] Final signin result: ${JSON.stringify({
+                webId,
+                email,
+                hasFirebaseId: !!firebaseId,
+                hasToken: !!firebaseToken
+            })}`);
 
             // Return success without generating a response - let normal message handler continue
             return {
@@ -164,7 +166,7 @@ export const signinAction: Action = {
             };
 
         } catch (error) {
-            logger.error('[signin] Error processing signin:', error);
+            logger.error(`[signin] Error processing signin: ${error}`);
 
             return {
                 text: '', // No text response needed

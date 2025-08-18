@@ -274,17 +274,39 @@ export class MemgraphService {
     userName: string,
     partnerName: string
   ): Promise<HumanConnectionNode[]> {
+    if (!userName || !partnerName) {
+      return [];
+    }
+    
     const userFirstName = userName.split(' ')[0].toLowerCase();
     const partnerFirstName = partnerName.split(' ')[0].toLowerCase();
 
-    const query = `
+    // First try exact matching
+    const exactQuery = `
       MATCH (hc:HumanConnection)
       WHERE ANY(n IN hc.partners WHERE toLower(n) = $userFirstName)
         AND ANY(n IN hc.partners WHERE toLower(n) = $partnerFirstName)
       RETURN hc
     `;
 
-    const result = await this.runQuery(query, { userFirstName, partnerFirstName });
+    let result = await this.runQuery(exactQuery, { userFirstName, partnerFirstName });
+    
+    if (result.records.length > 0) {
+      return result.records.map((record: any) => {
+        const connectionNode = record.get('hc');
+        return connectionNode.properties as HumanConnectionNode;
+      });
+    }
+
+    // If no exact match, try fuzzy matching with CONTAINS for similar names
+    const fuzzyQuery = `
+      MATCH (hc:HumanConnection)
+      WHERE ANY(n IN hc.partners WHERE toLower(n) CONTAINS toLower($userFirstName) OR toLower($userFirstName) CONTAINS toLower(n))
+        AND ANY(n IN hc.partners WHERE toLower(n) CONTAINS toLower($partnerFirstName) OR toLower($partnerFirstName) CONTAINS toLower(n))
+      RETURN hc
+    `;
+
+    result = await this.runQuery(fuzzyQuery, { userFirstName, partnerFirstName });
     return result.records.map((record: any) => {
       const connectionNode = record.get('hc');
       return connectionNode.properties as HumanConnectionNode;

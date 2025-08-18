@@ -35,38 +35,26 @@ export const createConnectionAction: Action = {
       return false;
     }
 
-    const memgraphService = new MemgraphService();
-    try {
-      await memgraphService.connect();
+    // Skip authentication check - allow connection creation without sign-in
+    logger.debug(`[createConnection] Validation passed: Allowing connection creation without authentication for webId: ${message.entityId}`);
+    return true;
 
-      // Get the user's entityId as webId (similar to how plugin-seren extracts userId)
-      const webId = message.entityId;
-
-      // Check if person node exists and has email property
-      const person = await memgraphService.findPersonByWebId(webId);
-
-      if (!person) {
-        logger.debug('[createConnection] Validation failed: No person node found for webId:', webId);
-        return false;
-      }
-
-      if (!person.email) {
-        logger.debug(
-          '[createConnection] Validation failed: Person node exists but has no email for webId:',
-          webId
-        );
-        return false;
-      }
-
-      logger.debug('[createConnection] Validation passed: Person node with email found for webId:', webId);
-      return true;
-    } catch (error) {
-      logger.error('[createConnection] Validation error:', error);
-      // If there's an error checking authentication, fail validation
-      return false;
-    } finally {
-      await memgraphService.disconnect();
-    }
+    // TODO: Re-enable authentication check if needed in the future
+    // const memgraphService = new MemgraphService();
+    // try {
+    //   await memgraphService.connect();
+    //   const webId = message.entityId;
+    //   const person = await memgraphService.findPersonByWebId(webId);
+    //   if (!person || !person.email) {
+    //     return false;
+    //   }
+    //   return true;
+    // } catch (error) {
+    //   logger.error(`[createConnection] Validation error: ${error}`);
+    //   return false;
+    // } finally {
+    //   await memgraphService.disconnect();
+    // }
   },
   handler: async (
     runtime: IAgentRuntime,
@@ -83,18 +71,26 @@ export const createConnectionAction: Action = {
       // Get the user's entityId as connectionId
       const connectionId = message.entityId;
 
-      // Get recent messages for context
+      // Get recent messages for context (limit to last 20)
       const recentMessages = await runtime.getMemories({
         tableName: 'messages',
         roomId: message.roomId,
-        count: 40,
+        count: 20,
         unique: false,
       });
 
-      // Format messages for the prompt
+      // Sort chronologically (oldest -> newest) and format with role + time for clarity
       const formattedMessages = recentMessages
-        .map((msg: any) => `${msg.content?.text || ''}`)
-        .filter(text => text.trim().length > 0)
+        .sort((a: any, b: any) => (a.createdAt || 0) - (b.createdAt || 0))
+        .map((msg: any) => {
+          const text = (msg.content?.text || '').trim();
+          if (!text) return '';
+          const isAgent = msg.entityId === runtime.agentId;
+          const sender = isAgent ? 'Seren' : 'User';
+          const time = msg.createdAt ? new Date(msg.createdAt).toISOString() : '';
+          return `${time} ${sender}: ${text}`.trim();
+        })
+        .filter((line: string) => line.length > 0)
         .join('\n');
 
       // Create extraction prompt
@@ -115,7 +111,7 @@ export const createConnectionAction: Action = {
         }
         logger.debug('[createConnection] Successfully extracted connection info:', extractedInfo);
       } catch (e) {
-        logger.error('[createConnection] Failed to parse connection extraction response:', e);
+        logger.error(`[createConnection] Failed to create connection in database: ${e}`);
 
         // Generate error response using template
         const errorResponsePrompt = connectionResponseTemplate
@@ -180,21 +176,29 @@ export const createConnectionAction: Action = {
         logger.info('[createConnection] Created new HumanConnection:', connection);
       }
 
-      // Link authenticated Person to this HumanConnection and update Person name
+      // Ensure Person node exists and link to HumanConnection
       try {
         const webId = message.entityId;
+
+        // Check if Person node exists, create if it doesn't
+        let person = await memgraphService.findPersonByWebId(webId);
+        if (!person) {
+          // Create a basic Person node without email (no authentication required)
+          person = await memgraphService.createPerson(webId);
+          logger.debug(`[createConnection] Created basic Person node for webId: ${webId}`);
+        }
 
         // If we extracted a username, persist it on the Person node
         if (updates.username && updates.username.trim().length > 0) {
           await memgraphService.updatePersonName(webId, updates.username);
-          logger.debug('[createConnection] Updated Person name for webId:', webId);
+          logger.debug(`[createConnection] Updated Person name for webId: ${webId}`);
         }
 
         // Create/ensure PARTICIPATES_IN relation Person -> HumanConnection
         await memgraphService.linkPersonToConnection(webId, connectionId, 'partner');
         logger.debug('[createConnection] Linked Person to HumanConnection via PARTICIPATES_IN');
       } catch (linkError) {
-        logger.warn('[createConnection] Failed to link Person to HumanConnection or update name:', linkError);
+        logger.warn(`[createConnection] Failed to link Person to HumanConnection or update name: ${linkError}`);
       }
 
       // Check if we have all required information
@@ -269,7 +273,7 @@ export const createConnectionAction: Action = {
       };
 
     } catch (error) {
-      logger.error('[createConnection] Error creating connection:', error);
+      logger.error(`[createConnection] Error creating connection: ${error}`);
 
       // Generate error response using template
       const errorResponsePrompt = connectionResponseTemplate

@@ -4,7 +4,7 @@ import { character } from './character.ts';
 
 const initCharacter = ({ runtime }: { runtime: IAgentRuntime }) => {
   logger.info('Initializing character');
-  logger.info('Name: ', character.name);
+  logger.info(`Name: ${character.name}`);
 };
 
 export const projectAgent: ProjectAgent = {

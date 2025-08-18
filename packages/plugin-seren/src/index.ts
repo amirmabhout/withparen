@@ -217,7 +217,9 @@ export async function processAttachments(
             logger.warn(`[serenapp] Unexpected response format for image description`);
           }
         } catch (error) {
-          logger.error(`[serenapp] Error generating image description:`, error);
+          logger.error(
+            `[serenapp] Error generating image description: ${error instanceof Error ? error.message : String(error)}`
+          );
           // Continue processing without description
         }
       } else if (attachment.contentType === ContentType.DOCUMENT && !attachment.text) {
@@ -244,7 +246,9 @@ export async function processAttachments(
 
       processedAttachments.push(processedAttachment);
     } catch (error) {
-      logger.error(`[serenapp] Failed to process attachment ${attachment.url}:`, error);
+      logger.error(
+        `[serenapp] Failed to process attachment ${attachment.url}: ${error instanceof Error ? error.message : String(error)}`
+      );
       // Add the original attachment if processing fails
       processedAttachments.push(attachment);
     }
@@ -456,7 +460,7 @@ const messageReceivedHandler = async ({
           // let processedResponse = response.replace('```json', '').replaceAll('```', '').trim(); // No longer needed for XML
 
           const responseObject = parseKeyValueXml(response);
-          logger.debug('[serenapp] Parsed response:', responseObject);
+          logger.debug(`[serenapp] Parsed response: ${JSON.stringify(responseObject)}`);
 
           // If an action is provided, the agent intends to respond in some way
           // Only exclude explicit non-response actions
@@ -521,10 +525,9 @@ const messageReceivedHandler = async ({
             retries++;
             if (!responseContent?.thought || !responseContent?.actions) {
               logger.warn(
-                '[serenapp] *** Missing required fields (thought or actions), retrying... ***\n',
-                response,
-                parsedXml,
-                responseContent
+                `[serenapp] *** Missing required fields (thought or actions), retrying... ***\nResponse: ${
+                  typeof response === 'string' ? response : JSON.stringify(response)
+                }\nParsedXml: ${JSON.stringify(parsedXml)}\nResponseContent: ${JSON.stringify(responseContent)}`
               );
             }
           }
@@ -625,7 +628,9 @@ const messageReceivedHandler = async ({
               // Do nothing - no callback, no message sent
             } else {
               // Fallback to original logic for any other actions (future-proofing)
-              logger.debug('[serenapp] Fallback: using processActions for action:', action);
+              logger.debug(
+                `[serenapp] Fallback: using processActions for action: ${String(action)}`
+              );
               await runtime.processActions(message, responseMessages, state, callback);
             }
           } else {
@@ -673,9 +678,7 @@ const messageReceivedHandler = async ({
             createdAt: Date.now(),
           };
           await runtime.createMemory(ignoreMemory, 'messages');
-          logger.debug('[serenapp] Saved ignore response to memory', {
-            memoryId: ignoreMemory.id,
-          });
+          logger.debug(`[serenapp] Saved ignore response to memory: ${ignoreMemory.id}`);
 
           // Clean up the response ID since we handled it
           agentResponses.delete(message.roomId);
@@ -773,11 +776,17 @@ const messageDeletedHandler = async ({
       return;
     }
 
-    logger.info('[serenapp] Deleting memory for message', message.id, 'from room', message.roomId);
+    logger.info(
+      `[serenapp] Deleting memory for message ${message.id} from room ${message.roomId}`
+    );
     await runtime.deleteMemory(message.id);
-    logger.debug('[serenapp] Successfully deleted memory for message', message.id);
+    logger.debug(`[serenapp] Successfully deleted memory for message ${message.id}`);
   } catch (error: unknown) {
-    logger.error('[serenapp] Error in message deleted handler:', error);
+    logger.error(
+      `[serenapp] Error in message deleted handler: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
   }
 };
 
@@ -821,7 +830,11 @@ const channelClearedHandler = async ({
           await runtime.deleteMemory(memory.id);
           deletedCount++;
         } catch (error) {
-          logger.warn(`[serenapp] Failed to delete message memory ${memory.id}:`, error);
+          logger.warn(
+            `[serenapp] Failed to delete message memory ${memory.id}: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          );
         }
       }
     }
@@ -830,7 +843,11 @@ const channelClearedHandler = async ({
       `[serenapp] Successfully cleared ${deletedCount}/${memories.length} message memories from channel ${channelId}`
     );
   } catch (error: unknown) {
-    logger.error('[serenapp] Error in channel cleared handler:', error);
+    logger.error(
+      `[serenapp] Error in channel cleared handler: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
   }
 };
 
@@ -935,10 +952,9 @@ const postGeneratedHandler = async ({
     retries++;
     if (!responseContent?.thought || !responseContent?.actions) {
       logger.warn(
-        '[serenapp] *** Missing required fields, retrying... ***\n',
-        response,
-        parsedXml,
-        responseContent
+        `[serenapp] *** Missing required fields, retrying... ***\nResponse: ${
+          typeof response === 'string' ? response : JSON.stringify(response)
+        }\nParsedXml: ${JSON.stringify(parsedXml)}\nResponseContent: ${JSON.stringify(responseContent)}`
       );
     }
   }
@@ -962,8 +978,9 @@ const postGeneratedHandler = async ({
 
   if (!parsedXmlResponse) {
     logger.error(
-      '[serenapp] Failed to parse XML response for post creation. Raw response:',
-      xmlResponseText
+      `[serenapp] Failed to parse XML response for post creation. Raw response: ${
+        typeof xmlResponseText === 'string' ? xmlResponseText : JSON.stringify(xmlResponseText)
+      }`
     );
     // Handle the error appropriately, maybe retry or return an error state
     return;
@@ -1009,7 +1026,7 @@ const postGeneratedHandler = async ({
   if (RM) {
     for (const m of RM.data.recentMessages) {
       if (cleanedText === m.content.text) {
-        logger.log('[serenapp] Already recently posted that, retrying', cleanedText);
+        logger.log(`[serenapp] Already recently posted that, retrying: ${cleanedText}`);
         postGeneratedHandler({
           runtime,
           callback,
@@ -1040,7 +1057,7 @@ const postGeneratedHandler = async ({
     googleRefusalRegex.test(cleanedText) ||
     generalRefusalRegex.test(cleanedText)
   ) {
-    logger.log('[serenapp] Got prompt moderation refusal, retrying', cleanedText);
+    logger.log(`[serenapp] Got prompt moderation refusal, retrying: ${cleanedText}`);
     postGeneratedHandler({
       runtime,
       callback,

@@ -198,7 +198,11 @@ export const onboardingProvider: Provider = {
           };
         }
       } catch (error) {
-        logger.warn('[onboarding] Error checking daily plan, continuing with onboarding:', error);
+        logger.warn(
+          `[onboarding] Error checking daily plan, continuing with onboarding: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
       }
     }
 
@@ -258,18 +262,18 @@ You are helping a user connect with someone whose deepending the connection matt
 ## Two Possible Situations
 
 ### Situation 1: First Time Setup Needed
-If neither the user nor their special person has started their Seren journey yet, they need to visit **withseren.com** first to:
+If neither the user nor their connection has started their Seren journey yet, they need to visit **withseren.com** first to:
 - Get everything ready for deeper conversations and then visiting me (seren) here
 
 ### Situation 2: Ready to Connect
-If they or their special person has already started on withseren.com, they just need to verify who they are by sharing:
-1. **Their own name**
-2. **The name of their special person** 
-3. **The secret word or phrase** they chose together
+If they or their connection has already started on withseren.com, they just need to verify who they are by sharing:
+1. **Confirm their name** (Usually in message history, a user name is extracted from client so see what name is for user and ask if they signed up with that name.)
+2. **The name of their connection**
+3. **The secret known only between them and shared with Seren when signing up on the landing page** 
 
 ## Your Approach
-1. **Welcome them warmly** - acknowledge they want to connect with someone special
-2. **Find out their situation**: "Have you or your special person already gotten started on withseren.com?"
+1. **Welcome them warmly** - acknowledge they want to deepen their connection
+2. **Find out their situation**: "Have you or your connection already gotten started on withseren.com?"
 
 ### If they say NO (need to get started):
 - Gently explain they should visit **withseren.com** first
@@ -277,9 +281,9 @@ If they or their special person has already started on withseren.com, they just 
 
 ### If they say YES (ready to connect):
 - Help them verify their connection by asking:
-  1. **"What's your name?"**
-  2. **"What's the name of your special person?"**
-  3. **"What's the secret word or phrase you both chose?"**
+  1. **I see you used XXX as your name on Telegram, do you confirm its the same first name you or your connection signed up with?** NOTE: In case no name is know from user in the chat history, then ask**"What's your name?"**
+  2. **"What's the name of your connection?"**
+  3. **"What's the secret known between you two that was shared with me on the website? I need that to authenticate your identity."**
 
 ## Conversation Flow
 1. Warm welcome and acknowledgment
@@ -303,54 +307,49 @@ Remember: This is about helping them connect with someone they care about. Keep 
       }
 
     } catch (error) {
-      logger.error('[onboarding] Error in onboarding provider:', error);
+      logger.error(
+        `[onboarding] Error in onboarding provider: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
 
       // Fallback to default onboarding if there's an error
-      const fallbackContext = `# Important task: Connecting You to Your Special Person
+      const fallbackContext = `# Important task: Connecting User to their connection
 
-You are helping a user connect with someone important in their life. Your role is to determine their situation and guide them through the right steps.
+You are helping a user connect with someone whose deepending the connection matters to them. Your role is to determine their situation and guide them through the right steps.
 
 ## Two Possible Situations
 
 ### Situation 1: First Time Setup Needed
-If neither the user nor their special person has started their Seren journey yet, they need to visit **withseren.com** first to:
-- Begin their connection journey together
-- Choose a special secret word or phrase that only they both know
-- Get everything ready for deeper conversations
+If neither the user nor their connection has started their Seren journey yet, they need to visit **withseren.com** first to:
+- Get everything ready for deeper conversations and then visiting me (seren) here
 
 ### Situation 2: Ready to Connect
-If they or their special person has already started on withseren.com, they just need to verify who they are by sharing:
-1. **Their own name**
-2. **The name of their special person** 
-3. **The secret word or phrase** they chose together
+If they or their connection has already started on withseren.com, they just need to verify who they are by sharing:
+1. **Confirm their name** (Usually in message history, a user name is extracted from client so see what name is for user and ask if they signed up with that name.)
+2. **The name of their connection**
+3. **The secret known only between them and shared with Seren when signing up on the landing page** 
 
 ## Your Approach
-1. **Welcome them warmly** - acknowledge they want to connect with someone special
-2. **Find out their situation**: "Have you or your special person already gotten started on withseren.com?"
+1. **Welcome them warmly** - acknowledge they want to deepen their connection
+2. **Find out their situation**: "Have you or your connection already gotten started on withseren.com?"
 
 ### If they say NO (need to get started):
 - Gently explain they should visit **withseren.com** first
-- Let them know this is where they'll choose their special secret together
 - Encourage them to come back here once they've gotten started
 
 ### If they say YES (ready to connect):
 - Help them verify their connection by asking:
-  1. **"What's your name?"**
-  2. **"What's the name of your spson you want to connect with?"**
-  3. **"What's the secret word or phraseh agreedh c?"**"**
+  1. **I see you used XXX as your name on Telegram, do you confirm its the same first name you or your connection signed up with?** NOTE: In case no name is know from user in the chat history, then ask**"What's your name?"**
+  2. **"What's the name of your connection?"**
+  3. **"What's the secret known between you two that was shared with me on the website? I need that to authenticate your identity."**
 
-## Conversation Flow for Authentication
-1. Start witome anrm welowledgment
-2. Find out if they''ve completed web setup
-3. If setup is complete, collectite or help ion details:
-   Keep the toeuragi
-   - Partner's name  
-## T Shared Secret
-4. If s friendly, and welcoming
-- Use simple, everyday e
-## Tone and Styleding
-- Celebrate their desire to connect
-- Make the process feel easy and natural
+## Conversation Flow
+1. Warm welcome and acknowledgment
+2. Find out if they've started their journey on the website
+3. Either guide them to the website or help them verify their connection
+4. Keep the tone supportive and encouraging throughout
+
 
 Remember: This is about helping them connect with someone they care about. Keep it simple, warm, and focused on their relationship journey.`;
 
@@ -388,11 +387,18 @@ async function tryAuthentication(
       unique: false,
     });
 
-    // Format messages for the prompt
+    // Format messages for the prompt with speaker labels to help extraction
     const formattedMessages = recentMessages
-      .map((msg: any) => `${msg.content?.text || ''}`)
-      .filter(text => text.trim().length > 0)
+      .map((msg: any) => {
+        const role = msg.entityId === userId ? 'User' : 'Seren';
+        const text = msg.content?.text || '';
+        return `${role}: ${text}`;
+      })
+      .filter(line => line.trim().length > 0)
+      .reverse() // Reverse to show chronological order (oldest first)
       .join('\n');
+
+    logger.debug(`[onboarding] Formatted messages for authentication:\n${formattedMessages}`);
 
     // Create extraction prompt
     const extractionPrompt = authenticationExtractionTemplate
@@ -410,9 +416,17 @@ async function tryAuthentication(
       if (!extractedInfo) {
         throw new Error('Failed to parse XML response');
       }
-      logger.debug('[onboarding] Successfully extracted authentication info:', extractedInfo);
+      logger.debug(
+        `[onboarding] Successfully extracted authentication info: ${
+          typeof extractedInfo === 'string' ? extractedInfo : JSON.stringify(extractedInfo)
+        }`
+      );
     } catch (e) {
-      logger.error('[onboarding] Failed to parse authentication extraction response:', e);
+      logger.error(
+        `[onboarding] Failed to parse authentication extraction response: ${
+          e instanceof Error ? e.message : String(e)
+        }`
+      );
       return { success: false, message: 'Failed to parse authentication information' };
     }
 
@@ -421,20 +435,41 @@ async function tryAuthentication(
       return { success: false, message: 'Missing names for authentication' };
     }
 
-    // Update person's name if provided
+    // Ensure Person exists and update basic fields safely (avoids MATCH miss)
     if (extractedInfo.userName) {
-      await memgraphService.updatePersonName(userId, extractedInfo.userName);
+      await memgraphService.ensurePerson(userId, message.roomId, extractedInfo.userName);
     }
 
     // Find candidate connections by partner names
-    const candidates = await memgraphService.findConnectionsByPartnerNames(
+    let candidates = await memgraphService.findConnectionsByPartnerNames(
       extractedInfo.userName,
       extractedInfo.partnerName
     );
 
+    logger.debug(`[onboarding] Searching for connections with userName="${extractedInfo.userName}" partnerName="${extractedInfo.partnerName}"`);
+    logger.debug(`[onboarding] Candidates by names: count=${candidates?.length ?? 0}`);
+
     if (!candidates || candidates.length === 0) {
-      logger.info('[onboarding] No candidate HumanConnection found by partner names');
-      return { success: false, message: 'No matching connection candidates' };
+      logger.info('[onboarding] No candidate HumanConnection found by partner names, trying broader search');
+      
+      // Try searching by just the user name to see if there are any connections
+      const userConnections = await memgraphService.searchHumanConnectionsByName(extractedInfo.userName.toLowerCase());
+      logger.debug(`[onboarding] Found ${userConnections.length} connections containing user name "${extractedInfo.userName}"`);
+      
+      if (userConnections.length > 0) {
+        logger.debug(`[onboarding] Available connections: ${JSON.stringify(userConnections.map(c => ({ partners: c.partners, secret: c.secret })))}`);
+        // Use the user connections as candidates for flexible verification
+        candidates = userConnections;
+        logger.debug(`[onboarding] Updated candidates array, now has ${candidates.length} items`);
+      } else {
+        return { success: false, message: 'No matching connection candidates' };
+      }
+    }
+
+    // Verify we have candidates before proceeding
+    if (!candidates || candidates.length === 0) {
+      logger.error('[onboarding] No candidates available for verification');
+      return { success: false, message: 'No connection candidates found' };
     }
 
     // If we have a secret, run flexible verification to choose the best match
@@ -442,6 +477,9 @@ async function tryAuthentication(
       logger.info('[onboarding] Secret not provided yet; cannot verify connection');
       return { success: false, message: 'Missing secret for verification' };
     }
+
+    logger.debug(`[onboarding] Running flexible verification with ${candidates.length} candidates and secret "${extractedInfo.secret}"`);
+    logger.debug(`[onboarding] Candidates for verification: ${JSON.stringify(candidates)}`);
 
     const verificationPrompt = authenticationFlexibleVerificationTemplate
       .replace('{{userName}}', extractedInfo.userName)
@@ -454,11 +492,18 @@ async function tryAuthentication(
       temperature: 0.1,
     });
 
+    logger.debug(`[onboarding] Flexible verification prompt: ${verificationPrompt.substring(0, 500)}...`);
+    logger.debug(`[onboarding] Verification model raw response: ${verificationResponse}`);
+
     let verification;
     try {
       verification = parseKeyValueXml(verificationResponse);
     } catch (e) {
-      logger.error('[onboarding] Failed to parse flexible verification response:', e);
+      logger.error(
+        `[onboarding] Failed to parse flexible verification response: ${
+          e instanceof Error ? e.message : String(e)
+        }`
+      );
       return { success: false, message: 'Failed to verify secret' };
     }
 
@@ -468,7 +513,10 @@ async function tryAuthentication(
       return { success: false, message: 'Secret did not match' };
     }
 
-    // Resolve the selected connection from the verification result
+    // Resolve the selected connection from the verification result in a robust way
+    const normPartners = (arr: string[]) => arr.map(s => s.trim().toLowerCase()).sort();
+    const normSecret = (s: string) => (s ?? '').trim().toLowerCase();
+
     let selected: any | null = null;
     if (verification.raw) {
       try {
@@ -479,13 +527,15 @@ async function tryAuthentication(
     }
 
     let matchingConnection = null as any;
-    if (selected && (selected.connectionId || selected.secret)) {
-      matchingConnection = candidates.find(c => {
-        if (selected.connectionId && c.connectionId) {
-          return c.connectionId === selected.connectionId;
-        }
-        return c.secret === selected.secret;
-      }) || null;
+
+    // 1) If there is only one candidate and decision is matched, accept it
+    if (!matchingConnection && candidates.length === 1) {
+      matchingConnection = candidates[0];
+    }
+
+    // 2) Try to match by connectionId from structured payloads
+    if (!matchingConnection && selected?.connectionId) {
+      matchingConnection = candidates.find(c => c.connectionId === selected.connectionId) || null;
     }
     if (!matchingConnection) {
       const matchId = verification.match || '';
@@ -493,12 +543,32 @@ async function tryAuthentication(
         matchingConnection = candidates.find(c => c.connectionId === matchId) || null;
       }
     }
+
+    // 3) Match by partners ignoring order/case
     if (!matchingConnection) {
-      // Last resort: try partners + secret from response
       const partnersCsv = verification.partners || '';
-      const secret = verification.secret || '';
-      const partners = partnersCsv ? partnersCsv.split(',').map((s: string) => s.trim()) : undefined;
-      matchingConnection = candidates.find(c => !!partners && JSON.stringify(c.partners) === JSON.stringify(partners) && c.secret === secret) || null;
+      const partners = partnersCsv ? partnersCsv.split(',').map((s: string) => s) : null;
+      if (partners && partners.length) {
+        const vPartners = normPartners(partners);
+        matchingConnection = candidates.find(c => {
+          return JSON.stringify(normPartners(c.partners)) === JSON.stringify(vPartners);
+        }) || null;
+      }
+    }
+
+    // 4) Match by case-insensitive secret (in case LLM echoes it back)
+    if (!matchingConnection && (verification.secret || selected?.secret)) {
+      const vSecret = normSecret(verification.secret || selected?.secret || '');
+      matchingConnection = candidates.find(c => normSecret(c.secret) === vSecret) || null;
+    }
+
+    // 5) Last fallback: partners from extracted names if they uniquely identify a candidate
+    if (!matchingConnection) {
+      const extractedPartners = normPartners([extractedInfo.userName, extractedInfo.partnerName]);
+      const partnerMatches = candidates.filter(c => JSON.stringify(normPartners(c.partners)) === JSON.stringify(extractedPartners));
+      if (partnerMatches.length === 1) {
+        matchingConnection = partnerMatches[0];
+      }
     }
 
     if (!matchingConnection) {
@@ -506,7 +576,11 @@ async function tryAuthentication(
       return { success: false, message: 'Verification did not select a connection' };
     }
 
-    logger.info('[onboarding] Flexible verification matched HumanConnection:', matchingConnection);
+    logger.info(
+      `[onboarding] Flexible verification matched HumanConnection: ${
+        typeof matchingConnection === 'string' ? matchingConnection : JSON.stringify(matchingConnection)
+      }`
+    );
 
     // Try to update existing Person node by name within the selected connection
     const nameMatchPerson = await memgraphService.findPersonByNameInConnection(
@@ -534,7 +608,11 @@ async function tryAuthentication(
       try {
         await memgraphService.deduplicatePersonsByUserId(userId);
       } catch (e) {
-        logger.warn('[onboarding] Deduplication warning:', e);
+        logger.warn(
+          `[onboarding] Deduplication warning: ${
+            e instanceof Error ? e.message : String(e)
+          }`
+        );
       }
       logger.info(`[onboarding] Successfully authenticated and linked user ${userId} to HumanConnection`);
       return { success: true, message: 'Authentication successful', matchingConnection };
@@ -544,7 +622,11 @@ async function tryAuthentication(
     return { success: false, message: 'Failed to create connection link' };
 
   } catch (error) {
-    logger.error('[onboarding] Authentication error:', error);
+    logger.error(
+      `[onboarding] Authentication error: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
     return { success: false, message: 'Authentication process failed' };
   }
 }

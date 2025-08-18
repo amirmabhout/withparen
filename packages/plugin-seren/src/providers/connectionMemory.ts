@@ -52,7 +52,7 @@ const connectionMemoryProvider: Provider = {
           logger.debug(`Found connection partners: ${connectionPartners.join(', ')} for user: ${currentUserName}`);
         }
       } catch (error) {
-        logger.warn('Failed to get connection partner information:', error);
+        logger.warn(`Failed to get connection partner information: ${error instanceof Error ? error.message : String(error)}`);
       } finally {
         await memgraphService.disconnect();
       }
@@ -100,7 +100,11 @@ const connectionMemoryProvider: Provider = {
           logger.debug(`Found ${memories.length} memories in ${tableName}`);
           return memories;
         } catch (error) {
-          logger.warn(`Failed to search ${tableName}:`, error);
+          logger.warn(
+            `Failed to search ${tableName}: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          );
           return [];
         }
       });
@@ -131,7 +135,11 @@ const connectionMemoryProvider: Provider = {
             logger.debug(`Found ${memories.length} memories in ${tableName} via direct retrieval`);
             return memories;
           } catch (error) {
-            logger.warn(`Failed to get memories from ${tableName}:`, error);
+            logger.warn(
+              `Failed to get memories from ${tableName}: ${
+                error instanceof Error ? error.message : String(error)
+              }`
+            );
             return [];
           }
         });
@@ -192,7 +200,11 @@ const connectionMemoryProvider: Provider = {
         text,
       };
     } catch (error) {
-      logger.error('Error in connectionMemoryProvider:', error);
+      logger.error(
+        `Error in connectionMemoryProvider: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
       return {
         values: {
           connectionMemory: '',

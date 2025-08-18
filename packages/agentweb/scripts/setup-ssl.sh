@@ -2,13 +2,20 @@
 
 # SSL Certificate Setup for webchat.withseren.com with PM2 Integration
 # This script sets up SSL certificates using Certbot (Let's Encrypt)
+#
+# Env overrides:
+#   DOMAIN           primary domain (default: webchat.withseren.com)
+#   EMAIL            certbot email (default: admin@withseren.com)
+#   PM2_SERVICE      pm2 process name (default: web)
+#   INCLUDE_ADMIN    if "1", also obtain SAN for admin.<domain>
 
 set -e
 
-DOMAIN="webchat.withseren.com"
-EMAIL="admin@withseren.com"  # Replace with your email
+DOMAIN="${DOMAIN:-webchat.withseren.com}"
+EMAIL="${EMAIL:-admin@withseren.com}"  # Replace with your email
 NGINX_CONFIG="/home/specialpedrito/agents/packages/agentweb/scripts/nginx-agent.conf"
-PM2_SERVICE="web"
+PM2_SERVICE="${PM2_SERVICE:-web}"
+INCLUDE_ADMIN="${INCLUDE_ADMIN:-1}"
 
 echo "🔐 Setting up SSL certificates for $DOMAIN with PM2 integration"
 
@@ -42,13 +49,18 @@ if systemctl is-active --quiet nginx; then
     sudo systemctl stop nginx
 fi
 
-# Obtain SSL certificate
+# Obtain SSL certificate (include admin.<domain> as SAN if requested)
 echo "🔑 Obtaining SSL certificate..."
+CERTBOT_DOMAINS=( "-d" "$DOMAIN" )
+if [ "$INCLUDE_ADMIN" = "1" ]; then
+    CERTBOT_DOMAINS+=( "-d" "admin.$DOMAIN" )
+fi
+
 sudo certbot certonly --standalone \
-    --email $EMAIL \
+    --email "$EMAIL" \
     --agree-tos \
     --no-eff-email \
-    -d $DOMAIN
+    "${CERTBOT_DOMAINS[@]}"
 
 # Update nginx configuration with correct certificate paths
 echo "📝 Updating nginx configuration..."
