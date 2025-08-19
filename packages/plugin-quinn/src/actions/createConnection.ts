@@ -299,6 +299,25 @@ export const createConnectionAction: Action = {
         'connection_contexts'
       );
 
+      // Check for existing matches first to avoid duplicate work
+      const existingMatches = await runtime.getMemories({
+        tableName: 'matches',
+        count: 100,
+      });
+
+      // Filter out users that have already been matched with this user
+      const matchedUserIds = new Set<UUID>();
+      existingMatches.forEach(match => {
+        const matchData = match.content as any;
+        if (matchData.user1Id === message.entityId) {
+          matchedUserIds.add(matchData.user2Id);
+        } else if (matchData.user2Id === message.entityId) {
+          matchedUserIds.add(matchData.user1Id);
+        }
+      });
+
+      logger.info(`[quinn] Found ${matchedUserIds.size} existing matches for user ${message.entityId}`);
+
       // Check available data for connection discovery
       const allPersonaContexts = await runtime.getMemories({
         tableName: 'persona_contexts',
@@ -327,10 +346,12 @@ export const createConnectionAction: Action = {
           match_threshold: 0.4, // Reasonable threshold for good matches
         });
 
-        // Filter out the requesting user from potential matches
-        potentialMatches = potentialMatches.filter((match) => match.entityId !== message.entityId);
+        // Filter out the requesting user and already matched users from potential matches
+        potentialMatches = potentialMatches.filter((match) => 
+          match.entityId !== message.entityId && !matchedUserIds.has(match.entityId)
+        );
 
-        logger.info(`[quinn] Found ${potentialMatches.length} potential matches (excluding self)`);
+        logger.info(`[quinn] Found ${potentialMatches.length} potential matches (excluding self and existing matches)`);
       } catch (error) {
         logger.warn(`[quinn] Vector search failed: ${error}`);
         // Continue with empty matches
@@ -418,6 +439,51 @@ Looking for: ${matchConnectionContext.length > 0 ? matchConnectionContext[0].con
       logger.info(
         `[quinn] Connection analysis complete. ${bestMatch !== 'none' ? `Found compatible match with score: ${compatibilityScore}` : 'No suitable matches found'}`
       );
+
+      // Check for existing matches to prevent duplicates
+      if (bestMatch && bestMatch !== 'none') {
+        const matchedUserId = bestMatch as UUID;
+        
+        // Check if this match already exists
+        const existingMatches = await runtime.getMemories({
+          tableName: 'matches',
+          count: 100,
+        });
+
+        const duplicateMatch = existingMatches.find(match => {
+          const matchData = match.content as any;
+          return (
+            (matchData.user1Id === message.entityId && matchData.user2Id === matchedUserId) ||
+            (matchData.user1Id === matchedUserId && matchData.user2Id === message.entityId)
+          );
+        });
+
+        if (!duplicateMatch) {
+          // Create new match record
+          const matchRecord = {
+            entityId: message.entityId, // The requesting user
+            agentId: runtime.agentId,
+            roomId: message.roomId,
+            content: {
+              text: `Match found between ${message.entityId} and ${matchedUserId} with compatibility score ${compatibilityScore}`,
+              type: 'match_record',
+              user1Id: message.entityId,
+              user2Id: matchedUserId,
+              compatibilityScore,
+              reasoning: compatibilityScorePlusReasoning,
+              status: 'match_found', // Initial status
+              personaContext,
+              connectionContext,
+            },
+            createdAt: Date.now(),
+          };
+
+          await runtime.createMemory(matchRecord, 'matches');
+          logger.info(`[quinn] Created new match record: ${message.entityId} <-> ${matchedUserId}`);
+        } else {
+          logger.info(`[quinn] Match already exists between ${message.entityId} and ${matchedUserId}, skipping duplicate creation`);
+        }
+      }
 
       if (callback) {
         await callback({

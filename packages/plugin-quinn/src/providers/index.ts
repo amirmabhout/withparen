@@ -9,6 +9,8 @@ export { connectionMemoryProvider } from './connectionMemory';
 //export { entitiesProvider } from './entities';
 //export { evaluatorsProvider } from './evaluators';
 //export { factsProvider } from './facts';
+export { introductionStateProvider } from './introductionState';
+export { matchStateProvider } from './matchState';
 export { onboardingProvider } from './onboarding';
 export { personaMemoryProvider } from './personaMemory';
 //export { providersProvider } from './providers';

@@ -1,4 +1,6 @@
 export { createConnectionAction } from './createConnection';
+export { introProposalAction } from './introProposal';
+export { introAcceptAction } from './introAccept';
 //export { generateImageAction } from './imageGeneration';
 //export { choiceAction } from './choice';
 //export { followRoomAction } from './followRoom';
