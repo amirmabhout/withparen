@@ -15,6 +15,7 @@ The system works by:
 ### Services
 
 #### DailyPlanningService
+
 - **Location**: `src/services/dailyPlanning.ts`
 - **Purpose**: Main orchestrator for the daily planning system
 - **Key Methods**:
@@ -33,6 +34,7 @@ The system registers three task workers:
 ### Providers
 
 #### dailyPlanProvider
+
 - **Location**: `src/providers/dailyPlan.ts`
 - **Purpose**: Adds user's daily plan to conversation context
 - **Functions**:
@@ -43,6 +45,7 @@ The system registers three task workers:
 ### Prompt Templates
 
 #### dailyPlanningTemplate
+
 - **Location**: `src/utils/promptTemplates.ts`
 - **Purpose**: LLM prompt for generating daily plans and check-in messages
 - **Inputs**:
@@ -117,6 +120,7 @@ The system reads from these memory tables:
 ## Cache Storage
 
 Daily plans are stored in cache with keys:
+
 - Format: `daily-plan-{userId}-{YYYY-MM-DD}`
 - Contains: `{userId, date, plan, createdAt}`
 
@@ -177,6 +181,7 @@ npx tsx test-daily-planning.ts
 ```
 
 The test script will:
+
 1. Verify template rendering
 2. Test Memgraph connectivity
 3. Initialize the daily planning service
@@ -187,15 +192,18 @@ The test script will:
 ### Common Issues
 
 1. **No active connections found**
+
    - Verify HumanConnection nodes have `status: "active"`
    - Ensure exactly 2 Person nodes participate in each connection
 
 2. **Planning tasks not executing**
+
    - Check system time matches expected planning hours
    - Verify task workers are registered properly
    - Check logs for validation failures
 
 3. **Check-ins not sending**
+
    - Verify roomId matches userId for DM conversations
    - Check message sending permissions
    - Ensure check-in tasks are properly scheduled

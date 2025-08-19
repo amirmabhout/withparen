@@ -9,12 +9,16 @@ When a user authenticates through Firebase in the frontend, the frontend sends a
 ## How it works
 
 ### 1. Validation
+
 The action validates incoming messages by checking if they contain:
+
 - The text "Firebase identity data"
 - The text "successfully authenticated"
 
 ### 2. Data Extraction
+
 From the message content, it extracts:
+
 - **email**: User's email address from Firebase
 - **firebaseId**: Firebase user ID
 - **firebaseToken**: Firebase authentication token
@@ -22,6 +26,7 @@ From the message content, it extracts:
 - **authorId**: Extracted from Firebase payload
 
 ### 3. Database Operations
+
 - Connects to Memgraph database
 - Checks if Person node already exists with the same webId
 - Creates new Person node only if one doesn't exist
@@ -29,6 +34,7 @@ From the message content, it extracts:
 - Prevents duplicate Person nodes from multiple signin attempts
 
 ### 4. Silent Operation
+
 - Operates silently in the background without generating responses
 - Returns success status and extracted data
 - Allows normal message handler flow to continue
@@ -37,21 +43,23 @@ From the message content, it extracts:
 ## Person Node Schema
 
 The Person node in Memgraph contains:
+
 ```typescript
 interface PersonNode {
-  webId: string;        // Primary identifier from message.entityId
-  email?: string;       // User's email from Firebase
-  firebaseId?: string;  // Firebase user ID
+  webId: string; // Primary identifier from message.entityId
+  email?: string; // User's email from Firebase
+  firebaseId?: string; // Firebase user ID
   firebaseToken?: string; // Firebase authentication token
-  authorId?: string;    // Author ID from Firebase payload
-  createdAt: string;    // ISO timestamp of creation
-  updatedAt: string;    // ISO timestamp of last update
+  authorId?: string; // Author ID from Firebase payload
+  createdAt: string; // ISO timestamp of creation
+  updatedAt: string; // ISO timestamp of last update
 }
 ```
 
 ## Example Message Format
 
 The action expects messages like:
+
 ```
 User has successfully authenticated. Firebase identity data:
 {
@@ -66,6 +74,7 @@ User has successfully authenticated. Firebase identity data:
 ## Error Handling
 
 The action handles several error scenarios:
+
 - Invalid JSON in Firebase data
 - Database connection failures
 - Missing required fields
@@ -76,6 +85,7 @@ All errors are logged and return appropriate error responses to the user.
 ## Testing
 
 The action includes comprehensive tests covering:
+
 - Message validation
 - Data extraction
 - Person node creation
@@ -84,6 +94,7 @@ The action includes comprehensive tests covering:
 - Error handling scenarios
 
 Run tests with:
+
 ```bash
 npm test -- signin.test.ts
 ```
@@ -91,6 +102,7 @@ npm test -- signin.test.ts
 ## Action Availability
 
 **Important**: The signin action is **not included** in the plugin's available actions list for the LLM. Instead, it's triggered deterministically through Firebase payload detection in the main message handler. This ensures:
+
 - Reliable authentication processing
 - No dependency on LLM action selection
 - Cleaner separation between authentication and conversation logic
@@ -99,6 +111,7 @@ npm test -- signin.test.ts
 ## Silent Background Operation
 
 The signin action operates silently in the background:
+
 - **No response generation**: Does not create its own response text
 - **No callback usage**: Does not interrupt the normal message flow
 - **Background processing**: Handles authentication while letting normal conversation continue

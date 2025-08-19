@@ -2,9 +2,9 @@
 
 /**
  * Runner script for seeding test data
- * 
+ *
  * This script sets up a minimal runtime environment and runs the test data seeder.
- * 
+ *
  * Usage:
  *   cd packages/plugin-quinn
  *   bun run scripts/run-seed.js
@@ -19,32 +19,32 @@ class MockRuntime {
     this.memories = new Map();
     this.embeddings = new Map();
   }
-  
+
   async useModel(modelType, params) {
     if (modelType === 'text-embedding' || modelType === 'TEXT_EMBEDDING') {
       // Generate a mock embedding (in real usage, this would call the actual model)
       console.log(`    📐 Generating mock embedding for text: "${params.text.slice(0, 50)}..."`);
-      
+
       // Create a realistic-looking mock embedding (768 dimensions)
       const embedding = Array.from({ length: 768 }, () => Math.random() - 0.5);
       return embedding;
     }
-    
+
     throw new Error(`Mock runtime doesn't support model type: ${modelType}`);
   }
-  
+
   async addEmbeddingToMemory(memoryData) {
     const memoryId = `memory-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const memory = {
       id: memoryId,
       ...memoryData,
     };
-    
+
     this.memories.set(memoryId, memory);
     console.log(`    💾 Stored memory with embedding (ID: ${memoryId})`);
     return memory;
   }
-  
+
   async createMemory(memory, tableName, unique = false) {
     const key = `${tableName}-${memory.id}`;
     this.embeddings.set(key, { memory, tableName, unique });
@@ -56,22 +56,22 @@ class MockRuntime {
 async function main() {
   console.log('🚀 Quinn Test Data Seeder Runner');
   console.log('================================\n');
-  
+
   try {
     // Create mock runtime
     console.log('⚙️  Setting up mock runtime...');
     const runtime = new MockRuntime();
     console.log(`🤖 Agent ID: ${runtime.agentId}\n`);
-    
+
     // Run the seeder
     const results = await seedTestData(runtime);
-    
+
     console.log('\n📋 Seeding Summary:');
     console.log('===================');
     console.log(`✅ Successfully created ${results.length} test users`);
     console.log(`💾 Mock memories stored: ${runtime.memories.size}`);
     console.log(`🗄️  Mock embeddings stored: ${runtime.embeddings.size}`);
-    
+
     console.log('\n🔧 Next Steps:');
     console.log('==============');
     console.log('1. This was a mock run. To actually populate your database:');
@@ -87,12 +87,11 @@ async function main() {
     console.log('     await seedTestData(runtime);');
     console.log('   }');
     console.log('   ```');
-    
+
     console.log('\n3. Test the connection discovery with contexts like:');
     console.log('   • "I need blockchain engineers for my datadao protocol"');
     console.log('   • "Looking for community builders with Web3 experience"');
     console.log('   • "Want to connect with technical co-founders"');
-    
   } catch (error) {
     console.error('\n❌ Seeding failed:', error.message);
     console.error('\nFull error:', error);

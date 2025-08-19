@@ -1394,8 +1394,8 @@ export const quinnPlugin: Plugin = {
   description:
     'Quinn - AI agent focused on connection discovery based on passions, challenges, and preferences',
   actions: [
-    actions.createConnectionAction, 
-    actions.ignoreAction, 
+    actions.createConnectionAction,
+    actions.ignoreAction,
     actions.noneAction,
     actions.seedTestDataAction, // Development helper for testing
   ],

@@ -13,11 +13,13 @@ This directory contains scripts for interacting with the Memgraph database used 
 Memgraph requires the system's `vm.max_map_count` to be set to at least 524288 to prevent crashes.
 
 **Quick setup:**
+
 ```bash
 ./scripts/configure-memgraph-system.sh
 ```
 
 **Manual setup:**
+
 ```bash
 # Set immediately
 sudo sysctl vm.max_map_count=524288
@@ -42,21 +44,25 @@ MEMGRAPH_PORT=7687
 Unified script for all Memgraph operations using TypeScript.
 
 **Clear all data:**
+
 ```bash
 npx tsx scripts/updateMemgraph.ts clear
 ```
 
 **Add a HumanConnection:**
+
 ```bash
 npx tsx scripts/updateMemgraph.ts addConnection "person1, person2, secret"
 ```
 
 **List all HumanConnections:**
+
 ```bash
 npx tsx scripts/updateMemgraph.ts list
 ```
 
 **Examples:**
+
 ```bash
 # Clear everything
 npx tsx scripts/updateMemgraph.ts clear
@@ -69,6 +75,7 @@ npx tsx scripts/updateMemgraph.ts list
 ```
 
 **What addConnection does:**
+
 - Creates a HumanConnection node with:
   - `partners: ["person1", "person2"]`
   - `secret: "shared_secret"`

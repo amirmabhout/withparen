@@ -13,26 +13,33 @@ Quinn is an AI agent focused on connection discovery. Unlike Seren which focuses
 ## How It Works
 
 ### 1. Onboarding Process
+
 Quinn creates a natural conversation to understand:
+
 - **Passions & Work**: What users are passionate about and currently working on
 - **Challenges & Growth**: Where they face obstacles and need support
 - **Connection Preferences**: What type of connections would help them grow
 
 ### 2. Profile Building
+
 - Uses **personaMemory** provider to track user background using PEACOCK dimensions:
   - demographic, characteristic, routine, goal, experience, persona_relationship, emotional_state
 - Uses **connectionMemory** provider to capture connection discovery preferences:
   - desired_type, desired_background, desired_goals, desired_experience, desired_communication, desired_value
 
 ### 3. Connection Discovery
+
 When users are ready, they can trigger the "Discover Connection" action:
+
 1. **Context Generation**: Creates personaContext (user's profile) and connectionContext (ideal match profile)
 2. **Vector Search**: Performs similarity search across all user profiles
 3. **Compatibility Analysis**: Uses reasoning to evaluate mutual compatibility
 4. **Match Recommendation**: Suggests the best match for introduction
 
 ### 4. Reflection & Learning
+
 The reflection evaluator continuously extracts insights from conversations to improve matching:
+
 - Persona insights about the user themselves
 - Connection discovery insights about what they're looking for
 
@@ -47,7 +54,7 @@ npm install @elizaos/plugin-quinn
 Add to your agent configuration:
 
 ```typescript
-import { quinnPlugin } from "@elizaos/plugin-quinn";
+import { quinnPlugin } from '@elizaos/plugin-quinn';
 
 const agent = {
   plugins: [quinnPlugin],
@@ -80,6 +87,7 @@ const agent = {
 ## Database Tables
 
 Quinn uses the following SQL database tables:
+
 - `persona_*` tables for PEACOCK framework dimensions
 - `connection_*` tables for connection discovery preferences
 - `persona_contexts` for generated user profiles

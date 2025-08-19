@@ -48,7 +48,7 @@ class MemgraphManager {
 
     try {
       // Parse the connection string "person1, person2, secret, status"
-      const parts = connectionString.split(',').map(part => part.trim());
+      const parts = connectionString.split(',').map((part) => part.trim());
 
       if (parts.length !== 4) {
         throw new Error('Connection string must be in format: "person1, person2, secret, status"');
@@ -70,7 +70,7 @@ class MemgraphManager {
         person1,
         person2,
         secret,
-        status
+        status,
       });
 
       if (result.records.length > 0) {
@@ -94,7 +94,6 @@ class MemgraphManager {
       if (verifyResult.records.length > 0) {
         console.log('✅ Verification successful! HumanConnection node exists.');
       }
-
     } catch (error: any) {
       console.error('❌ Error adding connection:', error.message);
       throw error;
@@ -130,7 +129,6 @@ class MemgraphManager {
         console.log(`   Updated At: ${connection.updatedAt}`);
         console.log('');
       });
-
     } catch (error: any) {
       console.error('❌ Error listing connections:', error.message);
       throw error;
@@ -154,7 +152,7 @@ class MemgraphManager {
         return [];
       }
 
-      const connections = result.records.map(record => record.get('connection').properties);
+      const connections = result.records.map((record) => record.get('connection').properties);
 
       console.log(`✅ Found ${connections.length} waitlist connection(s)`);
       connections.forEach((connection, index) => {
@@ -167,7 +165,6 @@ class MemgraphManager {
       });
 
       return connections;
-
     } catch (error: any) {
       console.error('❌ Error getting waitlist connections:', error.message);
       throw error;
@@ -199,7 +196,6 @@ class MemgraphManager {
       console.log(`   Updated At: ${connection.updatedAt}`);
 
       return connection;
-
     } catch (error: any) {
       console.error('❌ Error activating connection:', error.message);
       throw error;
@@ -223,7 +219,7 @@ class MemgraphManager {
         return [];
       }
 
-      const connections = result.records.map(record => record.get('connection').properties);
+      const connections = result.records.map((record) => record.get('connection').properties);
 
       console.log(`✅ Found ${connections.length} active connection(s)`);
       connections.forEach((connection, index) => {
@@ -236,7 +232,6 @@ class MemgraphManager {
       });
 
       return connections;
-
     } catch (error: any) {
       console.error('❌ Error getting active connections:', error.message);
       throw error;
@@ -244,7 +239,9 @@ class MemgraphManager {
   }
 
   async deleteConnection(connectionId: string) {
-    console.log(`🗑️ Deleting HumanConnection and all connected Person nodes for ID: ${connectionId}...`);
+    console.log(
+      `🗑️ Deleting HumanConnection and all connected Person nodes for ID: ${connectionId}...`
+    );
 
     try {
       // First, get the connection details for logging
@@ -288,9 +285,8 @@ class MemgraphManager {
 
       return {
         deletedConnection: connection,
-        deletedPersonsCount: connectedPersons.length
+        deletedPersonsCount: connectedPersons.length,
       };
-
     } catch (error: any) {
       console.error('❌ Error deleting connection:', error.message);
       throw error;
@@ -338,9 +334,8 @@ class MemgraphManager {
 
       return {
         deletedPerson: person,
-        deletedRelationshipsCount: relationshipCount
+        deletedRelationshipsCount: relationshipCount,
       };
-
     } catch (error: any) {
       console.error('❌ Error deleting person:', error.message);
       throw error;
@@ -348,7 +343,9 @@ class MemgraphManager {
   }
 
   async connectPerson(userId: string, connectionId: string) {
-    console.log(`🔗 Creating PARTICIPATES_IN relationship from Person ${userId} to HumanConnection ${connectionId}...`);
+    console.log(
+      `🔗 Creating PARTICIPATES_IN relationship from Person ${userId} to HumanConnection ${connectionId}...`
+    );
 
     try {
       // First, verify both nodes exist
@@ -402,7 +399,6 @@ class MemgraphManager {
 
         return { person, connection, relationship, created: true };
       }
-
     } catch (error: any) {
       console.error('❌ Error connecting person:', error.message);
       throw error;
@@ -454,7 +450,9 @@ Examples:
       case 'addConnection':
         if (args.length < 2) {
           console.error('❌ Connection string required for addConnection command');
-          console.log('Example: npx tsx updateMemgraph.ts addConnection "amir, bianca, popcorn, active"');
+          console.log(
+            'Example: npx tsx updateMemgraph.ts addConnection "amir, bianca, popcorn, active"'
+          );
           process.exit(1);
         }
         await manager.addConnection(args[1]);
@@ -471,7 +469,9 @@ Examples:
       case 'activate':
         if (args.length < 2) {
           console.error('❌ Connection ID required for activate command');
-          console.log('Example: npx tsx updateMemgraph.ts activate "b2b7d02f-7d27-0c3f-8e86-dcb24b043601"');
+          console.log(
+            'Example: npx tsx updateMemgraph.ts activate "b2b7d02f-7d27-0c3f-8e86-dcb24b043601"'
+          );
           process.exit(1);
         }
         await manager.activateConnection(args[1]);
@@ -484,7 +484,9 @@ Examples:
       case 'delete':
         if (args.length < 2) {
           console.error('❌ Connection ID required for delete command');
-          console.log('Example: npx tsx updateMemgraph.ts delete "b2b7d02f-7d27-0c3f-8e86-dcb24b043601"');
+          console.log(
+            'Example: npx tsx updateMemgraph.ts delete "b2b7d02f-7d27-0c3f-8e86-dcb24b043601"'
+          );
           process.exit(1);
         }
         await manager.deleteConnection(args[1]);
@@ -502,16 +504,20 @@ Examples:
       case 'connectPerson':
         if (args.length < 2) {
           console.error('❌ User ID and Connection ID required for connectPerson command');
-          console.log('Example: npx tsx updateMemgraph.ts connectPerson "user123, b2b7d02f-7d27-0c3f-8e86-dcb24b043601"');
+          console.log(
+            'Example: npx tsx updateMemgraph.ts connectPerson "user123, b2b7d02f-7d27-0c3f-8e86-dcb24b043601"'
+          );
           process.exit(1);
         }
 
         // Parse the connection string "userId, connectionId"
-        const parts = args[1].split(',').map(part => part.trim());
+        const parts = args[1].split(',').map((part) => part.trim());
 
         if (parts.length !== 2) {
           console.error('❌ connectPerson requires format: "userId, connectionId"');
-          console.log('Example: npx tsx updateMemgraph.ts connectPerson "user123, b2b7d02f-7d27-0c3f-8e86-dcb24b043601"');
+          console.log(
+            'Example: npx tsx updateMemgraph.ts connectPerson "user123, b2b7d02f-7d27-0c3f-8e86-dcb24b043601"'
+          );
           process.exit(1);
         }
 
@@ -520,12 +526,13 @@ Examples:
 
       default:
         console.error(`❌ Unknown command: ${command}`);
-        console.log('Available commands: clear, addConnection, list, waitlist, activate, active, delete, deletePerson, connectPerson');
+        console.log(
+          'Available commands: clear, addConnection, list, waitlist, activate, active, delete, deletePerson, connectPerson'
+        );
         process.exit(1);
     }
 
     console.log('\n🎉 Operation completed successfully!');
-
   } catch (error: any) {
     console.error('\n💥 Operation failed:', error.message);
     process.exit(1);

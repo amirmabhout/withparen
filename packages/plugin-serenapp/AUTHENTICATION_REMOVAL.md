@@ -10,6 +10,7 @@ This document outlines the changes made to remove the sign-in requirement from t
 **After**: Skips authentication check and allows connection creation for any non-empty message
 
 Key changes:
+
 - Modified `validate()` function to always return `true` for non-empty messages
 - Updated handler to create a basic Person node if one doesn't exist
 - Commented out authentication logic for future restoration if needed
@@ -20,6 +21,7 @@ Key changes:
 **After**: Always proceeds to connection creation flow without authentication
 
 Key changes:
+
 - Set `hasPersonWithWebIdAndEmail = true` to skip authentication check
 - Updated context to reflect new intriguing question and flow
 - Commented out database check logic for future restoration if needed
@@ -27,9 +29,11 @@ Key changes:
 ### 3. Updated Conversation Flow
 
 The new flow reflects the updated intriguing question:
+
 > "I'm Seren. Think of someone important to you—what's one way you'd love to deepen that relationship?"
 
 With response options:
+
 - I want to communicate better with my partner
 - Understand what motivates my teenage daughter
 - Be more supportive when my friend is struggling
@@ -63,6 +67,7 @@ With response options:
 ## Future Considerations
 
 If authentication needs to be restored in the future:
+
 1. Uncomment the authentication logic in both files
 2. Restore the original test expectations
 3. Update the conversation flow to include sign-in steps

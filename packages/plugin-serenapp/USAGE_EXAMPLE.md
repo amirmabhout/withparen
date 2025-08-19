@@ -10,7 +10,7 @@ This example demonstrates how the `createConnectionAction` works in practice.
 import { serenappPlugin } from '@elizaos/plugin-serenapp';
 
 const character = {
-  name: "Seren",
+  name: 'Seren',
   plugins: [serenappPlugin],
   // ... other character config
 };
@@ -34,6 +34,7 @@ MEMGRAPH_PASSWORD=
 ### Step 2: Action Validation
 
 The `createConnectionAction.validate()` method checks for:
+
 - Connection keywords: ✅ "create a connection"
 - Name patterns: ✅ "My name is Sarah"
 - Secret patterns: ✅ "secret word is 'sunset'"
@@ -41,6 +42,7 @@ The `createConnectionAction.validate()` method checks for:
 ### Step 3: Information Extraction
 
 The action uses LLM to extract:
+
 ```xml
 <response>
     <userName>Sarah</userName>
@@ -54,9 +56,10 @@ The action uses LLM to extract:
 ### Step 4: Database Operations
 
 1. **Check for existing connection:**
+
    ```cypher
    MATCH (hc:HumanConnection)
-   WHERE hc.secret = "sunset" 
+   WHERE hc.secret = "sunset"
    AND (
      (hc.partners[0] = "Sarah" AND hc.partners[1] = "Mike") OR
      (hc.partners[0] = "Mike" AND hc.partners[1] = "Sarah")

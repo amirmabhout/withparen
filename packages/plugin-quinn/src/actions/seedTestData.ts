@@ -17,21 +17,18 @@ import { seedQuinnTestData, cleanupQuinnTestData } from '../utils/testDataSeeder
  */
 export const seedTestDataAction: Action = {
   name: 'SEED_TEST_DATA',
-  description: 'Seeds the database with sample users for testing connection discovery functionality (Development only)',
-  similes: [
-    'POPULATE_TEST_DATA',
-    'CREATE_SAMPLE_USERS',
-    'SEED_DATABASE',
-    'ADD_TEST_USERS',
-  ],
+  description:
+    'Seeds the database with sample users for testing connection discovery functionality (Development only)',
+  similes: ['POPULATE_TEST_DATA', 'CREATE_SAMPLE_USERS', 'SEED_DATABASE', 'ADD_TEST_USERS'],
   examples: [] as ActionExample[][],
-  
+
   validate: async (_runtime: IAgentRuntime, message: Memory): Promise<boolean> => {
     // Only allow in development environments
-    const isDev = process.env.NODE_ENV === 'development' || 
-                 process.env.NODE_ENV === 'test' ||
-                 process.env.ALLOW_TEST_SEEDING === 'true';
-    
+    const isDev =
+      process.env.NODE_ENV === 'development' ||
+      process.env.NODE_ENV === 'test' ||
+      process.env.ALLOW_TEST_SEEDING === 'true';
+
     if (!isDev) {
       logger.warn('[quinn] SEED_TEST_DATA action is only available in development environments');
       return false;
@@ -39,12 +36,14 @@ export const seedTestDataAction: Action = {
 
     // Check if message mentions seeding or test data
     const content = message.content.text?.toLowerCase() || '';
-    return content.includes('seed') || 
-           content.includes('test data') || 
-           content.includes('sample users') ||
-           content.includes('populate');
+    return (
+      content.includes('seed') ||
+      content.includes('test data') ||
+      content.includes('sample users') ||
+      content.includes('populate')
+    );
   },
-  
+
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
@@ -56,14 +55,16 @@ export const seedTestDataAction: Action = {
       logger.info(`[quinn] Processing seed test data request from user ${message.entityId}`);
 
       const content = message.content.text?.toLowerCase() || '';
-      const isCleanup = content.includes('clean') || content.includes('clear') || content.includes('remove');
-      
+      const isCleanup =
+        content.includes('clean') || content.includes('clear') || content.includes('remove');
+
       if (isCleanup) {
         // Handle cleanup request
         await cleanupQuinnTestData(runtime, message.roomId);
-        
-        const cleanupText = "I've initiated cleanup of test data. Please note that full cleanup may require manual database operations. Check the logs for more details.";
-        
+
+        const cleanupText =
+          "I've initiated cleanup of test data. Please note that full cleanup may require manual database operations. Check the logs for more details.";
+
         if (callback) {
           await callback({
             text: cleanupText,
@@ -77,7 +78,8 @@ export const seedTestDataAction: Action = {
         };
       } else {
         // Handle seeding request
-        const isForceReseed = content.includes('force') || content.includes('fresh') || content.includes('new');
+        const isForceReseed =
+          content.includes('force') || content.includes('fresh') || content.includes('new');
         const seededMemories = await seedQuinnTestData(runtime, {
           roomId: message.roomId,
           skipIfExists: !isForceReseed, // Skip if exists unless forcing reseed
@@ -110,10 +112,9 @@ The vector search should now find relevant matches from the sample users!`;
           },
         };
       }
-
     } catch (error) {
       logger.error(`[quinn] Error in seed test data action: ${error}`);
-      
+
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorText = `❌ Failed to seed test data: ${errorMessage}
 
@@ -124,7 +125,7 @@ This might happen if:
 • Model API issues
 
 Check the logs for more details.`;
-      
+
       if (callback) {
         await callback({
           text: errorText,
@@ -135,8 +136,8 @@ Check the logs for more details.`;
       return {
         text: errorText,
         success: false,
-        error: error instanceof Error ? error : new Error(String(error))
+        error: error instanceof Error ? error : new Error(String(error)),
       };
     }
-  }
+  },
 };

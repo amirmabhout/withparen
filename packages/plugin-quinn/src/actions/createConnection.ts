@@ -254,21 +254,37 @@ export const createConnectionAction: Action = {
         };
       }
 
-      // Store the generated contexts for future use
-      await runtime.createMemory(
-        {
-          entityId: message.entityId,
-          agentId: runtime.agentId,
-          roomId: message.roomId,
-          content: {
-            text: personaContext,
-            type: 'persona_context',
-          },
-          createdAt: Date.now(),
-        },
-        'persona_contexts'
-      );
+      // Replace existing contexts to avoid duplicates in vector search
+      // First, delete any existing persona_contexts for this user
+      const existingPersonaContexts = await runtime.getMemories({
+        tableName: 'persona_contexts',
+        entityId: message.entityId,
+        roomId: message.roomId,
+        count: 100,
+      });
 
+      // Delete existing persona contexts to prevent duplicates in search
+      for (const existingContext of existingPersonaContexts) {
+        if (existingContext.id) {
+          await runtime.deleteMemory(existingContext.id);
+        }
+      }
+
+      // Create new persona context with embedding for vector search
+      const personaMemoryWithEmbedding = await runtime.addEmbeddingToMemory({
+        entityId: message.entityId,
+        agentId: runtime.agentId,
+        roomId: message.roomId,
+        content: {
+          text: personaContext,
+          type: 'persona_context',
+        },
+        createdAt: Date.now(),
+      });
+
+      await runtime.createMemory(personaMemoryWithEmbedding, 'persona_contexts', true);
+
+      // Store connection context (for historical tracking, no embedding needed)
       await runtime.createMemory(
         {
           entityId: message.entityId,
@@ -288,14 +304,16 @@ export const createConnectionAction: Action = {
         tableName: 'persona_contexts',
         count: 100,
       });
-      
-      logger.info(`[quinn] Starting connection discovery with ${allPersonaContexts.length} potential matches available`);
+
+      logger.info(
+        `[quinn] Starting connection discovery with ${allPersonaContexts.length} potential matches available`
+      );
 
       // Perform vector similarity search for potential matches
       let potentialMatches: Memory[] = [];
       try {
         logger.debug(`[quinn] Generating embedding for similarity search...`);
-        
+
         // Generate embedding from connection context for similarity search
         const embedding = await runtime.useModel(ModelType.TEXT_EMBEDDING, {
           text: connectionContext,
@@ -308,9 +326,11 @@ export const createConnectionAction: Action = {
           count: 10,
           match_threshold: 0.4, // Reasonable threshold for good matches
         });
-        
-        logger.info(`[quinn] Found ${potentialMatches.length} potential matches`);
-        
+
+        // Filter out the requesting user from potential matches
+        potentialMatches = potentialMatches.filter((match) => match.entityId !== message.entityId);
+
+        logger.info(`[quinn] Found ${potentialMatches.length} potential matches (excluding self)`);
       } catch (error) {
         logger.warn(`[quinn] Vector search failed: ${error}`);
         // Continue with empty matches
@@ -395,7 +415,9 @@ Looking for: ${matchConnectionContext.length > 0 ? matchConnectionContext[0].con
       const scoreMatch = compatibilityScorePlusReasoning.match(/^(\d+)/);
       const compatibilityScore = scoreMatch ? parseInt(scoreMatch[1]) : 0;
 
-      logger.info(`[quinn] Connection analysis complete. ${bestMatch !== 'none' ? `Found compatible match with score: ${compatibilityScore}` : 'No suitable matches found'}`);
+      logger.info(
+        `[quinn] Connection analysis complete. ${bestMatch !== 'none' ? `Found compatible match with score: ${compatibilityScore}` : 'No suitable matches found'}`
+      );
 
       if (callback) {
         await callback({

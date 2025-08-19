@@ -21,8 +21,9 @@ The onboarding provider guides users through a structured conversation:
 ## Required Information
 
 The action extracts three key pieces of information:
+
 - **User Name**: The name of the person creating the connection
-- **Partner Name**: The name of the person they want to connect with  
+- **Partner Name**: The name of the person they want to connect with
 - **Shared Secret**: A secret word or phrase that only they both know
 
 ## Example Conversation Flow
@@ -81,11 +82,13 @@ const character = {
 ## Action Behavior
 
 ### Validation
+
 - **Always available** for any non-empty message
 - No complex keyword matching or restrictions
 - Designed to be completely permissive in the serenapp context
 
 ### Handler
+
 - Extracts information from conversation history
 - No hardcoded callbacks - returns ActionResult for message handler to process
 - Handles missing information gracefully
@@ -94,16 +97,19 @@ const character = {
 ## Response Examples
 
 ### Successful Creation
+
 ```
 "Perfect! I've created your connection with Mike using your secret 'sunset'. Your connection has been added to the waitlist and you'll be notified when it's ready for deeper conversations. Welcome to your Seren journey, Sarah!"
 ```
 
 ### Missing Information
+
 ```
 "I need a bit more information to create your connection. Could you please provide your partner's name? For example: 'My name is [your name], I want to connect with [partner's name], and our secret word is [secret]'."
 ```
 
 ### Existing Connection
+
 ```
 "It looks like a connection between Sarah and Mike with that secret already exists! The status is currently: waitlist."
 ```
@@ -124,6 +130,7 @@ This action works in conjunction with the authentication system in `plugin-seren
 2. **plugin-seren**: Authenticates users against existing HumanConnection nodes and links them to Person nodes
 
 The workflow is:
+
 1. User creates connection via serenapp → HumanConnection with "waitlist" status
 2. User authenticates via seren → Links Person to existing HumanConnection
 3. Status can be updated from "waitlist" to "active" when ready for deeper conversations

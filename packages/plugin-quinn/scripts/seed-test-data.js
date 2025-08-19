@@ -2,10 +2,10 @@
 
 /**
  * Test Data Seeder for Quinn Plugin
- * 
+ *
  * This script seeds the database with sample users and their persona contexts
  * to enable testing of the connection discovery functionality.
- * 
+ *
  * Usage:
  *   bun run seed-test-data.js
  *   node seed-test-data.js
@@ -21,13 +21,13 @@ const testUsers = [
     personaContext: `Alex is a blockchain engineer with 8 years of experience in distributed systems and smart contract development. He has worked at major Web3 companies including Ethereum Foundation and Polygon. Alex is passionate about decentralized data solutions, DAOs, and has extensive experience in Solidity, Rust, and Go. He actively contributes to open-source projects and has helped launch 3 successful DeFi protocols. Alex is currently looking to collaborate on innovative data infrastructure projects and enjoys mentoring other developers transitioning into Web3. He has deep expertise in consensus algorithms, cryptographic protocols, and scalable blockchain architecture.`,
   },
   {
-    id: uuidv4(), 
+    id: uuidv4(),
     name: 'Sarah Martinez',
     personaContext: `Sarah is a community builder and growth strategist who has helped scale Web3 communities from 0 to 100K+ members. She has experience working with major blockchain projects including Chainlink, Aave, and The Graph Protocol. Sarah specializes in tokenomics design, governance frameworks, and building engaged developer ecosystems. She has organized over 50 blockchain events, managed ambassador programs across 25+ countries, and has deep expertise in DAO governance structures. Sarah is passionate about decentralized technologies and connecting builders with the right resources and communities to succeed.`,
   },
   {
     id: uuidv4(),
-    name: 'Marcus Johnson', 
+    name: 'Marcus Johnson',
     personaContext: `Marcus is a seasoned product manager and tech entrepreneur with experience at both Fortune 500 companies and Web3 startups. He has launched 4 successful tech products and raised over $15M in venture funding. Marcus has deep expertise in data analytics, machine learning pipelines, and building data-driven products at scale. He's particularly interested in the intersection of AI and blockchain, and has been exploring decentralized data marketplaces. Marcus is actively looking for technical co-founders and engineering talent for his next venture in the decentralized data space.`,
   },
   {
@@ -54,7 +54,7 @@ const testUsers = [
     id: uuidv4(),
     name: 'Jennifer Park',
     personaContext: `Jennifer is a UX/UI designer with 7 years of experience designing Web3 applications and developer tools. She has worked with major DeFi protocols to create intuitive user interfaces and improve user adoption. Jennifer has expertise in user research, design systems, and accessibility in blockchain applications. She's passionate about making decentralized technologies more user-friendly and has led design for 3 successful product launches that achieved 100K+ users. Jennifer is interested in collaborating with early-stage protocols on product design and user experience strategy.`,
-  }
+  },
 ];
 
 // Different room contexts to simulate various conversation scenarios
@@ -62,18 +62,18 @@ const testRooms = [
   {
     id: uuidv4(),
     name: 'Web3 Builders Chat',
-    description: 'A community for Web3 builders and entrepreneurs'
+    description: 'A community for Web3 builders and entrepreneurs',
   },
   {
-    id: uuidv4(), 
+    id: uuidv4(),
     name: 'DAO Governance Discussion',
-    description: 'Discussing governance frameworks and DAO structures'
+    description: 'Discussing governance frameworks and DAO structures',
   },
   {
     id: uuidv4(),
     name: 'Blockchain Developers',
-    description: 'Technical discussions for blockchain developers'
-  }
+    description: 'Technical discussions for blockchain developers',
+  },
 ];
 
 /**
@@ -81,66 +81,67 @@ const testRooms = [
  */
 async function seedTestData(runtime) {
   console.log('🌱 Starting test data seeding...');
-  
+
   try {
     const agentId = runtime.agentId;
     const createdMemories = [];
-    
+
     // Create test data for each user
     for (let i = 0; i < testUsers.length; i++) {
       const user = testUsers[i];
       const room = testRooms[i % testRooms.length]; // Cycle through rooms
-      
+
       console.log(`👤 Creating data for ${user.name}...`);
-      
+
       // Generate embedding for the persona context
       console.log('  🧠 Generating embedding...');
       const embedding = await runtime.useModel('text-embedding', {
-        text: user.personaContext
+        text: user.personaContext,
       });
-      
+
       // Create memory with embedding
       const memory = await runtime.addEmbeddingToMemory({
         entityId: user.id,
         agentId: agentId,
-        content: { 
+        content: {
           text: user.personaContext,
           type: 'persona_context',
-          name: user.name
+          name: user.name,
         },
         roomId: room.id,
         worldId: `world-${room.id}`,
-        createdAt: Date.now() - (Math.random() * 7 * 24 * 60 * 60 * 1000), // Random time in last 7 days
+        createdAt: Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000, // Random time in last 7 days
       });
-      
+
       // Store in persona_contexts table
       await runtime.createMemory(memory, 'persona_contexts', true);
-      
+
       createdMemories.push({
         user: user.name,
         memoryId: memory.id,
-        roomId: room.id
+        roomId: room.id,
       });
-      
+
       console.log(`  ✅ Created memory for ${user.name} (ID: ${memory.id})`);
     }
-    
+
     console.log('\n🎉 Test data seeding completed successfully!');
     console.log(`📊 Created ${createdMemories.length} persona contexts with embeddings`);
     console.log('\nCreated users:');
     createdMemories.forEach(({ user, memoryId, roomId }) => {
-      console.log(`  • ${user} (Memory: ${memoryId.slice(0, 8)}..., Room: ${roomId.slice(0, 8)}...)`);
+      console.log(
+        `  • ${user} (Memory: ${memoryId.slice(0, 8)}..., Room: ${roomId.slice(0, 8)}...)`
+      );
     });
-    
+
     console.log('\n🔍 Now you can test connection discovery with these sample users!');
     console.log('\nSample connection contexts that should find good matches:');
     console.log('  • "Looking for blockchain engineers with smart contract experience"');
     console.log('  • "Need community builders to help grow a Web3 protocol"');
     console.log('  • "Seeking technical co-founders for a decentralized data project"');
     console.log('  • "Want to connect with VCs interested in infrastructure projects"');
-    
+
     return createdMemories;
-    
   } catch (error) {
     console.error('❌ Error seeding test data:', error);
     throw error;
@@ -152,7 +153,7 @@ async function seedTestData(runtime) {
  */
 async function clearTestData(runtime) {
   console.log('🧹 Clearing existing test data...');
-  
+
   try {
     // Note: In a real scenario, you might want to implement a way to identify and remove test data
     // For now, this is a placeholder - manual cleanup may be needed

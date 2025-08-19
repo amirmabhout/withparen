@@ -9,21 +9,26 @@ The onboarding provider determines which conversation flow to use based on wheth
 ## How it works
 
 ### 1. Person Node Check
+
 The provider checks if a Person node exists for the user by:
+
 - Extracting `webId` from `message.entityId` (same way userId is extracted in other parts of the system)
 - Querying Memgraph for a Person node with matching `webId`
 - Verifying that the Person node has a valid email address (not null or empty)
 
 ### 2. Context Selection
+
 Based on the Person node check result:
 
 #### If Person node exists with valid email:
+
 - **Stage**: `connection_invite_creation`
 - **Context**: `connectionInviteContext`
 - **Purpose**: Guide user through creating connection invites with shared secrets
 - **Flow**: Step-by-step process to collect user name, partner name, and shared secret
 
 #### If Person node doesn't exist or has no email:
+
 - **Stage**: `relationship_exploration`
 - **Context**: `defaultOnboardingContext`
 - **Purpose**: Explore the user's relationship goals and guide them toward sign-in
@@ -51,6 +56,7 @@ When a user hasn't signed in yet (no Person node or no email):
 ## Database Integration
 
 The provider uses the `MemgraphService` to:
+
 - Connect to the Memgraph database
 - Query for Person nodes by `webId`
 - Handle connection errors gracefully
@@ -59,6 +65,7 @@ The provider uses the `MemgraphService` to:
 ## Error Handling
 
 The provider includes robust error handling:
+
 - Database connection failures
 - Query execution errors
 - Graceful fallback to default context on any error
@@ -68,6 +75,7 @@ The provider includes robust error handling:
 ## Return Values
 
 The provider returns:
+
 ```typescript
 {
   values: {
@@ -84,6 +92,7 @@ The provider returns:
 ## Testing
 
 The provider includes comprehensive tests covering:
+
 - Person node exists with valid email
 - Person node exists but no email
 - Person node exists but empty email
@@ -92,6 +101,7 @@ The provider includes comprehensive tests covering:
 - Query execution errors
 
 Run tests with:
+
 ```bash
 npm test -- onboarding.test.ts
 ```
@@ -99,6 +109,7 @@ npm test -- onboarding.test.ts
 ## Integration
 
 The onboarding provider works in conjunction with:
+
 - **signin action**: Creates Person nodes when users authenticate
 - **createConnection action**: Processes connection invites
 - **MemgraphService**: Handles database operations
