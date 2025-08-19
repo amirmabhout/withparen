@@ -1,6 +1,17 @@
-import { type IAgentRuntime, type Memory, type Provider, type State, ModelType, parseKeyValueXml, logger } from '@elizaos/core';
+import {
+  type IAgentRuntime,
+  type Memory,
+  type Provider,
+  type State,
+  ModelType,
+  parseKeyValueXml,
+  logger,
+} from '@elizaos/core';
 import { MemgraphService, type HumanConnectionNode } from '../services/memgraph.js';
-import { authenticationExtractionTemplate, authenticationFlexibleVerificationTemplate } from '../utils/promptTemplates.js';
+import {
+  authenticationExtractionTemplate,
+  authenticationFlexibleVerificationTemplate,
+} from '../utils/promptTemplates.js';
 import { getDailyPlan } from './dailyPlan.js';
 
 /**
@@ -176,7 +187,8 @@ Remember: This is about helping them tell their love story, not conducting an in
  */
 export const onboardingProvider: Provider = {
   name: 'ONBOARDING',
-  description: 'Provides context for app onboarding to create connection invites with shared secrets',
+  description:
+    'Provides context for app onboarding to create connection invites with shared secrets',
   get: async (_runtime: IAgentRuntime, message: Memory, _state: State) => {
     // Extract entityId from message (this is the userId)
     const userId = message.entityId;
@@ -186,7 +198,9 @@ export const onboardingProvider: Provider = {
       try {
         const dailyPlan = await getDailyPlan(_runtime, userId);
         if (dailyPlan) {
-          logger.debug(`[onboarding] User ${userId} has daily plan for today, skipping onboarding provider`);
+          logger.debug(
+            `[onboarding] User ${userId} has daily plan for today, skipping onboarding provider`
+          );
           return {
             values: {
               onboarding: '',
@@ -219,7 +233,9 @@ export const onboardingProvider: Provider = {
       const person = await memgraphService.getPersonByUserId(userId);
       if (person && person.roomId !== roomId) {
         await memgraphService.updatePersonRoomId(userId, roomId);
-        logger.info(`[onboarding] Updated Person node roomId for userId: ${userId} to roomId: ${roomId}`);
+        logger.info(
+          `[onboarding] Updated Person node roomId for userId: ${userId} to roomId: ${roomId}`
+        );
       }
 
       // Check if Person has any HumanConnection relationships
@@ -241,8 +257,8 @@ export const onboardingProvider: Provider = {
         if (hasConnections) {
           const connections = await memgraphService.getHumanConnections(userId);
           // Prefer active if any; otherwise use the first connection's status
-          const hasActive = connections.some(c => (c.status || 'active') === 'active');
-          chosenStatus = hasActive ? 'active' : (connections[0]?.status || 'active');
+          const hasActive = connections.some((c) => (c.status || 'active') === 'active');
+          chosenStatus = hasActive ? 'active' : connections[0]?.status || 'active';
         } else if (lastAuthConnection) {
           chosenStatus = lastAuthConnection.status || 'active';
         } else {
@@ -305,7 +321,6 @@ Remember: This is about helping them connect with someone they care about. Keep 
           text: defaultContext,
         };
       }
-
     } catch (error) {
       logger.error(
         `[onboarding] Error in onboarding provider: ${
@@ -394,15 +409,17 @@ async function tryAuthentication(
         const text = msg.content?.text || '';
         return `${role}: ${text}`;
       })
-      .filter(line => line.trim().length > 0)
+      .filter((line) => line.trim().length > 0)
       .reverse() // Reverse to show chronological order (oldest first)
       .join('\n');
 
     logger.debug(`[onboarding] Formatted messages for authentication:\n${formattedMessages}`);
 
     // Create extraction prompt
-    const extractionPrompt = authenticationExtractionTemplate
-      .replace('{{recentMessages}}', formattedMessages);
+    const extractionPrompt = authenticationExtractionTemplate.replace(
+      '{{recentMessages}}',
+      formattedMessages
+    );
 
     // Use LLM to extract authentication info
     const response = await runtime.useModel(ModelType.TEXT_SMALL, {
@@ -446,18 +463,28 @@ async function tryAuthentication(
       extractedInfo.partnerName
     );
 
-    logger.debug(`[onboarding] Searching for connections with userName="${extractedInfo.userName}" partnerName="${extractedInfo.partnerName}"`);
+    logger.debug(
+      `[onboarding] Searching for connections with userName="${extractedInfo.userName}" partnerName="${extractedInfo.partnerName}"`
+    );
     logger.debug(`[onboarding] Candidates by names: count=${candidates?.length ?? 0}`);
 
     if (!candidates || candidates.length === 0) {
-      logger.info('[onboarding] No candidate HumanConnection found by partner names, trying broader search');
-      
+      logger.info(
+        '[onboarding] No candidate HumanConnection found by partner names, trying broader search'
+      );
+
       // Try searching by just the user name to see if there are any connections
-      const userConnections = await memgraphService.searchHumanConnectionsByName(extractedInfo.userName.toLowerCase());
-      logger.debug(`[onboarding] Found ${userConnections.length} connections containing user name "${extractedInfo.userName}"`);
-      
+      const userConnections = await memgraphService.searchHumanConnectionsByName(
+        extractedInfo.userName.toLowerCase()
+      );
+      logger.debug(
+        `[onboarding] Found ${userConnections.length} connections containing user name "${extractedInfo.userName}"`
+      );
+
       if (userConnections.length > 0) {
-        logger.debug(`[onboarding] Available connections: ${JSON.stringify(userConnections.map(c => ({ partners: c.partners, secret: c.secret })))}`);
+        logger.debug(
+          `[onboarding] Available connections: ${JSON.stringify(userConnections.map((c) => ({ partners: c.partners, secret: c.secret })))}`
+        );
         // Use the user connections as candidates for flexible verification
         candidates = userConnections;
         logger.debug(`[onboarding] Updated candidates array, now has ${candidates.length} items`);
@@ -478,7 +505,9 @@ async function tryAuthentication(
       return { success: false, message: 'Missing secret for verification' };
     }
 
-    logger.debug(`[onboarding] Running flexible verification with ${candidates.length} candidates and secret "${extractedInfo.secret}"`);
+    logger.debug(
+      `[onboarding] Running flexible verification with ${candidates.length} candidates and secret "${extractedInfo.secret}"`
+    );
     logger.debug(`[onboarding] Candidates for verification: ${JSON.stringify(candidates)}`);
 
     const verificationPrompt = authenticationFlexibleVerificationTemplate
@@ -492,7 +521,9 @@ async function tryAuthentication(
       temperature: 0.1,
     });
 
-    logger.debug(`[onboarding] Flexible verification prompt: ${verificationPrompt.substring(0, 500)}...`);
+    logger.debug(
+      `[onboarding] Flexible verification prompt: ${verificationPrompt.substring(0, 500)}...`
+    );
     logger.debug(`[onboarding] Verification model raw response: ${verificationResponse}`);
 
     let verification;
@@ -514,7 +545,7 @@ async function tryAuthentication(
     }
 
     // Resolve the selected connection from the verification result in a robust way
-    const normPartners = (arr: string[]) => arr.map(s => s.trim().toLowerCase()).sort();
+    const normPartners = (arr: string[]) => arr.map((s) => s.trim().toLowerCase()).sort();
     const normSecret = (s: string) => (s ?? '').trim().toLowerCase();
 
     let selected: any | null = null;
@@ -535,12 +566,12 @@ async function tryAuthentication(
 
     // 2) Try to match by connectionId from structured payloads
     if (!matchingConnection && selected?.connectionId) {
-      matchingConnection = candidates.find(c => c.connectionId === selected.connectionId) || null;
+      matchingConnection = candidates.find((c) => c.connectionId === selected.connectionId) || null;
     }
     if (!matchingConnection) {
       const matchId = verification.match || '';
       if (matchId && matchId !== 'partners+secret') {
-        matchingConnection = candidates.find(c => c.connectionId === matchId) || null;
+        matchingConnection = candidates.find((c) => c.connectionId === matchId) || null;
       }
     }
 
@@ -550,22 +581,25 @@ async function tryAuthentication(
       const partners = partnersCsv ? partnersCsv.split(',').map((s: string) => s) : null;
       if (partners && partners.length) {
         const vPartners = normPartners(partners);
-        matchingConnection = candidates.find(c => {
-          return JSON.stringify(normPartners(c.partners)) === JSON.stringify(vPartners);
-        }) || null;
+        matchingConnection =
+          candidates.find((c) => {
+            return JSON.stringify(normPartners(c.partners)) === JSON.stringify(vPartners);
+          }) || null;
       }
     }
 
     // 4) Match by case-insensitive secret (in case LLM echoes it back)
     if (!matchingConnection && (verification.secret || selected?.secret)) {
       const vSecret = normSecret(verification.secret || selected?.secret || '');
-      matchingConnection = candidates.find(c => normSecret(c.secret) === vSecret) || null;
+      matchingConnection = candidates.find((c) => normSecret(c.secret) === vSecret) || null;
     }
 
     // 5) Last fallback: partners from extracted names if they uniquely identify a candidate
     if (!matchingConnection) {
       const extractedPartners = normPartners([extractedInfo.userName, extractedInfo.partnerName]);
-      const partnerMatches = candidates.filter(c => JSON.stringify(normPartners(c.partners)) === JSON.stringify(extractedPartners));
+      const partnerMatches = candidates.filter(
+        (c) => JSON.stringify(normPartners(c.partners)) === JSON.stringify(extractedPartners)
+      );
       if (partnerMatches.length === 1) {
         matchingConnection = partnerMatches[0];
       }
@@ -578,7 +612,9 @@ async function tryAuthentication(
 
     logger.info(
       `[onboarding] Flexible verification matched HumanConnection: ${
-        typeof matchingConnection === 'string' ? matchingConnection : JSON.stringify(matchingConnection)
+        typeof matchingConnection === 'string'
+          ? matchingConnection
+          : JSON.stringify(matchingConnection)
       }`
     );
 
@@ -601,7 +637,10 @@ async function tryAuthentication(
     }
 
     // Link the person (now identified by userId) to the connection
-    const linkSuccess = await memgraphService.linkPersonToHumanConnection(userId, matchingConnection);
+    const linkSuccess = await memgraphService.linkPersonToHumanConnection(
+      userId,
+      matchingConnection
+    );
 
     if (linkSuccess) {
       // Safety: deduplicate if an older Person node with same userId exists
@@ -609,23 +648,20 @@ async function tryAuthentication(
         await memgraphService.deduplicatePersonsByUserId(userId);
       } catch (e) {
         logger.warn(
-          `[onboarding] Deduplication warning: ${
-            e instanceof Error ? e.message : String(e)
-          }`
+          `[onboarding] Deduplication warning: ${e instanceof Error ? e.message : String(e)}`
         );
       }
-      logger.info(`[onboarding] Successfully authenticated and linked user ${userId} to HumanConnection`);
+      logger.info(
+        `[onboarding] Successfully authenticated and linked user ${userId} to HumanConnection`
+      );
       return { success: true, message: 'Authentication successful', matchingConnection };
     }
 
     logger.error('[onboarding] Failed to create connection link');
     return { success: false, message: 'Failed to create connection link' };
-
   } catch (error) {
     logger.error(
-      `[onboarding] Authentication error: ${
-        error instanceof Error ? error.message : String(error)
-      }`
+      `[onboarding] Authentication error: ${error instanceof Error ? error.message : String(error)}`
     );
     return { success: false, message: 'Authentication process failed' };
   }

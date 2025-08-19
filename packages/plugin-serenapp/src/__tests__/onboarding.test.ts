@@ -16,23 +16,27 @@ describe('Onboarding Provider', () => {
     spyOn(logger, 'info').mockImplementation(() => {});
 
     mockRuntime = createMockRuntime();
-    
+
     // Mock MemgraphService methods
     mockMemgraphService = {
       connect: mock(() => Promise.resolve()),
       disconnect: mock(() => Promise.resolve()),
       findPersonByWebId: mock(() => Promise.resolve(null)),
     };
-    
+
     // Mock the constructor to return our mock instance
     spyOn(MemgraphService.prototype, 'connect').mockImplementation(mockMemgraphService.connect);
-    spyOn(MemgraphService.prototype, 'disconnect').mockImplementation(mockMemgraphService.disconnect);
-    spyOn(MemgraphService.prototype, 'findPersonByWebId').mockImplementation(mockMemgraphService.findPersonByWebId);
+    spyOn(MemgraphService.prototype, 'disconnect').mockImplementation(
+      mockMemgraphService.disconnect
+    );
+    spyOn(MemgraphService.prototype, 'findPersonByWebId').mockImplementation(
+      mockMemgraphService.findPersonByWebId
+    );
   });
 
   it('should always return connection invite creation context (authentication skipped)', async () => {
     const message = createMockMemory({
-      entityId: 'user123'
+      entityId: 'user123',
     });
     const state = createMockState();
 
@@ -42,7 +46,7 @@ describe('Onboarding Provider', () => {
     expect(mockMemgraphService.connect).not.toHaveBeenCalled();
     expect(mockMemgraphService.findPersonByWebId).not.toHaveBeenCalled();
     expect(mockMemgraphService.disconnect).not.toHaveBeenCalled();
-    
+
     expect(result.values?.onboardingStage).toBe('connection_invite_creation');
     expect(result.text).toContain('Important task: App Onboarding to create connection invites');
     expect(result.text).toContain('Step-by-Step Conversation Flow');
@@ -50,7 +54,7 @@ describe('Onboarding Provider', () => {
 
   it('should skip authentication check regardless of Person node existence', async () => {
     const message = createMockMemory({
-      entityId: 'user123'
+      entityId: 'user123',
     });
     const state = createMockState();
 
@@ -61,7 +65,7 @@ describe('Onboarding Provider', () => {
 
     expect(result.values?.onboardingStage).toBe('connection_invite_creation');
     expect(result.text).toContain('Important task: App Onboarding to create connection invites');
-    
+
     // Verify no database calls were made
     expect(mockMemgraphService.connect).not.toHaveBeenCalled();
     expect(mockMemgraphService.findPersonByWebId).not.toHaveBeenCalled();
@@ -69,7 +73,7 @@ describe('Onboarding Provider', () => {
 
   it('should skip authentication check regardless of email status', async () => {
     const message = createMockMemory({
-      entityId: 'user123'
+      entityId: 'user123',
     });
     const state = createMockState();
 
@@ -77,19 +81,19 @@ describe('Onboarding Provider', () => {
 
     expect(result.values?.onboardingStage).toBe('connection_invite_creation');
     expect(result.text).toContain('Important task: App Onboarding to create connection invites');
-    
+
     // Verify no database calls were made
     expect(mockMemgraphService.connect).not.toHaveBeenCalled();
   });
 
   it('should always proceed to connection creation flow', async () => {
     const message = createMockMemory({
-      entityId: 'user123'
+      entityId: 'user123',
     });
     const state = createMockState();
 
     const result = await onboardingProvider.get(mockRuntime, message, state);
-    
+
     expect(result.values?.onboardingStage).toBe('connection_invite_creation');
     expect(result.text).toContain('Important task: App Onboarding to create connection invites');
     expect(result.text).toContain('Step-by-Step Conversation Flow');

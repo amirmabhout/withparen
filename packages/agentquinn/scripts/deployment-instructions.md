@@ -9,6 +9,7 @@
 ## Step 1: Configure Cloudflare DNS
 
 In your Cloudflare dashboard:
+
 1. Add an A record: `webchat` → Your server IP
 2. Set Proxy status to "DNS only" (gray cloud) initially
 3. After SSL is working, you can enable Cloudflare proxy (orange cloud)
@@ -30,19 +31,22 @@ sudo /home/specialpedrito/agents/setup-ssl.sh
 ## Step 3: Update Environment Variables
 
 Edit your `.env` file:
+
 ```bash
 nano /home/specialpedrito/agents/packages/agentweb/.env
 ```
 
 Update these values:
+
 - Replace `your_secure_token_here` with a strong API token
 - Replace `https://your-landing-page.com` with your actual landing page domain
 
 ## Step 4: Configure Nginx Rate Limiting
 
 The nginx configuration includes:
+
 - **API endpoints**: 10 requests/minute per IP
-- **Chat endpoints**: 30 requests/minute per IP  
+- **Chat endpoints**: 30 requests/minute per IP
 - **WebSocket**: 5 connections/minute per IP
 - **Connection limit**: 10 concurrent connections per IP
 
@@ -98,10 +102,7 @@ import { ElizaChatWidget } from './path/to/react-integration-example.js';
 function App() {
   return (
     <div className="App">
-      <ElizaChatWidget 
-        agentId="your-agent-id"
-        className="my-chat-widget"
-      />
+      <ElizaChatWidget agentId="your-agent-id" className="my-chat-widget" />
     </div>
   );
 }
@@ -115,7 +116,7 @@ import { ElizaAdvancedChatWidget } from './path/to/websocket-integration.js';
 function App() {
   return (
     <div className="App">
-      <ElizaAdvancedChatWidget 
+      <ElizaAdvancedChatWidget
         agentId="your-agent-id"
         className="advanced-chat"
         rateLimit={{ maxRequests: 8, windowMs: 60000 }}
@@ -136,6 +137,7 @@ function App() {
 ## Troubleshooting
 
 ### SSL Issues
+
 ```bash
 # Check certificate status
 sudo certbot certificates
@@ -145,12 +147,14 @@ sudo certbot renew --dry-run
 ```
 
 ### Rate Limiting Issues
+
 ```bash
 # Check nginx error logs for rate limit hits
 sudo grep "limiting requests" /var/log/nginx/webchat.withseren.com.error.log
 ```
 
 ### Agent Connection Issues
+
 ```bash
 # Check if agent is running
 curl http://127.0.0.1:3019/health

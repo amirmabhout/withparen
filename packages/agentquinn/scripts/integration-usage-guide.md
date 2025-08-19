@@ -12,10 +12,7 @@ import { ElizaChatWidget } from './react-integration-example.js';
 function App() {
   return (
     <div className="App">
-      <ElizaChatWidget 
-        agentId="3c0b933c-a2c6-06f9-abdc-dbd48eb48314"
-        className="my-chat-widget"
-      />
+      <ElizaChatWidget agentId="3c0b933c-a2c6-06f9-abdc-dbd48eb48314" className="my-chat-widget" />
     </div>
   );
 }
@@ -29,7 +26,7 @@ import { ElizaAdvancedChatWidget } from './websocket-integration.js';
 function App() {
   return (
     <div className="App">
-      <ElizaAdvancedChatWidget 
+      <ElizaAdvancedChatWidget
         agentId="3c0b933c-a2c6-06f9-abdc-dbd48eb48314"
         className="advanced-chat"
         rateLimit={{ maxRequests: 8, windowMs: 60000 }}
@@ -42,12 +39,14 @@ function App() {
 ## Configuration Details
 
 ### Your Production Settings
+
 - **Endpoint**: `https://webchat.withseren.com`
 - **Agent ID**: `3c0b933c-a2c6-06f9-abdc-dbd48eb48314`
 - **API Key**: `n13in13kfdjn13irju1i3d1i3d`
 - **CORS Origin**: `https://withseren.com`
 
 ### Rate Limiting
+
 - **Nginx Level**: 100 API requests/min, 300 chat requests/min per IP
 - **Client Level**: 1000 requests/min (backup protection)
 - **WebSocket**: 15 connections/min per IP
@@ -55,11 +54,13 @@ function App() {
 ## Installation
 
 ### Dependencies
+
 ```bash
 npm install socket.io-client
 ```
 
 ### CSS Styles
+
 Add the provided CSS styles to your application:
 
 ```jsx
@@ -76,6 +77,7 @@ const GlobalStyles = createGlobalStyle`
 ## API Endpoints
 
 ### Available Endpoints
+
 - `GET /api/agents` - List all agents
 - `GET /api/agents/:agentId` - Get agent details
 - `POST /api/messaging/central-channels/:channelId/messages` - Send message
@@ -83,7 +85,9 @@ const GlobalStyles = createGlobalStyle`
 - `WebSocket /socket.io/` - Real-time communication
 
 ### Authentication
+
 All API requests require the `X-API-KEY` header:
+
 ```javascript
 headers: {
   'X-API-KEY': 'n13in13kfdjn13irju1i3d1i3d'
@@ -93,13 +97,11 @@ headers: {
 ## Custom Implementation
 
 ### Using the API Client Directly
+
 ```javascript
 import { ElizaAPIClient } from './react-integration-example.js';
 
-const client = new ElizaAPIClient(
-  'https://webchat.withseren.com',
-  'n13in13kfdjn13irju1i3d1i3d'
-);
+const client = new ElizaAPIClient('https://webchat.withseren.com', 'n13in13kfdjn13irju1i3d1i3d');
 
 // Get agents
 const agents = await client.getAgents();
@@ -107,27 +109,26 @@ const agents = await client.getAgents();
 // Send message
 await client.sendMessage(channelId, 'Hello!', {
   userId: 'user-123',
-  userName: 'John Doe'
+  userName: 'John Doe',
 });
 ```
 
 ### Custom Hook Usage
+
 ```javascript
 import { useElizaChat } from './react-integration-example.js';
 
 function CustomChat() {
   const { messages, sendMessage, loading, error } = useElizaChat(
-    "3c0b933c-a2c6-06f9-abdc-dbd48eb48314"
+    '3c0b933c-a2c6-06f9-abdc-dbd48eb48314'
   );
 
   return (
     <div>
-      {messages.map(msg => (
+      {messages.map((msg) => (
         <div key={msg.id}>{msg.content}</div>
       ))}
-      <button onClick={() => sendMessage('Hello!')}>
-        Send Message
-      </button>
+      <button onClick={() => sendMessage('Hello!')}>Send Message</button>
     </div>
   );
 }
@@ -136,11 +137,13 @@ function CustomChat() {
 ## Error Handling
 
 ### Common Errors
+
 - **429 Rate Limited**: User exceeded rate limits
 - **403 Forbidden**: Invalid API key or CORS issue
 - **500 Server Error**: Agent or server issue
 
 ### Error Handling Example
+
 ```javascript
 try {
   await client.sendMessage(channelId, message);
@@ -161,19 +164,21 @@ try {
 ## Testing
 
 ### Test the API
+
 ```bash
 # Test agent list
 curl -H "X-API-KEY: n13in13kfdjn13irju1i3d1i3d" \
   https://webchat.withseren.com/api/agents
 
 # Test rate limiting (run multiple times)
-for i in {1..15}; do 
+for i in {1..15}; do
   curl -H "X-API-KEY: n13in13kfdjn13irju1i3d1i3d" \
     https://webchat.withseren.com/api/agents
 done
 ```
 
 ### Test WebSocket Connection
+
 ```javascript
 // In browser console
 const socket = io('https://webchat.withseren.com');
@@ -184,17 +189,22 @@ socket.on('disconnect', () => console.log('Disconnected!'));
 ## Deployment to AWS Amplify
 
 ### 1. Copy Integration Files
+
 Copy these files to your React project:
+
 - `react-integration-example.js`
 - `websocket-integration.js`
 
 ### 2. Install Dependencies
+
 ```bash
 npm install socket.io-client
 ```
 
 ### 3. Environment Variables (Optional)
+
 Create `.env` in your React project:
+
 ```
 REACT_APP_ELIZA_ENDPOINT=https://webchat.withseren.com
 REACT_APP_ELIZA_API_KEY=n13in13kfdjn13irju1i3d1i3d
@@ -202,6 +212,7 @@ REACT_APP_ELIZA_AGENT_ID=3c0b933c-a2c6-06f9-abdc-dbd48eb48314
 ```
 
 ### 4. Use Environment Variables
+
 ```javascript
 const client = new ElizaAPIClient(
   process.env.REACT_APP_ELIZA_ENDPOINT,
@@ -212,6 +223,7 @@ const client = new ElizaAPIClient(
 ## Monitoring
 
 ### Check Agent Status
+
 ```bash
 # PM2 status
 pm2 status
@@ -225,6 +237,7 @@ sudo tail -f /var/log/nginx/webchat.withseren.com.access.log
 ```
 
 ### SSL Certificate
+
 ```bash
 # Check certificate expiration
 sudo certbot certificates
@@ -244,6 +257,7 @@ sudo certbot renew --dry-run
 ## Support
 
 If you encounter issues:
+
 1. Check the browser console for errors
 2. Verify CORS settings match your domain
 3. Test API endpoints with curl

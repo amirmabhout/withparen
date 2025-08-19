@@ -48,9 +48,11 @@ sudo /home/specialpedrito/agents/setup-ssl.sh
 With proxy enabled, configure these settings:
 
 ### SSL/TLS > Overview
+
 - **SSL/TLS encryption mode**: Full (strict)
 
 ### SSL/TLS > Edge Certificates
+
 - **Always Use HTTPS**: On
 - **HTTP Strict Transport Security (HSTS)**: Enable
   - Max Age Header: 6 months
@@ -58,18 +60,21 @@ With proxy enabled, configure these settings:
   - No-Sniff header: On
 
 ### Security > Settings
+
 - **Security Level**: Medium
 - **Bot Fight Mode**: On
 - **Challenge Passage**: 30 minutes
 
 ### Speed > Optimization
-- **Auto Minify**: 
+
+- **Auto Minify**:
   - JavaScript: On
   - CSS: On
   - HTML: On
 - **Brotli**: On
 
 ### Firewall > Tools
+
 - **Rate Limiting**: (Optional - you already have nginx rate limiting)
   - If you want additional protection, create rules:
     - `/api/*`: 20 requests per minute
@@ -80,6 +85,7 @@ With proxy enabled, configure these settings:
 Create page rules for better performance:
 
 1. **Rule 1**: `webchat.withseren.com/api/*`
+
    - Cache Level: Bypass
    - Disable Apps
    - Disable Performance
@@ -91,15 +97,18 @@ Create page rules for better performance:
 ## Important Notes
 
 ### ⚠️ DNS Only First
+
 - **Always start with DNS only (gray cloud)**
 - Only enable proxy after SSL certificate is obtained
 - Cloudflare proxy can interfere with Let's Encrypt validation
 
 ### 🔄 Certificate Renewal
+
 - With proxy enabled, certificate renewal happens automatically
 - The cron job will handle renewals behind Cloudflare
 
 ### 🛡️ Security Benefits with Proxy
+
 - DDoS protection
 - Web Application Firewall (WAF)
 - Bot protection
@@ -107,6 +116,7 @@ Create page rules for better performance:
 - Global CDN
 
 ### 📊 Monitoring
+
 - Use Cloudflare Analytics to monitor traffic
 - Set up alerts for high error rates
 - Monitor SSL certificate expiration
@@ -128,21 +138,25 @@ socket.on('connect', () => console.log('Connected!'));
 ## Troubleshooting
 
 ### DNS Not Resolving
+
 - Wait 5-10 minutes for DNS propagation
 - Check if you're using the correct subdomain name
 - Verify the IP address is correct
 
 ### SSL Certificate Issues
+
 - Ensure DNS is resolving before running certbot
 - Check if port 80 is accessible from the internet
 - Temporarily disable Cloudflare proxy during certificate generation
 
 ### 522 Connection Timed Out (with proxy enabled)
+
 - Check if your server is accessible on port 443
 - Verify nginx is running and configured correctly
 - Check firewall settings
 
 Your server IP address is needed for the DNS configuration. You can find it with:
+
 ```bash
 curl -4 ifconfig.me
 ```

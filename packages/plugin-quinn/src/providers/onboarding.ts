@@ -7,12 +7,15 @@ import { type IAgentRuntime, type Memory, type Provider, type State, logger } fr
  */
 export const onboardingProvider: Provider = {
   name: 'ONBOARDING',
-  description: 'Provides context for Quinn onboarding to discover user passions, challenges, and connection preferences',
+  description:
+    'Provides context for Quinn onboarding to discover user passions, challenges, and connection preferences',
   get: async (_runtime: IAgentRuntime, message: Memory, _state: State) => {
     // Skip authentication check - always proceed to connection creation flow
     let hasPersonWithWebIdAndEmail = true; // Always true to skip to connection invite creation
 
-    logger.debug(`[onboarding] Skipping authentication check - proceeding directly to connection creation for webId: ${message.entityId}`);
+    logger.debug(
+      `[onboarding] Skipping authentication check - proceeding directly to connection creation for webId: ${message.entityId}`
+    );
 
     // TODO: Re-enable authentication check if needed in the future
     // const memgraphService = new MemgraphService();
@@ -173,8 +176,12 @@ Ask about:
 Remember: The goal is to understand them deeply enough to find truly compatible connections, not just any connections.`;
 
     // Choose context based on whether user has Person node with webId and email
-    const context = hasPersonWithWebIdAndEmail ? connectionDiscoveryContext : defaultOnboardingContext;
-    const stage = hasPersonWithWebIdAndEmail ? 'connection_invite_creation' : 'relationship_exploration';
+    const context = hasPersonWithWebIdAndEmail
+      ? connectionDiscoveryContext
+      : defaultOnboardingContext;
+    const stage = hasPersonWithWebIdAndEmail
+      ? 'connection_invite_creation'
+      : 'relationship_exploration';
 
     return {
       values: {

@@ -16,7 +16,6 @@ import {
 } from '@elizaos/core';
 import { z } from 'zod';
 
-
 /**
  * Define the configuration schema for the plugin with the following properties:
  *

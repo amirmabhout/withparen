@@ -22,16 +22,17 @@ Based on the user's background, goals, and connection preferences, generate two 
 1. **personaContext**: A summary of the user's background with relevant information according to their goals and preferences
 2. **connectionContext**: An ideal persona description of whom the user would like to connect with, including background summary, goals, and preferences
 
-## Response Format
-<personaContext>
-[Detailed summary of user's background, skills, interests, goals, and what they bring to connections]
-</personaContext>
+## Instructions
+Do NOT include any thinking, reasoning, or analysis sections in your response. 
+Go directly to the XML response format without any preamble or explanation.
 
-<connectionContext>
-[Detailed description of the ideal connection - their background, skills, interests, goals, and what the user hopes to gain from connecting with them]
-</connectionContext>
+Respond using XML format like this:
+<response>
+    <personaContext>Detailed summary of user's background, skills, interests, goals, and what they bring to connections</personaContext>
+    <connectionContext>Detailed description of the ideal connection - their background, skills, interests, goals, and what the user hopes to gain from connecting with them</connectionContext>
+</response>
 
-IMPORTANT: Your response must ONLY contain the personaContext and connectionContext XML blocks above.
+IMPORTANT: Your response must ONLY contain the <response></response> XML block above. Do not include any text, thinking, or reasoning before or after this XML block. Start your response immediately with <response> and end with </response>.
 `;
 
 export const compatibilityAnalysisTemplate = `# Connection Compatibility Analysis
@@ -55,28 +56,18 @@ Analyze compatibility between the user and ALL candidates provided. For each can
 
 Provide analysis for each candidate and select the best match.
 
-## Response Format
-<analysis>
-[Your detailed analysis of each candidate's compatibility with the user]
-</analysis>
+## Instructions
+Do NOT include any thinking, reasoning, or analysis sections in your response. 
+Go directly to the XML response format without any preamble or explanation.
 
-<bestMatch>
-[ID or identifier of the best matching candidate, or "none" if no good matches]
-</bestMatch>
+Respond using XML format like this:
+<response>
+    <bestMatch>ID or identifier of the best matching candidate, or "none" if no good matches</bestMatch>
+    <compatibilityScorePlusReasoning>Score 0-100 for the best match followed by detailed explanation of why this is the best match or why no good matches were found</compatibilityScorePlusReasoning>
+    <text>Message to send to the user about the match results - either introducing them to the match or explaining why no good matches were found</text>
+</response>
 
-<compatibilityScore>
-[Score 0-100 for the best match, or 0 if no good matches]
-</compatibilityScore>
-
-<reasoning>
-[Detailed explanation of why this is the best match or why no good matches were found]
-</reasoning>
-
-<recommendation>
-[Should we introduce them? Yes/No and brief explanation]
-</recommendation>
-
-IMPORTANT: Your response must ONLY contain the XML blocks above.
+IMPORTANT: Your response must ONLY contain the <response></response> XML block above. Do not include any text, thinking, or reasoning before or after this XML block. Start your response immediately with <response> and end with </response>.
 `;
 
 export const messageHandlerTemplate = `<task>Generate dialog according to the onboarding guidelines for the character {{agentName}}.</task>

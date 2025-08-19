@@ -16,7 +16,7 @@ describe('Signin Action', () => {
     spyOn(logger, 'info').mockImplementation(() => {});
 
     mockRuntime = createMockRuntime();
-    
+
     // Mock MemgraphService methods
     mockMemgraphService = {
       connect: mock(() => Promise.resolve()),
@@ -24,31 +24,37 @@ describe('Signin Action', () => {
       createPerson: mock(() => Promise.resolve()),
       findPersonByWebId: mock(() => Promise.resolve(null)),
     };
-    
+
     // Mock the constructor to return our mock instance
     spyOn(MemgraphService.prototype, 'connect').mockImplementation(mockMemgraphService.connect);
-    spyOn(MemgraphService.prototype, 'disconnect').mockImplementation(mockMemgraphService.disconnect);
-    spyOn(MemgraphService.prototype, 'createPerson').mockImplementation(mockMemgraphService.createPerson);
-    spyOn(MemgraphService.prototype, 'findPersonByWebId').mockImplementation(mockMemgraphService.findPersonByWebId);
+    spyOn(MemgraphService.prototype, 'disconnect').mockImplementation(
+      mockMemgraphService.disconnect
+    );
+    spyOn(MemgraphService.prototype, 'createPerson').mockImplementation(
+      mockMemgraphService.createPerson
+    );
+    spyOn(MemgraphService.prototype, 'findPersonByWebId').mockImplementation(
+      mockMemgraphService.findPersonByWebId
+    );
   });
 
   it('should validate Firebase authentication messages', async () => {
     const validMessage1 = createMockMemory({
       content: {
-        text: 'User has successfully authenticated. Firebase identity data: {"id": "test123", "email": "test@example.com"}'
-      }
+        text: 'User has successfully authenticated. Firebase identity data: {"id": "test123", "email": "test@example.com"}',
+      },
     });
 
     const validMessage2 = createMockMemory({
       content: {
-        text: 'User has authenticated their email and wish to sign in. Firebase identity data: {"id": "test123", "email": "test@example.com"}'
-      }
+        text: 'User has authenticated their email and wish to sign in. Firebase identity data: {"id": "test123", "email": "test@example.com"}',
+      },
     });
 
     const invalidMessage = createMockMemory({
       content: {
-        text: 'Just a regular message'
-      }
+        text: 'Just a regular message',
+      },
     });
 
     expect(await signinAction.validate(mockRuntime, validMessage1)).toBe(true);
@@ -67,18 +73,19 @@ describe('Signin Action', () => {
           "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6IjJiN2JhZmIyZjEwY2FlMmIxZjA3ZjM4MTZjNTQyMmJlY2NhNWMyMjMiLCJ0eXAiOiJKV1QifQ",
           "authorId": "author456",
           "emailVerified": true
-        }`
-      }
+        }`,
+      },
     });
 
     const mockPerson = {
       webId: 'user123',
       email: 'test@example.com',
       firebaseId: 'firebase123',
-      firebaseToken: 'eyJhbGciOiJSUzI1NiIsImtpZCI6IjJiN2JhZmIyZjEwY2FlMmIxZjA3ZjM4MTZjNTQyMmJlY2NhNWMyMjMiLCJ0eXAiOiJKV1QifQ',
+      firebaseToken:
+        'eyJhbGciOiJSUzI1NiIsImtpZCI6IjJiN2JhZmIyZjEwY2FlMmIxZjA3ZjM4MTZjNTQyMmJlY2NhNWMyMjMiLCJ0eXAiOiJKV1QifQ',
       authorId: 'author456',
       createdAt: '2023-01-01T00:00:00.000Z',
-      updatedAt: '2023-01-01T00:00:00.000Z'
+      updatedAt: '2023-01-01T00:00:00.000Z',
     };
 
     mockMemgraphService.createPerson.mockImplementation(() => Promise.resolve(mockPerson));
@@ -106,8 +113,8 @@ describe('Signin Action', () => {
     const message = createMockMemory({
       entityId: 'user123',
       content: {
-        text: 'User has successfully authenticated. Firebase identity data: invalid json'
-      }
+        text: 'User has successfully authenticated. Firebase identity data: invalid json',
+      },
     });
 
     const result = await signinAction.handler(mockRuntime, message, undefined, {});
@@ -126,8 +133,8 @@ describe('Signin Action', () => {
           "id": "firebase123",
           "email": "test@example.com",
           "token": "test-token"
-        }`
-      }
+        }`,
+      },
     });
 
     const mockPerson = {
@@ -137,7 +144,7 @@ describe('Signin Action', () => {
       firebaseToken: 'test-token',
       authorId: undefined,
       createdAt: '2023-01-01T00:00:00.000Z',
-      updatedAt: '2023-01-01T00:00:00.000Z'
+      updatedAt: '2023-01-01T00:00:00.000Z',
     };
 
     mockMemgraphService.createPerson.mockImplementation(() => Promise.resolve(mockPerson));
@@ -168,8 +175,8 @@ describe('Signin Action', () => {
           "email": "test@example.com",
           "token": "test-token",
           "authorId": "author456"
-        }`
-      }
+        }`,
+      },
     });
 
     const existingPerson = {
@@ -179,7 +186,7 @@ describe('Signin Action', () => {
       firebaseToken: 'test-token',
       authorId: 'author456',
       createdAt: '2023-01-01T00:00:00.000Z',
-      updatedAt: '2023-01-01T00:00:00.000Z'
+      updatedAt: '2023-01-01T00:00:00.000Z',
     };
 
     mockMemgraphService.findPersonByWebId.mockImplementation(() => Promise.resolve(existingPerson));
@@ -190,7 +197,7 @@ describe('Signin Action', () => {
     expect(mockMemgraphService.findPersonByWebId).toHaveBeenCalledWith('user123');
     expect(mockMemgraphService.createPerson).not.toHaveBeenCalled(); // Should not create new person
     expect(mockMemgraphService.disconnect).toHaveBeenCalled();
-    
+
     expect(result.success).toBe(true);
     expect(result.values?.webId).toBe('user123');
     expect(result.values?.personCreated).toBe(false);
@@ -208,11 +215,13 @@ describe('Signin Action', () => {
           "email": "test@example.com",
           "token": "test-token",
           "authorId": "author456"
-        }`
-      }
+        }`,
+      },
     });
 
-    mockMemgraphService.findPersonByWebId.mockImplementation(() => Promise.reject(new Error('Database connection failed')));
+    mockMemgraphService.findPersonByWebId.mockImplementation(() =>
+      Promise.reject(new Error('Database connection failed'))
+    );
 
     const result = await signinAction.handler(mockRuntime, message, undefined, {});
 

@@ -485,7 +485,9 @@ const messageReceivedHandler = async ({
 
             retries++;
             if (!responseContent?.thought || !responseContent?.actions) {
-              logger.warn(`[quinn] *** Missing required fields (thought or actions), retrying... *** response: ${JSON.stringify(response)} parsedXml: ${JSON.stringify(parsedXml)} responseContent: ${JSON.stringify(responseContent)}`);
+              logger.warn(
+                `[quinn] *** Missing required fields (thought or actions), retrying... *** response: ${JSON.stringify(response)} parsedXml: ${JSON.stringify(parsedXml)} responseContent: ${JSON.stringify(responseContent)}`
+              );
             }
           }
 
@@ -577,7 +579,9 @@ const messageReceivedHandler = async ({
 
             if (action === 'CREATE_CONNECTION') {
               // Execute the action so it persists HumanConnection in Memgraph
-              logger.debug('[quinn] CREATE_CONNECTION: executing processActions to persist connection');
+              logger.debug(
+                '[quinn] CREATE_CONNECTION: executing processActions to persist connection'
+              );
               await runtime.processActions(message, responseMessages, state, callback);
             } else if (action === 'NONE' && responseContent.text) {
               // NONE action: callback message only, no action execution
@@ -637,9 +641,11 @@ const messageReceivedHandler = async ({
             createdAt: Date.now(),
           };
           await runtime.createMemory(ignoreMemory, 'messages');
-          logger.debug(`[quinn] Saved ignore response to memory: ${JSON.stringify({
-            memoryId: ignoreMemory.id,
-          })}`);
+          logger.debug(
+            `[quinn] Saved ignore response to memory: ${JSON.stringify({
+              memoryId: ignoreMemory.id,
+            })}`
+          );
 
           // Clean up the response ID since we handled it
           agentResponses.delete(message.roomId);
@@ -898,7 +904,9 @@ const postGeneratedHandler = async ({
 
     retries++;
     if (!responseContent?.thought || !responseContent?.actions) {
-      logger.warn(`[quinn] *** Missing required fields, retrying... ***\nresponse: ${response}\nparsedXml: ${JSON.stringify(parsedXml)}\nresponseContent: ${JSON.stringify(responseContent)}`);
+      logger.warn(
+        `[quinn] *** Missing required fields, retrying... ***\nresponse: ${response}\nparsedXml: ${JSON.stringify(parsedXml)}\nresponseContent: ${JSON.stringify(responseContent)}`
+      );
     }
   }
 
@@ -920,7 +928,9 @@ const postGeneratedHandler = async ({
   const parsedXmlResponse = parseKeyValueXml(xmlResponseText);
 
   if (!parsedXmlResponse) {
-    logger.error(`[quinn] Failed to parse XML response for post creation. Raw response: ${xmlResponseText}`);
+    logger.error(
+      `[quinn] Failed to parse XML response for post creation. Raw response: ${xmlResponseText}`
+    );
     // Handle the error appropriately, maybe retry or return an error state
     return;
   }
@@ -1083,14 +1093,14 @@ const syncSingleUser = async (
     const worldMetadata =
       type === ChannelType.DM
         ? {
-          ownership: {
-            ownerId: entityId,
-          },
-          roles: {
-            [entityId]: Role.OWNER,
-          },
-          settings: {}, // Initialize empty settings for onboarding
-        }
+            ownership: {
+              ownerId: entityId,
+            },
+            roles: {
+              [entityId]: Role.OWNER,
+            },
+            settings: {}, // Initialize empty settings for onboarding
+          }
         : undefined;
 
     logger.info(
@@ -1363,9 +1373,7 @@ const events = {
 
   [EventType.EVALUATOR_STARTED]: [
     async (payload: EvaluatorEventPayload) => {
-      logger.debug(
-        `[quinn] Evaluator started: ${payload.evaluatorName} (${payload.evaluatorId})`
-      );
+      logger.debug(`[quinn] Evaluator started: ${payload.evaluatorName} (${payload.evaluatorId})`);
     },
   ],
 
@@ -1383,11 +1391,13 @@ const events = {
 
 export const quinnPlugin: Plugin = {
   name: 'quinn',
-  description: 'Quinn - AI agent focused on connection discovery based on passions, challenges, and preferences',
+  description:
+    'Quinn - AI agent focused on connection discovery based on passions, challenges, and preferences',
   actions: [
-    actions.createConnectionAction,
-    actions.ignoreAction,
+    actions.createConnectionAction, 
+    actions.ignoreAction, 
     actions.noneAction,
+    actions.seedTestDataAction, // Development helper for testing
   ],
   // this is jank, these events are not valid
   events: events as any as PluginEvents,

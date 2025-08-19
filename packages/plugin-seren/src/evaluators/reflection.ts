@@ -9,10 +9,6 @@ import {
   type UUID,
 } from '@elizaos/core';
 
-
-
-
-
 /**
  * Template string for generating Seren's reflection on persona insights and human connections.
  */
@@ -93,7 +89,7 @@ async function storePersonaInsight(
 ) {
   const memory = await runtime.addEmbeddingToMemory({
     entityId: userId, // Store with user's ID - the person the insight is ABOUT
-    agentId,         // Agent who created the insight
+    agentId, // Agent who created the insight
     content: { text: description },
     roomId,
     createdAt: Date.now(),
@@ -117,7 +113,7 @@ async function storeConnectionInsight(
 ) {
   const memory = await runtime.addEmbeddingToMemory({
     entityId: userId, // Store with user's ID - the person the insight is ABOUT
-    agentId,         // Agent who created the insight
+    agentId, // Agent who created the insight
     content: { text: description },
     roomId,
     createdAt: Date.now(),
@@ -157,7 +153,7 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
     'persona_goal',
     'persona_experience',
     'persona_persona_relationship',
-    'persona_emotional_state'
+    'persona_emotional_state',
   ];
 
   const connectionDimensions = [
@@ -166,7 +162,7 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
     'connection_goal',
     'connection_experience',
     'connection_communication',
-    'connection_emotion'
+    'connection_emotion',
   ];
 
   // Fetch existing memories from all dimensions in parallel
@@ -189,7 +185,7 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
           return [];
         }
       })
-    ).then(results => results.flat()),
+    ).then((results) => results.flat()),
     Promise.all(
       connectionDimensions.map(async (tableName) => {
         try {
@@ -208,7 +204,7 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
           return [];
         }
       })
-    ).then(results => results.flat())
+    ).then((results) => results.flat()),
   ]);
 
   const prompt = composePrompt({
@@ -248,7 +244,7 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
     //logger.debug('Parsed reflection:', reflection);
 
     // Extract persona insights (up to 5)
-    const personaInsights: Array<{ description: string, dimension: string, evidence: string }> = [];
+    const personaInsights: Array<{ description: string; dimension: string; evidence: string }> = [];
     for (let i = 1; i <= 5; i++) {
       const insight = reflection[`personaInsight${i}`];
       const dimension = reflection[`personaDimension${i}`];
@@ -256,7 +252,7 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
 
       if (insight && dimension && evidence) {
         // Check if this insight is too similar to existing ones
-        const isDuplicate = existingPersonaMemories.some(existing => {
+        const isDuplicate = existingPersonaMemories.some((existing) => {
           if (!existing.content?.text) return false;
 
           const existingText = existing.content.text.toLowerCase();
@@ -268,9 +264,11 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
 
           const overlapThreshold = Math.min(20, Math.floor(minLength * 0.6));
 
-          return existingText.includes(newInsight.substring(0, overlapThreshold)) ||
+          return (
+            existingText.includes(newInsight.substring(0, overlapThreshold)) ||
             newInsight.includes(existingText.substring(0, overlapThreshold)) ||
-            existingText === newInsight;
+            existingText === newInsight
+          );
         });
 
         if (!isDuplicate) {
@@ -282,7 +280,8 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
     }
 
     // Extract connection insights (up to 5)
-    const connectionInsights: Array<{ description: string, dimension: string, evidence: string }> = [];
+    const connectionInsights: Array<{ description: string; dimension: string; evidence: string }> =
+      [];
     for (let i = 1; i <= 5; i++) {
       const insight = reflection[`connectionInsight${i}`];
       const dimension = reflection[`connectionDimension${i}`];
@@ -290,7 +289,7 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
 
       if (insight && dimension && evidence) {
         // Check if this insight is too similar to existing ones
-        const isDuplicate = existingConnectionMemories.some(existing => {
+        const isDuplicate = existingConnectionMemories.some((existing) => {
           if (!existing.content?.text) return false;
 
           const existingText = existing.content.text.toLowerCase();
@@ -302,9 +301,11 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
 
           const overlapThreshold = Math.min(20, Math.floor(minLength * 0.6));
 
-          return existingText.includes(newInsight.substring(0, overlapThreshold)) ||
+          return (
+            existingText.includes(newInsight.substring(0, overlapThreshold)) ||
             newInsight.includes(existingText.substring(0, overlapThreshold)) ||
-            existingText === newInsight;
+            existingText === newInsight
+          );
         });
 
         if (!isDuplicate) {
@@ -382,7 +383,9 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
       message?.id || ''
     );
 
-    logger.info(`Seren reflection processed: ${personaInsights.length} persona insights, ${connectionInsights.length} connection insights`);
+    logger.info(
+      `Seren reflection processed: ${personaInsights.length} persona insights, ${connectionInsights.length} connection insights`
+    );
   } catch (error) {
     logger.error(
       `Error in Seren reflection handler: ${error instanceof Error ? error.message : String(error)}`
@@ -424,19 +427,27 @@ export const reflectionEvaluator: Evaluator = {
       messages: [
         {
           name: 'User',
-          content: { text: "I've been really stressed at work lately. My manager keeps piling on more projects." },
+          content: {
+            text: "I've been really stressed at work lately. My manager keeps piling on more projects.",
+          },
         },
         {
           name: 'Seren',
-          content: { text: 'That sounds overwhelming. How are you managing the stress? Do you have support from colleagues?' },
+          content: {
+            text: 'That sounds overwhelming. How are you managing the stress? Do you have support from colleagues?',
+          },
         },
         {
           name: 'User',
-          content: { text: "Not really. I'm pretty introverted so I don't talk to my coworkers much. I usually just go for runs after work to clear my head." },
+          content: {
+            text: "Not really. I'm pretty introverted so I don't talk to my coworkers much. I usually just go for runs after work to clear my head.",
+          },
         },
         {
           name: 'Seren',
-          content: { text: 'Running is a great way to decompress. How long have you been using exercise as your main stress relief?' },
+          content: {
+            text: 'Running is a great way to decompress. How long have you been using exercise as your main stress relief?',
+          },
         },
       ],
       outcome: `<response>
@@ -460,7 +471,9 @@ export const reflectionEvaluator: Evaluator = {
       messages: [
         {
           name: 'User',
-          content: { text: "My partner and I have been together for 3 years now. We're thinking about moving in together." },
+          content: {
+            text: "My partner and I have been together for 3 years now. We're thinking about moving in together.",
+          },
         },
         {
           name: 'Seren',
@@ -468,11 +481,15 @@ export const reflectionEvaluator: Evaluator = {
         },
         {
           name: 'User',
-          content: { text: "We spend most weekends together anyway, and we both love cooking. We've been talking about wanting to travel more together too." },
+          content: {
+            text: "We spend most weekends together anyway, and we both love cooking. We've been talking about wanting to travel more together too.",
+          },
         },
         {
           name: 'Seren',
-          content: { text: 'It sounds like you have shared interests and goals. How do you both handle disagreements or stress?' },
+          content: {
+            text: 'It sounds like you have shared interests and goals. How do you both handle disagreements or stress?',
+          },
         },
       ],
       outcome: `<response>

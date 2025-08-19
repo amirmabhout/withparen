@@ -89,7 +89,7 @@ async function storePersonaInsight(
 ) {
   const memory = await runtime.addEmbeddingToMemory({
     entityId: userId, // Store with user's ID - the person the insight is ABOUT
-    agentId,         // Agent who created the insight
+    agentId, // Agent who created the insight
     content: { text: description },
     roomId,
     createdAt: Date.now(),
@@ -113,7 +113,7 @@ async function storeConnectionInsight(
 ) {
   const memory = await runtime.addEmbeddingToMemory({
     entityId: userId, // Store with user's ID - the person the insight is ABOUT
-    agentId,         // Agent who created the insight
+    agentId, // Agent who created the insight
     content: { text: description },
     roomId,
     createdAt: Date.now(),
@@ -151,7 +151,7 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
     'persona_goal',
     'persona_experience',
     'persona_persona_relationship',
-    'persona_emotional_state'
+    'persona_emotional_state',
   ];
 
   const connectionDimensions = [
@@ -160,7 +160,7 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
     'connection_desired_goals',
     'connection_desired_experience',
     'connection_desired_communication',
-    'connection_desired_value'
+    'connection_desired_value',
   ];
 
   // Fetch existing memories from all dimensions in parallel
@@ -179,7 +179,7 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
           return [];
         }
       })
-    ).then(results => results.flat()),
+    ).then((results) => results.flat()),
     Promise.all(
       connectionDimensions.map(async (tableName) => {
         try {
@@ -194,7 +194,7 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
           return [];
         }
       })
-    ).then(results => results.flat())
+    ).then((results) => results.flat()),
   ]);
 
   const prompt = composePrompt({
@@ -230,7 +230,7 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
     //logger.debug('Parsed reflection:', reflection);
 
     // Extract persona insights (up to 5)
-    const personaInsights: Array<{ description: string, dimension: string, evidence: string }> = [];
+    const personaInsights: Array<{ description: string; dimension: string; evidence: string }> = [];
     for (let i = 1; i <= 5; i++) {
       const insight = reflection[`personaInsight${i}`];
       const dimension = reflection[`personaDimension${i}`];
@@ -238,7 +238,7 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
 
       if (insight && dimension && evidence) {
         // Check if this insight is too similar to existing ones
-        const isDuplicate = existingPersonaMemories.some(existing => {
+        const isDuplicate = existingPersonaMemories.some((existing) => {
           if (!existing.content?.text) return false;
 
           const existingText = existing.content.text.toLowerCase();
@@ -250,9 +250,11 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
 
           const overlapThreshold = Math.min(20, Math.floor(minLength * 0.6));
 
-          return existingText.includes(newInsight.substring(0, overlapThreshold)) ||
+          return (
+            existingText.includes(newInsight.substring(0, overlapThreshold)) ||
             newInsight.includes(existingText.substring(0, overlapThreshold)) ||
-            existingText === newInsight;
+            existingText === newInsight
+          );
         });
 
         if (!isDuplicate) {
@@ -264,7 +266,8 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
     }
 
     // Extract connection insights (up to 5)
-    const connectionInsights: Array<{ description: string, dimension: string, evidence: string }> = [];
+    const connectionInsights: Array<{ description: string; dimension: string; evidence: string }> =
+      [];
     for (let i = 1; i <= 5; i++) {
       const insight = reflection[`connectionInsight${i}`];
       const dimension = reflection[`connectionDimension${i}`];
@@ -272,7 +275,7 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
 
       if (insight && dimension && evidence) {
         // Check if this insight is too similar to existing ones
-        const isDuplicate = existingConnectionMemories.some(existing => {
+        const isDuplicate = existingConnectionMemories.some((existing) => {
           if (!existing.content?.text) return false;
 
           const existingText = existing.content.text.toLowerCase();
@@ -284,9 +287,11 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
 
           const overlapThreshold = Math.min(20, Math.floor(minLength * 0.6));
 
-          return existingText.includes(newInsight.substring(0, overlapThreshold)) ||
+          return (
+            existingText.includes(newInsight.substring(0, overlapThreshold)) ||
             newInsight.includes(existingText.substring(0, overlapThreshold)) ||
-            existingText === newInsight;
+            existingText === newInsight
+          );
         });
 
         if (!isDuplicate) {
@@ -301,7 +306,14 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
     await Promise.all(
       personaInsights.map(async (insight) => {
         try {
-          return await storePersonaInsight(runtime, agentId, userId, roomId, insight.description, insight.dimension);
+          return await storePersonaInsight(
+            runtime,
+            agentId,
+            userId,
+            roomId,
+            insight.description,
+            insight.dimension
+          );
         } catch (error) {
           logger.error(`Error storing persona insight: ${error}`);
         }
@@ -312,7 +324,14 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
     await Promise.all(
       connectionInsights.map(async (insight) => {
         try {
-          return await storeConnectionInsight(runtime, agentId, userId, roomId, insight.description, insight.dimension);
+          return await storeConnectionInsight(
+            runtime,
+            agentId,
+            userId,
+            roomId,
+            insight.description,
+            insight.dimension
+          );
         } catch (error) {
           logger.error(`Error storing connection insight: ${error}`);
         }
@@ -340,7 +359,9 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
       message?.id || ''
     );
 
-    logger.info(`Quinn reflection processed: ${personaInsights.length} persona insights, ${connectionInsights.length} connection discovery insights`);
+    logger.info(
+      `Quinn reflection processed: ${personaInsights.length} persona insights, ${connectionInsights.length} connection discovery insights`
+    );
   } catch (error) {
     logger.error(`Error in Quinn reflection handler: ${error}`);
     return;
@@ -371,8 +392,10 @@ export const reflectionEvaluator: Evaluator = {
       // Trigger reflection every 4-5 messages to ensure we capture insights early
       const reflectionInterval = 4;
       const shouldReflect = messages.length >= reflectionInterval;
-      
-      logger.debug(`[quinn] Reflection validation: ${messages.length} messages since last reflection, should reflect: ${shouldReflect}`);
+
+      logger.debug(
+        `[quinn] Reflection validation: ${messages.length} messages since last reflection, should reflect: ${shouldReflect}`
+      );
       return shouldReflect;
     } catch (error) {
       logger.error(`[quinn] Error in reflection validation: ${error}`);
@@ -388,19 +411,27 @@ export const reflectionEvaluator: Evaluator = {
       messages: [
         {
           name: 'User',
-          content: { text: "I'm working on a sustainable tech startup but I'm struggling with the technical aspects. I need someone who really understands clean energy." },
+          content: {
+            text: "I'm working on a sustainable tech startup but I'm struggling with the technical aspects. I need someone who really understands clean energy.",
+          },
         },
         {
           name: 'Quinn',
-          content: { text: 'That sounds like an exciting venture! What specific technical challenges are you facing? And what kind of expertise would be most helpful?' },
+          content: {
+            text: 'That sounds like an exciting venture! What specific technical challenges are you facing? And what kind of expertise would be most helpful?',
+          },
         },
         {
           name: 'User',
-          content: { text: "Mainly battery storage optimization. I'd love to connect with someone who has experience in energy storage systems, maybe someone who's been through the startup journey before." },
+          content: {
+            text: "Mainly battery storage optimization. I'd love to connect with someone who has experience in energy storage systems, maybe someone who's been through the startup journey before.",
+          },
         },
         {
           name: 'Quinn',
-          content: { text: 'A mentor with both technical expertise and startup experience would be invaluable. What would you hope to offer in return to someone like that?' },
+          content: {
+            text: 'A mentor with both technical expertise and startup experience would be invaluable. What would you hope to offer in return to someone like that?',
+          },
         },
       ],
       outcome: `<response>
@@ -424,19 +455,27 @@ export const reflectionEvaluator: Evaluator = {
       messages: [
         {
           name: 'User',
-          content: { text: "I'm a freelance graphic designer but I want to get into UX design. I feel like I need to collaborate with developers to really understand the technical side." },
+          content: {
+            text: "I'm a freelance graphic designer but I want to get into UX design. I feel like I need to collaborate with developers to really understand the technical side.",
+          },
         },
         {
           name: 'Quinn',
-          content: { text: "That's a natural progression! What aspects of UX design are you most excited about? And what kind of collaboration are you envisioning?" },
+          content: {
+            text: "That's a natural progression! What aspects of UX design are you most excited about? And what kind of collaboration are you envisioning?",
+          },
         },
         {
           name: 'User',
-          content: { text: "I love the problem-solving aspect and user research. I'd love to work on a side project with a developer who's patient and willing to teach. Maybe someone who also wants to learn more about design." },
+          content: {
+            text: "I love the problem-solving aspect and user research. I'd love to work on a side project with a developer who's patient and willing to teach. Maybe someone who also wants to learn more about design.",
+          },
         },
         {
           name: 'Quinn',
-          content: { text: 'A mutual learning partnership sounds perfect. What design skills could you share in return?' },
+          content: {
+            text: 'A mutual learning partnership sounds perfect. What design skills could you share in return?',
+          },
         },
       ],
       outcome: `<response>

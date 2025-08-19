@@ -20,7 +20,8 @@ function formatConnectionMemories(connectionMemories: Memory[]) {
  */
 const connectionMemoryProvider: Provider = {
   name: 'CONNECTION_MEMORY',
-  description: 'Insights about human connections and relationships the user has mentioned (Profile, Routines, Goals, Experiences, Communication, Emotions)',
+  description:
+    'Insights about human connections and relationships the user has mentioned (Profile, Routines, Goals, Experiences, Communication, Emotions)',
   position: 2,
   dynamic: true,
   get: async (runtime: IAgentRuntime, message: Memory, _state?: State) => {
@@ -50,7 +51,7 @@ const connectionMemoryProvider: Provider = {
         'connection_goal',
         'connection_experience',
         'connection_communication',
-        'connection_emotion'
+        'connection_emotion',
       ];
 
       // Fetch relevant memories from all connection dimensions in parallel
@@ -74,20 +75,20 @@ const connectionMemoryProvider: Provider = {
       });
 
       const connectionMemoryResults = await Promise.all(connectionMemoryPromises);
-      
+
       // Flatten and deduplicate all connection memories
       let allConnectionMemories = connectionMemoryResults
         .flat()
-        .filter((memory, index, self) => 
-          index === self.findIndex((t) => t.id === memory.id)
-        )
+        .filter((memory, index, self) => index === self.findIndex((t) => t.id === memory.id))
         .slice(0, 12); // Limit to top 12 most relevant
 
       logger.debug(`Total connection memories found via search: ${allConnectionMemories.length}`);
 
       // If no memories found via embedding search, try getting recent memories directly
       if (allConnectionMemories.length === 0) {
-        logger.debug('No connection memories found via embedding search, trying direct retrieval...');
+        logger.debug(
+          'No connection memories found via embedding search, trying direct retrieval...'
+        );
         const fallbackPromises = connectionDimensions.map(async (tableName) => {
           try {
             const memories = await runtime.getMemories({
@@ -103,16 +104,16 @@ const connectionMemoryProvider: Provider = {
             return [];
           }
         });
-        
+
         const fallbackResults = await Promise.all(fallbackPromises);
         allConnectionMemories = fallbackResults
           .flat()
-          .filter((memory, index, self) => 
-            index === self.findIndex((t) => t.id === memory.id)
-          )
+          .filter((memory, index, self) => index === self.findIndex((t) => t.id === memory.id))
           .slice(0, 12);
-        
-        logger.debug(`Total connection memories found via fallback: ${allConnectionMemories.length}`);
+
+        logger.debug(
+          `Total connection memories found via fallback: ${allConnectionMemories.length}`
+        );
       }
 
       if (allConnectionMemories.length === 0) {

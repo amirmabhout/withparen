@@ -43,7 +43,10 @@ export class MemgraphService {
 
   async connect(): Promise<void> {
     const uri = `bolt://${this.config.host}:${this.config.port}`;
-    this.driver = neo4j.driver(uri, neo4j.auth.basic(this.config.username || '', this.config.password || ''));
+    this.driver = neo4j.driver(
+      uri,
+      neo4j.auth.basic(this.config.username || '', this.config.password || '')
+    );
   }
 
   async disconnect(): Promise<void> {
@@ -56,7 +59,7 @@ export class MemgraphService {
     if (!this.driver) {
       await this.connect();
     }
-    
+
     const session = this.driver.session();
     try {
       const result = await session.run(query, parameters);
@@ -76,7 +79,7 @@ export class MemgraphService {
     `;
 
     const result = await this.runQuery(query, { userId });
-    
+
     if (result.records.length === 0) {
       return null;
     }
@@ -88,9 +91,14 @@ export class MemgraphService {
   /**
    * Create a new Person node
    */
-  async createPerson(userId: string, roomId?: string, name?: string, pronouns?: string): Promise<PersonNode> {
+  async createPerson(
+    userId: string,
+    roomId?: string,
+    name?: string,
+    pronouns?: string
+  ): Promise<PersonNode> {
     const updatedAt = new Date().toISOString();
-    
+
     const query = `
       CREATE (p:Person {
         userId: $userId,
@@ -157,7 +165,7 @@ export class MemgraphService {
 
     const result = await this.runQuery(query, { userId });
     const count = result.records[0].get('connectionCount').toNumber();
-    
+
     return count > 0;
   }
 
@@ -171,7 +179,7 @@ export class MemgraphService {
     `;
 
     const result = await this.runQuery(query, { userId });
-    
+
     return result.records.map((record: any) => {
       const connectionNode = record.get('hc');
       return connectionNode.properties as HumanConnectionNode;
@@ -187,11 +195,11 @@ export class MemgraphService {
     secret: string
   ): Promise<HumanConnectionNode> {
     const updatedAt = new Date().toISOString();
-    
+
     // Get the person's name first
     const person = await this.getPersonByUserId(userId);
     const userName = person?.name || 'User';
-    
+
     const query = `
       MATCH (p:Person {userId: $userId})
       CREATE (hc:HumanConnection {
@@ -220,7 +228,7 @@ export class MemgraphService {
    */
   async updatePersonName(userId: string, name: string): Promise<PersonNode> {
     const updatedAt = new Date().toISOString();
-    
+
     const query = `
       MATCH (p:Person {userId: $userId})
       SET p.name = $name, p.updatedAt = $updatedAt
@@ -237,7 +245,7 @@ export class MemgraphService {
    */
   async updatePersonRoomId(userId: string, roomId: string): Promise<PersonNode> {
     const updatedAt = new Date().toISOString();
-    
+
     const query = `
       MATCH (p:Person {userId: $userId})
       SET p.roomId = $roomId, p.updatedAt = $updatedAt
@@ -260,7 +268,7 @@ export class MemgraphService {
     `;
 
     const result = await this.runQuery(query, { userName });
-    
+
     return result.records.map((record: any) => {
       const connectionNode = record.get('hc');
       return connectionNode.properties as HumanConnectionNode;
@@ -277,7 +285,7 @@ export class MemgraphService {
     if (!userName || !partnerName) {
       return [];
     }
-    
+
     const userFirstName = userName.split(' ')[0].toLowerCase();
     const partnerFirstName = partnerName.split(' ')[0].toLowerCase();
 
@@ -290,7 +298,7 @@ export class MemgraphService {
     `;
 
     let result = await this.runQuery(exactQuery, { userFirstName, partnerFirstName });
-    
+
     if (result.records.length > 0) {
       return result.records.map((record: any) => {
         const connectionNode = record.get('hc');
@@ -318,14 +326,14 @@ export class MemgraphService {
    * Uses flexible name matching (case-insensitive, first name matching)
    */
   async findHumanConnectionByAuth(
-    userName: string, 
-    partnerName: string, 
+    userName: string,
+    partnerName: string,
     secret: string
   ): Promise<HumanConnectionNode | null> {
     // Extract first names and convert to lowercase for flexible matching
     const userFirstName = userName.split(' ')[0].toLowerCase();
     const partnerFirstName = partnerName.split(' ')[0].toLowerCase();
-    
+
     const query = `
       MATCH (hc:HumanConnection)
       WHERE hc.secret = $secret 
@@ -336,12 +344,12 @@ export class MemgraphService {
       RETURN hc
     `;
 
-    const result = await this.runQuery(query, { 
-      userFirstName, 
-      partnerFirstName, 
-      secret 
+    const result = await this.runQuery(query, {
+      userFirstName,
+      partnerFirstName,
+      secret,
     });
-    
+
     if (result.records.length === 0) {
       return null;
     }
@@ -354,11 +362,11 @@ export class MemgraphService {
    * Create relationship between Person and existing HumanConnection
    */
   async linkPersonToHumanConnection(
-    userId: string, 
+    userId: string,
     humanConnection: HumanConnectionNode
   ): Promise<boolean> {
     const updatedAt = new Date().toISOString();
-    
+
     if (humanConnection.connectionId) {
       const queryById = `
         MATCH (p:Person {userId: $userId})
@@ -475,7 +483,7 @@ export class MemgraphService {
     `;
 
     const result = await this.runQuery(query);
-    
+
     return result.records.map((record: any) => {
       const connectionNode = record.get('hc');
       return connectionNode.properties as HumanConnectionNode;
@@ -485,10 +493,12 @@ export class MemgraphService {
   /**
    * Get all active HumanConnection nodes that have exactly two Person nodes participating
    */
-  async getActiveHumanConnections(): Promise<Array<{
-    connection: HumanConnectionNode;
-    participants: PersonNode[];
-  }>> {
+  async getActiveHumanConnections(): Promise<
+    Array<{
+      connection: HumanConnectionNode;
+      participants: PersonNode[];
+    }>
+  > {
     const query = `
       MATCH (hc:HumanConnection)
       WHERE hc.status = "active" OR hc.status IS NULL
@@ -499,11 +509,11 @@ export class MemgraphService {
     `;
 
     const result = await this.runQuery(query);
-    
+
     return result.records.map((record: any) => {
       const connectionNode = record.get('hc');
       const participantNodes = record.get('participants');
-      
+
       return {
         connection: connectionNode.properties as HumanConnectionNode,
         participants: participantNodes.map((p: any) => p.properties as PersonNode),
@@ -514,9 +524,13 @@ export class MemgraphService {
   /**
    * Update HumanConnection status
    */
-  async updateHumanConnectionStatus(partners: string[], secret: string, status: string): Promise<boolean> {
+  async updateHumanConnectionStatus(
+    partners: string[],
+    secret: string,
+    status: string
+  ): Promise<boolean> {
     const updatedAt = new Date().toISOString();
-    
+
     const query = `
       MATCH (hc:HumanConnection {partners: $partners, secret: $secret})
       SET hc.status = $status, hc.updatedAt = $updatedAt

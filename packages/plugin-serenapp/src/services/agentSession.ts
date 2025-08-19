@@ -25,8 +25,7 @@ export class AgentSessionService extends Service {
       'http://localhost:3000';
 
     const authToken =
-      (this.runtime.getSetting('AGENT_SERVER_TOKEN') as string) ||
-      process.env.AGENT_SERVER_TOKEN;
+      (this.runtime.getSetting('AGENT_SERVER_TOKEN') as string) || process.env.AGENT_SERVER_TOKEN;
 
     this.client = ElizaClient.create({
       baseUrl,
@@ -38,7 +37,11 @@ export class AgentSessionService extends Service {
     logger.info(`[AgentSessionService] API client initialized for ${baseUrl}`);
   }
 
-  async ensureSession(params?: { userId?: string; agentId?: string; metadata?: Record<string, any> }) {
+  async ensureSession(params?: {
+    userId?: string;
+    agentId?: string;
+    metadata?: Record<string, any>;
+  }) {
     if (this.sessionId) return this.sessionId;
 
     const userId = params?.userId || this.runtime.agentId + ':serenapp-user';
@@ -64,7 +67,11 @@ export class AgentSessionService extends Service {
     } as any);
   }
 
-  async getMessages(params?: { limit?: number; before?: Date | number | string; after?: Date | number | string }) {
+  async getMessages(params?: {
+    limit?: number;
+    before?: Date | number | string;
+    after?: Date | number | string;
+  }) {
     const sid = await this.ensureSession();
     return this.client.sessions.getMessages(sid, params as any);
   }

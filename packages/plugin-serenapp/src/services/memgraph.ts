@@ -47,7 +47,10 @@ export class MemgraphService {
 
   async connect(): Promise<void> {
     const uri = `bolt://${this.config.host}:${this.config.port}`;
-    this.driver = neo4j.driver(uri, neo4j.auth.basic(this.config.username || '', this.config.password || ''));
+    this.driver = neo4j.driver(
+      uri,
+      neo4j.auth.basic(this.config.username || '', this.config.password || '')
+    );
   }
 
   async disconnect(): Promise<void> {
@@ -60,7 +63,7 @@ export class MemgraphService {
     if (!this.driver) {
       await this.connect();
     }
-    
+
     const session = this.driver.session();
     try {
       const result = await session.run(query, parameters);
@@ -80,12 +83,12 @@ export class MemgraphService {
     secret?: string
   ): Promise<HumanConnectionNode> {
     const now = new Date().toISOString();
-    
+
     // Build partners array from available names
     const partners: string[] = [];
     if (username) partners.push(username);
     if (partnername) partners.push(partnername);
-    
+
     const query = `
       CREATE (hc:HumanConnection {
         connectionId: $connectionId,
@@ -119,7 +122,7 @@ export class MemgraphService {
     `;
 
     const result = await this.runQuery(query, { connectionId });
-    
+
     if (result.records.length === 0) {
       return null;
     }
@@ -147,12 +150,12 @@ export class MemgraphService {
       RETURN hc
     `;
 
-    const result = await this.runQuery(query, { 
-      username, 
-      partnername, 
-      secret 
+    const result = await this.runQuery(query, {
+      username,
+      partnername,
+      secret,
     });
-    
+
     if (result.records.length === 0) {
       return null;
     }
@@ -171,7 +174,7 @@ export class MemgraphService {
     `;
 
     const result = await this.runQuery(query);
-    
+
     return result.records.map((record: any) => {
       const connectionNode = record.get('hc');
       return connectionNode.properties as HumanConnectionNode;
@@ -190,7 +193,7 @@ export class MemgraphService {
     `;
 
     const result = await this.runQuery(query);
-    
+
     return result.records.map((record: any) => {
       const connectionNode = record.get('hc');
       return connectionNode.properties as HumanConnectionNode;
@@ -205,28 +208,28 @@ export class MemgraphService {
     updates: { username?: string; partnername?: string; secret?: string }
   ): Promise<HumanConnectionNode | null> {
     const updatedAt = new Date().toISOString();
-    
+
     // First get the existing connection to merge partners
     const existingConnection = await this.findConnectionByConnectionId(connectionId);
     if (!existingConnection) {
       return null;
     }
-    
+
     // Build new partners array
     let newPartners = [...(existingConnection.partners || [])];
-    
+
     // Update partners array based on provided updates
     if (updates.username !== undefined) {
       // Remove any existing username and add new one at index 0
-      newPartners = newPartners.filter(p => p !== updates.username);
+      newPartners = newPartners.filter((p) => p !== updates.username);
       if (updates.username) {
         newPartners.unshift(updates.username);
       }
     }
-    
+
     if (updates.partnername !== undefined) {
       // Remove any existing partnername and add new one
-      newPartners = newPartners.filter(p => p !== updates.partnername);
+      newPartners = newPartners.filter((p) => p !== updates.partnername);
       if (updates.partnername) {
         // Add partnername at index 1 if username exists, otherwise at index 0
         if (newPartners.length > 0) {
@@ -236,20 +239,20 @@ export class MemgraphService {
         }
       }
     }
-    
+
     // Ensure we don't have more than 2 partners and remove duplicates
     const uniquePartners = Array.from(new Set(newPartners));
     newPartners = uniquePartners.slice(0, 2);
-    
+
     // Build SET clause dynamically
     const setClauses = ['hc.updatedAt = $updatedAt', 'hc.partners = $partners'];
     const params: any = { connectionId, updatedAt, partners: newPartners };
-    
+
     if (updates.secret !== undefined) {
       setClauses.push('hc.secret = $secret');
       params.secret = updates.secret;
     }
-    
+
     const query = `
       MATCH (hc:HumanConnection {connectionId: $connectionId})
       SET ${setClauses.join(', ')}
@@ -274,7 +277,7 @@ export class MemgraphService {
     newStatus: string
   ): Promise<HumanConnectionNode | null> {
     const updatedAt = new Date().toISOString();
-    
+
     const query = `
       MATCH (hc:HumanConnection {connectionId: $connectionId})
       SET hc.status = $newStatus, hc.updatedAt = $updatedAt
@@ -306,7 +309,7 @@ export class MemgraphService {
     authorId?: string
   ): Promise<PersonNode> {
     const now = new Date().toISOString();
-    
+
     const query = `
       MERGE (p:Person {webId: $webId})
       SET p.email = $email,
@@ -360,7 +363,13 @@ export class MemgraphService {
       firebaseToken,
       authorId,
       name,
-    }: { email?: string; firebaseId?: string; firebaseToken?: string; authorId?: string; name?: string }
+    }: {
+      email?: string;
+      firebaseId?: string;
+      firebaseToken?: string;
+      authorId?: string;
+      name?: string;
+    }
   ): Promise<PersonNode | null> {
     const now = new Date().toISOString();
     const query = `
@@ -374,7 +383,15 @@ export class MemgraphService {
       RETURN p
     `;
 
-    const result = await this.runQuery(query, { webId, email: email ?? null, firebaseId: firebaseId ?? null, firebaseToken: firebaseToken ?? null, authorId: authorId ?? null, name: name ?? null, now });
+    const result = await this.runQuery(query, {
+      webId,
+      email: email ?? null,
+      firebaseId: firebaseId ?? null,
+      firebaseToken: firebaseToken ?? null,
+      authorId: authorId ?? null,
+      name: name ?? null,
+      now,
+    });
     if (result.records.length === 0) return null;
     const personNode = result.records[0].get('p');
     return personNode.properties as PersonNode;
@@ -390,7 +407,7 @@ export class MemgraphService {
     `;
 
     const result = await this.runQuery(query, { webId });
-    
+
     if (result.records.length === 0) {
       return null;
     }
@@ -437,7 +454,14 @@ export class MemgraphService {
       RETURN p
     `;
 
-    const result = await this.runQuery(query, { firebaseId, email: email ?? null, firebaseToken: firebaseToken ?? null, authorId: authorId ?? null, name: name ?? null, now });
+    const result = await this.runQuery(query, {
+      firebaseId,
+      email: email ?? null,
+      firebaseToken: firebaseToken ?? null,
+      authorId: authorId ?? null,
+      name: name ?? null,
+      now,
+    });
     if (result.records.length === 0) return null;
     const personNode = result.records[0].get('p');
     return personNode.properties as PersonNode;

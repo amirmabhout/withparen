@@ -5,17 +5,17 @@ This directory contains the background services for the Seren plugin.
 ## Services
 
 ### DailyCheckinService
+
 - **Purpose**: Sends daily check-in messages to all users at noon
 - **Schedule**: Every day at 12:00 PM (with 5-minute window)
 - **Functionality**: Asks users to rate their relationship connection on a 1-5 scale
 
-
 ### TaskService
+
 - **Purpose**: Manages and executes scheduled tasks
 - **Functionality**: Handles the execution of recurring tasks like daily check-ins and weekly reflections
 
 ## Testing
-
 
 ### Manual Testing of Daily Check-in
 

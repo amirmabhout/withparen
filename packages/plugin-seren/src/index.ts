@@ -408,7 +408,16 @@ const messageReceivedHandler = async ({
 
         let state = await runtime.composeState(
           message,
-          ['ANXIETY', 'SHOULD_RESPOND', 'ENTITIES', 'CHARACTER', 'RECENT_MESSAGES', 'ACTIONS', 'PERSONA_MEMORY', 'CONNECTION_MEMORY'],
+          [
+            'ANXIETY',
+            'SHOULD_RESPOND',
+            'ENTITIES',
+            'CHARACTER',
+            'RECENT_MESSAGES',
+            'ACTIONS',
+            'PERSONA_MEMORY',
+            'CONNECTION_MEMORY',
+          ],
           true
         );
 
@@ -481,7 +490,11 @@ const messageReceivedHandler = async ({
         console.log('shouldSkipShouldRespond', shouldSkipShouldRespond);
 
         if (shouldRespond) {
-          state = await runtime.composeState(message, ['ACTIONS', 'PERSONA_MEMORY', 'CONNECTION_MEMORY']);
+          state = await runtime.composeState(message, [
+            'ACTIONS',
+            'PERSONA_MEMORY',
+            'CONNECTION_MEMORY',
+          ]);
           if (!state.values.actionNames) {
             logger.warn('actionNames data missing from state, even though it was requested');
           }
@@ -776,9 +789,7 @@ const messageDeletedHandler = async ({
       return;
     }
 
-    logger.info(
-      `[serenapp] Deleting memory for message ${message.id} from room ${message.roomId}`
-    );
+    logger.info(`[serenapp] Deleting memory for message ${message.id} from room ${message.roomId}`);
     await runtime.deleteMemory(message.id);
     logger.debug(`[serenapp] Successfully deleted memory for message ${message.id}`);
   } catch (error: unknown) {
@@ -1144,14 +1155,14 @@ const syncSingleUser = async (
     const worldMetadata =
       type === ChannelType.DM
         ? {
-          ownership: {
-            ownerId: entityId,
-          },
-          roles: {
-            [entityId]: Role.OWNER,
-          },
-          settings: {}, // Initialize empty settings for onboarding
-        }
+            ownership: {
+              ownerId: entityId,
+            },
+            roles: {
+              [entityId]: Role.OWNER,
+            },
+            settings: {}, // Initialize empty settings for onboarding
+          }
         : undefined;
 
     logger.info(
@@ -1445,10 +1456,7 @@ const events = {
 export const serenappPlugin: Plugin = {
   name: 'serenapp',
   description: 'Agent serenapp with connection invite functionality',
-  actions: [
-    actions.noneAction,
-    actions.dailyPlanningAction,
-  ],
+  actions: [actions.noneAction, actions.dailyPlanningAction],
   // this is jank, these events are not valid
   events: events as any as PluginEvents,
   evaluators: [evaluators.reflectionEvaluator],

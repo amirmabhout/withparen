@@ -3,13 +3,12 @@ import { createConnectionAction } from '../actions/createConnection.js';
 import { createMockMemory } from './test-utils.js';
 
 describe('createConnectionAction', () => {
-
   describe('validate', () => {
     it('should return false for empty messages', async () => {
       const message = createMockMemory({
         content: {
-          text: ''
-        }
+          text: '',
+        },
       });
 
       const result = await createConnectionAction.validate(null as any, message);
@@ -19,8 +18,8 @@ describe('createConnectionAction', () => {
     it('should return true for any non-empty message (no authentication required)', async () => {
       const message = createMockMemory({
         content: {
-          text: 'I want to create a connection with my partner'
-        }
+          text: 'I want to create a connection with my partner',
+        },
       });
 
       const result = await createConnectionAction.validate(null as any, message);
@@ -30,8 +29,8 @@ describe('createConnectionAction', () => {
     it('should return true even when no person node exists (authentication not required)', async () => {
       const message = createMockMemory({
         content: {
-          text: 'I want to create a connection with my partner'
-        }
+          text: 'I want to create a connection with my partner',
+        },
       });
 
       const result = await createConnectionAction.validate(null as any, message);
@@ -41,8 +40,8 @@ describe('createConnectionAction', () => {
     it('should return true even when person node exists but has no email (authentication not required)', async () => {
       const message = createMockMemory({
         content: {
-          text: 'I want to create a connection with my partner'
-        }
+          text: 'I want to create a connection with my partner',
+        },
       });
 
       const result = await createConnectionAction.validate(null as any, message);

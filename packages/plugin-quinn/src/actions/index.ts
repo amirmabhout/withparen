@@ -6,6 +6,7 @@ export { ignoreAction } from './ignore';
 //export { muteRoomAction } from './muteRoom';
 export { noneAction } from './none';
 export { replyAction } from './reply';
+export { seedTestDataAction } from './seedTestData'; // Development helper for testing
 //export { updateRoleAction } from './roles';
 //export { sendMessageAction } from './sendMessage';
 //export { updateSettingsAction } from './settings';

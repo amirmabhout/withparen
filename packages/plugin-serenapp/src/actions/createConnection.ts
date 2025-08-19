@@ -8,23 +8,27 @@ import {
   type ActionResult,
   ModelType,
   parseKeyValueXml,
-  logger
+  logger,
 } from '@elizaos/core';
 import { MemgraphService } from '../services/memgraph.js';
-import { connectionExtractionTemplate, connectionResponseTemplate } from '../utils/promptTemplates.js';
+import {
+  connectionExtractionTemplate,
+  connectionResponseTemplate,
+} from '../utils/promptTemplates.js';
 
 /**
  * Action to create a new HumanConnection with waitlist status
  */
 export const createConnectionAction: Action = {
   name: 'CREATE_CONNECTION',
-  description: 'Creates a new human connection with waitlist status based on user-provided names and secret',
+  description:
+    'Creates a new human connection with waitlist status based on user-provided names and secret',
   similes: [
     'CREATE_HUMAN_CONNECTION',
     'SETUP_CONNECTION',
     'JOIN_WAITLIST',
     'REGISTER_CONNECTION',
-    'ADD_CONNECTION'
+    'ADD_CONNECTION',
   ],
   examples: [] as ActionExample[][],
   validate: async (_runtime: IAgentRuntime, message: Memory) => {
@@ -36,7 +40,9 @@ export const createConnectionAction: Action = {
     }
 
     // Skip authentication check - allow connection creation without sign-in
-    logger.debug(`[createConnection] Validation passed: Allowing connection creation without authentication for webId: ${message.entityId}`);
+    logger.debug(
+      `[createConnection] Validation passed: Allowing connection creation without authentication for webId: ${message.entityId}`
+    );
     return true;
 
     // TODO: Re-enable authentication check if needed in the future
@@ -94,8 +100,10 @@ export const createConnectionAction: Action = {
         .join('\n');
 
       // Create extraction prompt
-      const extractionPrompt = connectionExtractionTemplate
-        .replace('{{recentMessages}}', formattedMessages);
+      const extractionPrompt = connectionExtractionTemplate.replace(
+        '{{recentMessages}}',
+        formattedMessages
+      );
 
       // Use LLM to extract connection info
       const response = await runtime.useModel(ModelType.TEXT_SMALL, {
@@ -128,20 +136,22 @@ export const createConnectionAction: Action = {
         });
 
         const parsedErrorResponse = parseKeyValueXml(errorResponse);
-        const responseText = parsedErrorResponse?.message || 'I had trouble understanding the connection information. Could you please provide your name, your partner\'s name, and your shared secret more clearly?';
+        const responseText =
+          parsedErrorResponse?.message ||
+          "I had trouble understanding the connection information. Could you please provide your name, your partner's name, and your shared secret more clearly?";
 
         if (callback) {
           await callback({
             text: responseText,
             thought: parsedErrorResponse?.thought || 'Failed to parse connection information',
-            actions: ['CREATE_CONNECTION']
+            actions: ['CREATE_CONNECTION'],
           });
         }
 
         return {
           text: responseText,
           success: false,
-          error: e instanceof Error ? e : new Error(String(e))
+          error: e instanceof Error ? e : new Error(String(e)),
         };
       }
 
@@ -198,7 +208,9 @@ export const createConnectionAction: Action = {
         await memgraphService.linkPersonToConnection(webId, connectionId, 'partner');
         logger.debug('[createConnection] Linked Person to HumanConnection via PARTICIPATES_IN');
       } catch (linkError) {
-        logger.warn(`[createConnection] Failed to link Person to HumanConnection or update name: ${linkError}`);
+        logger.warn(
+          `[createConnection] Failed to link Person to HumanConnection or update name: ${linkError}`
+        );
       }
 
       // Check if we have all required information
@@ -225,7 +237,7 @@ export const createConnectionAction: Action = {
       // Determine missing information
       const missingItems: string[] = [];
       if (!hasUsername) missingItems.push('your name');
-      if (!hasPartnername) missingItems.push('your partner\'s name');
+      if (!hasPartnername) missingItems.push("your partner's name");
       if (!hasSecret) missingItems.push('your secret word or phrase');
 
       // Generate response using template
@@ -243,13 +255,13 @@ export const createConnectionAction: Action = {
       });
 
       const parsedResponse = parseKeyValueXml(generatedResponse);
-      const responseText = parsedResponse?.message || 'I\'m processing your connection information.';
+      const responseText = parsedResponse?.message || "I'm processing your connection information.";
 
       if (callback) {
         await callback({
           text: responseText,
           thought: parsedResponse?.thought || 'Processing connection information',
-          actions: ['CREATE_CONNECTION']
+          actions: ['CREATE_CONNECTION'],
         });
       }
 
@@ -264,14 +276,13 @@ export const createConnectionAction: Action = {
           hasSecret: !!hasSecret,
           status: connection?.status,
           missingInfo: missingItems,
-          allComplete
+          allComplete,
         },
         data: {
           connection,
-          duplicateConnection
-        }
+          duplicateConnection,
+        },
       };
-
     } catch (error) {
       logger.error(`[createConnection] Error creating connection: ${error}`);
 
@@ -291,40 +302,43 @@ export const createConnectionAction: Action = {
         });
 
         const parsedErrorResponse = parseKeyValueXml(errorResponse);
-        const responseText = parsedErrorResponse?.message || 'I encountered an issue while creating your connection. Please try again or contact support if the problem persists.';
+        const responseText =
+          parsedErrorResponse?.message ||
+          'I encountered an issue while creating your connection. Please try again or contact support if the problem persists.';
 
         if (callback) {
           await callback({
             text: responseText,
             thought: parsedErrorResponse?.thought || 'System error occurred',
-            actions: ['CREATE_CONNECTION']
+            actions: ['CREATE_CONNECTION'],
           });
         }
 
         return {
           text: responseText,
           success: false,
-          error: error instanceof Error ? error : new Error(String(error))
+          error: error instanceof Error ? error : new Error(String(error)),
         };
       } catch (responseError) {
-        const fallbackText = 'I encountered an issue while creating your connection. Please try again or contact support if the problem persists.';
+        const fallbackText =
+          'I encountered an issue while creating your connection. Please try again or contact support if the problem persists.';
 
         if (callback) {
           await callback({
             text: fallbackText,
             thought: 'System error occurred',
-            actions: ['CREATE_CONNECTION']
+            actions: ['CREATE_CONNECTION'],
           });
         }
 
         return {
           text: fallbackText,
           success: false,
-          error: error instanceof Error ? error : new Error(String(error))
+          error: error instanceof Error ? error : new Error(String(error)),
         };
       }
     } finally {
       await memgraphService.disconnect();
     }
-  }
+  },
 };

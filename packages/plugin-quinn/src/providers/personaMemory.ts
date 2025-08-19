@@ -20,7 +20,8 @@ function formatPersonaMemories(personaMemories: Memory[]) {
  */
 const personaMemoryProvider: Provider = {
   name: 'PERSONA_MEMORY',
-  description: 'Persona insights about the user using PEACOCK framework (Demographics, Characteristics, Routines, Goals, Experiences, Relationships, Emotional States)',
+  description:
+    'Persona insights about the user using PEACOCK framework (Demographics, Characteristics, Routines, Goals, Experiences, Relationships, Emotional States)',
   position: 3,
   dynamic: true,
   get: async (runtime: IAgentRuntime, message: Memory, _state?: State) => {
@@ -46,12 +47,12 @@ const personaMemoryProvider: Provider = {
       // Search across all persona dimension tables
       const personaDimensions = [
         'persona_demographic',
-        'persona_characteristic', 
+        'persona_characteristic',
         'persona_routine',
         'persona_goal',
         'persona_experience',
         'persona_persona_relationship',
-        'persona_emotional_state'
+        'persona_emotional_state',
       ];
 
       // Fetch relevant memories from all persona dimensions in parallel
@@ -75,13 +76,11 @@ const personaMemoryProvider: Provider = {
       });
 
       const personaMemoryResults = await Promise.all(personaMemoryPromises);
-      
+
       // Flatten and deduplicate all persona memories
       let allPersonaMemories = personaMemoryResults
         .flat()
-        .filter((memory, index, self) => 
-          index === self.findIndex((t) => t.id === memory.id)
-        )
+        .filter((memory, index, self) => index === self.findIndex((t) => t.id === memory.id))
         .slice(0, 15); // Limit to top 15 most relevant
 
       logger.debug(`Total persona memories found via search: ${allPersonaMemories.length}`);
@@ -104,15 +103,13 @@ const personaMemoryProvider: Provider = {
             return [];
           }
         });
-        
+
         const fallbackResults = await Promise.all(fallbackPromises);
         allPersonaMemories = fallbackResults
           .flat()
-          .filter((memory, index, self) => 
-            index === self.findIndex((t) => t.id === memory.id)
-          )
+          .filter((memory, index, self) => index === self.findIndex((t) => t.id === memory.id))
           .slice(0, 15);
-        
+
         logger.debug(`Total persona memories found via fallback: ${allPersonaMemories.length}`);
       }
 
@@ -130,9 +127,10 @@ const personaMemoryProvider: Provider = {
 
       const formattedPersonaMemories = formatPersonaMemories(allPersonaMemories);
 
-      const text = '# Persona insights that {{agentName}} has learned:\n{{formattedPersonaMemories}}'
-        .replace('{{agentName}}', runtime.character.name || '')
-        .replace('{{formattedPersonaMemories}}', formattedPersonaMemories);
+      const text =
+        '# Persona insights that {{agentName}} has learned:\n{{formattedPersonaMemories}}'
+          .replace('{{agentName}}', runtime.character.name || '')
+          .replace('{{formattedPersonaMemories}}', formattedPersonaMemories);
 
       return {
         values: {

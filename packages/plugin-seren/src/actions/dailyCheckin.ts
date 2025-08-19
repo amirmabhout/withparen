@@ -17,9 +17,11 @@ export const dailyPlanningAction: Action = {
     // Only allow this action for admin/testing purposes
     // You might want to add additional validation here
     const messageText = message.content.text?.toLowerCase() || '';
-    return messageText.includes('test daily planning') ||
+    return (
+      messageText.includes('test daily planning') ||
       messageText.includes('trigger planning') ||
-      messageText.includes('generate daily plans');
+      messageText.includes('generate daily plans')
+    );
   },
   handler: async (
     runtime: IAgentRuntime,
@@ -47,7 +49,7 @@ export const dailyPlanningAction: Action = {
       await dailyPlanningService.triggerTestPlanning();
 
       // Get the status
-      const status = await dailyPlanningService.getLastPlanningStatus() as any;
+      const status = (await dailyPlanningService.getLastPlanningStatus()) as any;
 
       const responseText = status
         ? `Daily planning completed successfully! Processed ${status.connectionsProcessed || 0} connections.`
@@ -57,12 +59,13 @@ export const dailyPlanningAction: Action = {
         text: responseText,
         actions: ['DAILY_PLANNING_SUCCESS'],
       });
-
     } catch (error) {
-      logger.error(`[Seren] Error in daily planning action: ${(error instanceof Error) ? error.message : String(error)}`);
+      logger.error(
+        `[Seren] Error in daily planning action: ${error instanceof Error ? error.message : String(error)}`
+      );
 
       await callback?.({
-        text: `Failed to trigger daily planning: ${(error instanceof Error) ? error.message : String(error)}`,
+        text: `Failed to trigger daily planning: ${error instanceof Error ? error.message : String(error)}`,
         actions: ['DAILY_PLANNING_ERROR'],
       });
     }

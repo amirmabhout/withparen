@@ -12,7 +12,10 @@ import {
   type UUID,
 } from '@elizaos/core';
 
-import { connectionDiscoveryTemplate, compatibilityAnalysisTemplate } from '../utils/promptTemplates.js';
+import {
+  connectionDiscoveryTemplate,
+  compatibilityAnalysisTemplate,
+} from '../utils/promptTemplates.js';
 
 // Interface removed - using ActionResult directly
 
@@ -22,7 +25,8 @@ import { connectionDiscoveryTemplate, compatibilityAnalysisTemplate } from '../u
  */
 export const createConnectionAction: Action = {
   name: 'CREATE_CONNECTION',
-  description: 'Discovers potential connections for the user based on their persona and connection preferences',
+  description:
+    'Discovers potential connections for the user based on their persona and connection preferences',
   similes: [
     'DISCOVER_CONNECTION',
     'FIND_CONNECTION',
@@ -31,29 +35,74 @@ export const createConnectionAction: Action = {
     'FIND_MATCH',
   ],
   examples: [] as ActionExample[][],
-  
+
   validate: async (runtime: IAgentRuntime, message: Memory): Promise<boolean> => {
     try {
       // Check if user has completed onboarding and has persona/connection data
-      const personaMemories = await runtime.getMemories({
-        roomId: message.roomId,
-        tableName: 'persona_memories',
-        count: 5,
+      // Search across all actual persona dimension tables
+      const personaDimensions = [
+        'persona_demographic',
+        'persona_characteristic',
+        'persona_routine',
+        'persona_goal',
+        'persona_experience',
+        'persona_persona_relationship',
+        'persona_emotional_state',
+      ];
+
+      // Search across all actual connection dimension tables
+      const connectionDimensions = [
+        'connection_desired_type',
+        'connection_desired_background',
+        'connection_desired_goals',
+        'connection_desired_experience',
+        'connection_desired_communication',
+        'connection_desired_value',
+      ];
+
+      // Check for any persona memories across all dimensions
+      const personaPromises = personaDimensions.map(async (tableName) => {
+        try {
+          const memories = await runtime.getMemories({
+            roomId: message.roomId,
+            tableName,
+            count: 1, // Just need to know if any exist
+          });
+          return memories.length > 0;
+        } catch {
+          return false;
+        }
       });
 
-      const connectionMemories = await runtime.getMemories({
-        roomId: message.roomId,
-        tableName: 'connection_memories',
-        count: 5,
+      // Check for any connection memories across all dimensions
+      const connectionPromises = connectionDimensions.map(async (tableName) => {
+        try {
+          const memories = await runtime.getMemories({
+            roomId: message.roomId,
+            tableName,
+            count: 1, // Just need to know if any exist
+          });
+          return memories.length > 0;
+        } catch {
+          return false;
+        }
       });
 
-      return personaMemories.length > 0 || connectionMemories.length > 0;
+      const [personaResults, connectionResults] = await Promise.all([
+        Promise.all(personaPromises),
+        Promise.all(connectionPromises),
+      ]);
+
+      const hasPersonaData = personaResults.some((result) => result);
+      const hasConnectionData = connectionResults.some((result) => result);
+
+      return hasPersonaData || hasConnectionData;
     } catch (error) {
       logger.error(`[quinn] Error validating create connection action: ${error}`);
-      return true; // Allow action to proceed even if validation fails
+      return false; // Don't allow action if validation fails completely
     }
   },
-  
+
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
@@ -64,18 +113,73 @@ export const createConnectionAction: Action = {
     try {
       logger.info(`[quinn] Starting connection discovery for user ${message.entityId}`);
 
-      // Get user's persona and connection memories
-      const personaMemories = await runtime.getMemories({
-        roomId: message.roomId,
-        tableName: 'persona_memories',
-        count: 10,
+      // Get user's persona and connection memories across all dimension tables
+      const personaDimensions = [
+        'persona_demographic',
+        'persona_characteristic',
+        'persona_routine',
+        'persona_goal',
+        'persona_experience',
+        'persona_persona_relationship',
+        'persona_emotional_state',
+      ];
+
+      const connectionDimensions = [
+        'connection_desired_type',
+        'connection_desired_background',
+        'connection_desired_goals',
+        'connection_desired_experience',
+        'connection_desired_communication',
+        'connection_desired_value',
+      ];
+
+      // Fetch persona memories from all dimensions
+      const personaMemoryPromises = personaDimensions.map(async (tableName) => {
+        try {
+          const memories = await runtime.getMemories({
+            roomId: message.roomId,
+            tableName,
+            count: 10,
+          });
+          return memories;
+        } catch (error) {
+          logger.warn(`Failed to get memories from ${tableName}: ${error}`);
+          return [];
+        }
       });
 
-      const connectionMemories = await runtime.getMemories({
-        roomId: message.roomId,
-        tableName: 'connection_memories',
-        count: 10,
+      // Fetch connection memories from all dimensions
+      const connectionMemoryPromises = connectionDimensions.map(async (tableName) => {
+        try {
+          const memories = await runtime.getMemories({
+            roomId: message.roomId,
+            tableName,
+            count: 10,
+          });
+          return memories;
+        } catch (error) {
+          logger.warn(`Failed to get memories from ${tableName}: ${error}`);
+          return [];
+        }
       });
+
+      const [personaMemoryResults, connectionMemoryResults] = await Promise.all([
+        Promise.all(personaMemoryPromises),
+        Promise.all(connectionMemoryPromises),
+      ]);
+
+      // Flatten and get the most recent 20 memories from each category
+      const allPersonaMemories = personaMemoryResults
+        .flat()
+        .filter((memory, index, self) => index === self.findIndex((t) => t.id === memory.id))
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+        .slice(0, 20);
+
+      const allConnectionMemories = connectionMemoryResults
+        .flat()
+        .filter((memory, index, self) => index === self.findIndex((t) => t.id === memory.id))
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+        .slice(0, 20);
 
       const recentMessages = await runtime.getMemories({
         roomId: message.roomId,
@@ -84,22 +188,21 @@ export const createConnectionAction: Action = {
       });
 
       // Format memories for the prompt
-      const personaMemoryText = personaMemories
-        .map(m => m.content.text)
-        .join('\n');
-      
-      const connectionMemoryText = connectionMemories
-        .map(m => m.content.text)
-        .join('\n');
+      const personaMemoryText = allPersonaMemories.map((m) => m.content.text).join('\n');
+
+      const connectionMemoryText = allConnectionMemories.map((m) => m.content.text).join('\n');
 
       const recentMessagesText = recentMessages
-        .map(m => `${m.entityId === runtime.agentId ? 'Quinn' : 'User'}: ${m.content.text}`)
+        .map((m) => `${m.entityId === runtime.agentId ? 'Quinn' : 'User'}: ${m.content.text}`)
         .join('\n');
 
       // Generate persona and connection contexts
       const prompt = connectionDiscoveryTemplate
         .replace('{{personaMemory}}', personaMemoryText || 'No persona information available yet.')
-        .replace('{{connectionMemory}}', connectionMemoryText || 'No connection preferences available yet.')
+        .replace(
+          '{{connectionMemory}}',
+          connectionMemoryText || 'No connection preferences available yet.'
+        )
         .replace('{{recentMessages}}', recentMessagesText);
 
       const response = await runtime.useModel(ModelType.TEXT_LARGE, {
@@ -109,89 +212,118 @@ export const createConnectionAction: Action = {
       logger.debug(`[quinn] Discovery response: ${response}`);
 
       const parsedResponse = parseKeyValueXml(response);
-      
+
       if (!parsedResponse) {
         logger.error('[quinn] Failed to parse discovery response');
-        const fallbackText = "I'm analyzing your background and preferences to find great connections. Let me gather a bit more information first. What specific challenges are you facing that you'd like help with?";
-        
+        const fallbackText =
+          "I'm analyzing your background and preferences to find great connections. Let me gather a bit more information first. What specific challenges are you facing that you'd like help with?";
+
         if (callback) {
           await callback({
             text: fallbackText,
-            thought: 'Failed to parse discovery response, asking for more info',
-            actions: ['REPLY']
+            actions: ['REPLY'],
           });
         }
 
         return {
           text: fallbackText,
           success: false,
-          error: new Error('Failed to parse discovery response')
+          error: new Error('Failed to parse discovery response'),
         };
       }
 
       const personaContext = parsedResponse.personaContext;
       const connectionContext = parsedResponse.connectionContext;
-      
+
       if (!personaContext || !connectionContext) {
         logger.error('[quinn] Missing persona or connection context in response');
-        const fallbackText = "I need to understand you better before I can find great connections. Can you tell me more about what you're working on and what kind of people would be most helpful to you?";
-        
+        const fallbackText =
+          "I need to understand you better before I can find great connections. Can you tell me more about what you're working on and what kind of people would be most helpful to you?";
+
         if (callback) {
           await callback({
             text: fallbackText,
-            thought: 'Missing context information, asking for more details',
-            actions: ['REPLY']
+            actions: ['REPLY'],
           });
         }
 
         return {
           text: fallbackText,
           success: false,
-          error: new Error('Missing persona or connection context')
+          error: new Error('Missing persona or connection context'),
         };
       }
 
       // Store the generated contexts for future use
-      await runtime.createMemory({
-        entityId: message.entityId,
-        agentId: runtime.agentId,
-        roomId: message.roomId,
-        content: {
-          text: personaContext,
-          type: 'persona_context',
+      await runtime.createMemory(
+        {
+          entityId: message.entityId,
+          agentId: runtime.agentId,
+          roomId: message.roomId,
+          content: {
+            text: personaContext,
+            type: 'persona_context',
+          },
+          createdAt: Date.now(),
         },
-        createdAt: Date.now(),
-      }, 'persona_contexts');
+        'persona_contexts'
+      );
 
-      await runtime.createMemory({
-        entityId: message.entityId,
-        agentId: runtime.agentId,
-        roomId: message.roomId,
-        content: {
-          text: connectionContext,
-          type: 'connection_context',
+      await runtime.createMemory(
+        {
+          entityId: message.entityId,
+          agentId: runtime.agentId,
+          roomId: message.roomId,
+          content: {
+            text: connectionContext,
+            type: 'connection_context',
+          },
+          createdAt: Date.now(),
         },
-        createdAt: Date.now(),
-      }, 'connection_contexts');
+        'connection_contexts'
+      );
+
+      // Check available data for connection discovery
+      const allPersonaContexts = await runtime.getMemories({
+        tableName: 'persona_contexts',
+        count: 100,
+      });
+      
+      logger.info(`[quinn] Starting connection discovery with ${allPersonaContexts.length} potential matches available`);
 
       // Perform vector similarity search for potential matches
-      const potentialMatches = await runtime.searchMemories({
-        embedding: [], // Will be generated from connectionContext
-        tableName: 'persona_contexts',
-        count: 10,
-        match_threshold: 0.6,
-      });
+      let potentialMatches: Memory[] = [];
+      try {
+        logger.debug(`[quinn] Generating embedding for similarity search...`);
+        
+        // Generate embedding from connection context for similarity search
+        const embedding = await runtime.useModel(ModelType.TEXT_EMBEDDING, {
+          text: connectionContext,
+        });
 
-      logger.debug(`[quinn] Found ${potentialMatches.length} potential matches`);
+        logger.debug(`[quinn] Searching for compatible connections...`);
+        potentialMatches = await runtime.searchMemories({
+          embedding,
+          tableName: 'persona_contexts',
+          count: 10,
+          match_threshold: 0.4, // Reasonable threshold for good matches
+        });
+        
+        logger.info(`[quinn] Found ${potentialMatches.length} potential matches`);
+        
+      } catch (error) {
+        logger.warn(`[quinn] Vector search failed: ${error}`);
+        // Continue with empty matches
+      }
 
       if (potentialMatches.length === 0) {
-        const noMatchText = "I've analyzed your profile and preferences, but I don't have enough other users in the system yet to find great matches. As more people join Quinn, I'll be able to find perfect connections for you!";
-        
+        const noMatchText =
+          "There isn't yet enough people to find best possible connection for you now, but I am putting a reminder for myself to check again in few hours and as soon as I find a suitable match, I will let you know!";
+
         if (callback) {
           await callback({
             text: noMatchText,
-            thought: 'No potential matches found in database yet',
-            actions: ['REPLY']
+            actions: ['REPLY'],
           });
         }
 
@@ -233,104 +365,74 @@ Looking for: ${matchConnectionContext.length > 0 ? matchConnectionContext[0].con
       });
 
       const compatibilityParsed = parseKeyValueXml(compatibilityResponse);
-      
+
       if (!compatibilityParsed) {
         logger.error('[quinn] Failed to parse compatibility response');
-        const errorText = "I found some potential matches but had trouble analyzing compatibility. Let me try a different approach. What's the most important thing you're looking for in a connection right now?";
-        
+        const errorText =
+          "I found some potential matches but had trouble analyzing compatibility. Let me try a different approach. What's the most important thing you're looking for in a connection right now?";
+
         if (callback) {
           await callback({
             text: errorText,
-            thought: 'Failed to parse compatibility analysis',
-            actions: ['REPLY']
+            actions: ['REPLY'],
           });
         }
 
         return {
           text: errorText,
           success: false,
-          error: new Error('Failed to parse compatibility response')
+          error: new Error('Failed to parse compatibility response'),
         };
       }
 
       const bestMatch = compatibilityParsed.bestMatch;
-      const compatibilityScore = parseInt(compatibilityParsed.compatibilityScore || '0');
-      const reasoning = compatibilityParsed.reasoning || '';
-      const recommendation = compatibilityParsed.recommendation || '';
+      const compatibilityScorePlusReasoning =
+        compatibilityParsed.compatibilityScorePlusReasoning || '';
+      const responseText =
+        compatibilityParsed.text || 'I analyzed your profile for potential matches.';
 
-      logger.info(`[quinn] Match analysis complete. Best match: ${bestMatch}, Score: ${compatibilityScore}`);
+      // Extract compatibility score from the combined field (expecting format like "85 - explanation...")
+      const scoreMatch = compatibilityScorePlusReasoning.match(/^(\d+)/);
+      const compatibilityScore = scoreMatch ? parseInt(scoreMatch[1]) : 0;
 
-      if (bestMatch && bestMatch !== 'none' && compatibilityScore >= 70 && recommendation.toLowerCase().includes('yes')) {
-        const successText = `Great news! I found a highly compatible match for you. Based on your interests in ${personaContext.split('.')[0].toLowerCase()} and your need for ${connectionContext.split('.')[0].toLowerCase()}, I've identified someone who could be a perfect connection.
+      logger.info(`[quinn] Connection analysis complete. ${bestMatch !== 'none' ? `Found compatible match with score: ${compatibilityScore}` : 'No suitable matches found'}`);
 
-${reasoning}
-
-Would you like me to facilitate an introduction?`;
-
-        if (callback) {
-          await callback({
-            text: successText,
-            thought: 'Found a great match, offering to facilitate introduction',
-            actions: ['REPLY']
-          });
-        }
-
-        return {
-          text: successText,
-          success: true,
-          values: {
-            personaContext,
-            connectionContext,
-            matchedUserId: bestMatch as UUID,
-            matchScore: compatibilityScore,
-            reasoning: reasoning,
-          },
-        };
-      } else {
-        const partialMatchText = `I've analyzed your profile and found some potential connections, but none that meet my high standards for mutual compatibility yet. 
-
-${reasoning}
-
-I'll keep your profile active and notify you when better matches join the platform. In the meantime, is there anything specific about your connection preferences you'd like to refine?`;
-
-        if (callback) {
-          await callback({
-            text: partialMatchText,
-            thought: 'Found potential matches but none meet high compatibility threshold',
-            actions: ['REPLY']
-          });
-        }
-
-        return {
-          text: partialMatchText,
-          success: true,
-          values: {
-            personaContext,
-            connectionContext,
-            matchScore: compatibilityScore,
-            reasoning: reasoning,
-          },
-        };
+      if (callback) {
+        await callback({
+          text: responseText,
+          actions: ['REPLY'],
+        });
       }
 
+      return {
+        text: responseText,
+        success: true,
+        values: {
+          personaContext,
+          connectionContext,
+          matchedUserId: bestMatch && bestMatch !== 'none' ? (bestMatch as UUID) : undefined,
+          matchScore: compatibilityScore,
+          reasoning: compatibilityScorePlusReasoning,
+        },
+      };
     } catch (error) {
       logger.error(`[quinn] Error in connection discovery: ${error}`);
-      
-      const errorText = "I encountered an issue while searching for connections. Let me help you in a different way - what's one specific type of person you'd most like to connect with right now?";
-      
+
+      const errorText =
+        "I encountered an issue while searching for connections. Let me help you in a different way - what's one specific type of person you'd most like to connect with right now?";
+
       if (callback) {
         await callback({
           text: errorText,
-          thought: 'Error in connection discovery, asking for clarification',
-          actions: ['REPLY']
+          actions: ['REPLY'],
         });
       }
 
       return {
         text: errorText,
         success: false,
-        error: error instanceof Error ? error : new Error(String(error))
+        error: error instanceof Error ? error : new Error(String(error)),
       };
     }
-  }
+  },
 };

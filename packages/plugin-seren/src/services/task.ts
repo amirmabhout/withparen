@@ -85,7 +85,7 @@ export class TaskService extends Service {
           // Collect all room IDs from all worlds
           for (const world of allWorlds) {
             const rooms = await runtime.getRoomsByWorld(world.id);
-            allRoomIds.push(...rooms.map(room => room.id));
+            allRoomIds.push(...rooms.map((room) => room.id));
           }
 
           logger.info(`[Seren] Found ${allRoomIds.length} rooms for daily check-in`);
@@ -121,15 +121,15 @@ export class TaskService extends Service {
               // For now, we'll use the runtime's message sending capability
               logger.debug(`[Seren] Sent daily check-in to room: ${roomId}`);
               successCount++;
-
             } catch (error) {
               logger.error(`[Seren] Failed to send daily check-in to room ${roomId}:`, error);
               errorCount++;
             }
           }
 
-          logger.info(`[Seren] Daily check-in completed: ${successCount} successful, ${errorCount} failed`);
-
+          logger.info(
+            `[Seren] Daily check-in completed: ${successCount} successful, ${errorCount} failed`
+          );
         } catch (error) {
           logger.error('[Seren] Error in daily check-in task execution:', error);
         }

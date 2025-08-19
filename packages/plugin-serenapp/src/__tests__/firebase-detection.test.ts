@@ -18,7 +18,7 @@ describe('Firebase Detection Logic', () => {
 
     mockRuntime = createMockRuntime();
     mockCallback = mock(() => Promise.resolve());
-    
+
     // Mock runtime methods that are called during message processing
     mockRuntime.addEmbeddingToMemory = mock(() => Promise.resolve());
     mockRuntime.createMemory = mock(() => Promise.resolve());
@@ -56,13 +56,15 @@ describe('Firebase Detection Logic', () => {
     const testCases = [
       {
         name: 'Standard format',
-        message: 'User has successfully authenticated. Firebase identity data: {"id": "test123", "email": "test@example.com", "token": "abc123"}',
-        shouldDetect: true
+        message:
+          'User has successfully authenticated. Firebase identity data: {"id": "test123", "email": "test@example.com", "token": "abc123"}',
+        shouldDetect: true,
       },
       {
         name: 'Alternative authentication text',
-        message: 'User has authenticated their email and wish to sign in. Firebase identity data: {"id": "test123", "email": "test@example.com", "token": "abc123"}',
-        shouldDetect: true
+        message:
+          'User has authenticated their email and wish to sign in. Firebase identity data: {"id": "test123", "email": "test@example.com", "token": "abc123"}',
+        shouldDetect: true,
       },
       {
         name: 'With line breaks',
@@ -72,41 +74,46 @@ describe('Firebase Detection Logic', () => {
           "email": "test@example.com",
           "token": "abc123"
         }`,
-        shouldDetect: true
+        shouldDetect: true,
       },
       {
         name: 'With authorId',
-        message: 'User has successfully authenticated. Firebase identity data: {"id": "test123", "email": "test@example.com", "token": "abc123", "authorId": "author456"}',
-        shouldDetect: true
+        message:
+          'User has successfully authenticated. Firebase identity data: {"id": "test123", "email": "test@example.com", "token": "abc123", "authorId": "author456"}',
+        shouldDetect: true,
       },
       {
         name: 'Missing Firebase identity data',
         message: 'User has successfully authenticated but no Firebase data',
-        shouldDetect: false
+        shouldDetect: false,
       },
       {
         name: 'Missing authentication success',
         message: 'Firebase identity data: {"id": "test123"}',
-        shouldDetect: false
+        shouldDetect: false,
       },
       {
         name: 'No JSON fields',
         message: 'User has successfully authenticated. Firebase identity data: some text',
-        shouldDetect: false
+        shouldDetect: false,
       },
       {
         name: 'Regular message',
         message: 'Hello, how are you?',
-        shouldDetect: false
-      }
+        shouldDetect: false,
+      },
     ];
 
-    testCases.forEach(testCase => {
+    testCases.forEach((testCase) => {
       const messageText = testCase.message;
-      const detected = messageText.includes('Firebase identity data') && 
-                      (messageText.includes('successfully authenticated') || messageText.includes('authenticated their email')) &&
-                      (messageText.includes('"id":') || messageText.includes('"email":') || messageText.includes('"token":'));
-      
+      const detected =
+        messageText.includes('Firebase identity data') &&
+        (messageText.includes('successfully authenticated') ||
+          messageText.includes('authenticated their email')) &&
+        (messageText.includes('"id":') ||
+          messageText.includes('"email":') ||
+          messageText.includes('"token":'));
+
       expect(detected).toBe(testCase.shouldDetect);
     });
   });
@@ -116,36 +123,41 @@ describe('Firebase Detection Logic', () => {
       {
         name: 'Case sensitivity',
         message: 'User has successfully authenticated. firebase identity data: {"id": "test123"}',
-        shouldDetect: false // Our detection is case-sensitive for "Firebase"
+        shouldDetect: false, // Our detection is case-sensitive for "Firebase"
       },
       {
         name: 'Partial JSON',
         message: 'User has successfully authenticated. Firebase identity data: {"incomplete":',
-        shouldDetect: false
+        shouldDetect: false,
       },
       {
         name: 'Only id field',
         message: 'User has successfully authenticated. Firebase identity data: {"id": "test123"}',
-        shouldDetect: true
+        shouldDetect: true,
       },
       {
         name: 'Only email field',
-        message: 'User has successfully authenticated. Firebase identity data: {"email": "test@example.com"}',
-        shouldDetect: true
+        message:
+          'User has successfully authenticated. Firebase identity data: {"email": "test@example.com"}',
+        shouldDetect: true,
       },
       {
         name: 'Only token field',
         message: 'User has successfully authenticated. Firebase identity data: {"token": "abc123"}',
-        shouldDetect: true
-      }
+        shouldDetect: true,
+      },
     ];
 
-    edgeCases.forEach(testCase => {
+    edgeCases.forEach((testCase) => {
       const messageText = testCase.message;
-      const detected = messageText.includes('Firebase identity data') && 
-                      (messageText.includes('successfully authenticated') || messageText.includes('authenticated their email')) &&
-                      (messageText.includes('"id":') || messageText.includes('"email":') || messageText.includes('"token":'));
-      
+      const detected =
+        messageText.includes('Firebase identity data') &&
+        (messageText.includes('successfully authenticated') ||
+          messageText.includes('authenticated their email')) &&
+        (messageText.includes('"id":') ||
+          messageText.includes('"email":') ||
+          messageText.includes('"token":'));
+
       expect(detected).toBe(testCase.shouldDetect);
     });
   });

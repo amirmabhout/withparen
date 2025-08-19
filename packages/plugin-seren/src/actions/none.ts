@@ -34,6 +34,5 @@ export const noneAction: Action = {
       success: true,
     };
   },
-  examples: [
-  ] as ActionExample[][],
+  examples: [] as ActionExample[][],
 } as Action;

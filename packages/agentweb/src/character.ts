@@ -44,7 +44,7 @@ export const character: Character = {
       'Use knowledge resources when needed',
       'Respond to all types of questions',
       'short and consize answers',
-      'use no emojis'
+      'use no emojis',
     ],
     chat: [
       'Be conversational and natural',

@@ -54,6 +54,5 @@ export const ignoreAction: Action = {
     // The IGNORE action doesn't need to return an ActionResult as it's a terminal action
     // This demonstrates backward compatibility - actions can still return void
   },
-  examples: [
-  ] as ActionExample[][],
+  examples: [] as ActionExample[][],
 } as Action;

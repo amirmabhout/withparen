@@ -391,11 +391,17 @@ const messageReceivedHandler = async ({
 
         // Check for Firebase authentication payload and trigger signin action directly
         const messageText = message.content?.text || '';
-        if (messageText.includes('Firebase identity data') &&
-          (messageText.includes('successfully authenticated') || messageText.includes('authenticated their email')) &&
-          (messageText.includes('"id":') || messageText.includes('"email":') || messageText.includes('"token":'))) {
-
-          logger.info('[serenapp] Detected Firebase authentication payload, triggering signin action directly');
+        if (
+          messageText.includes('Firebase identity data') &&
+          (messageText.includes('successfully authenticated') ||
+            messageText.includes('authenticated their email')) &&
+          (messageText.includes('"id":') ||
+            messageText.includes('"email":') ||
+            messageText.includes('"token":'))
+        ) {
+          logger.info(
+            '[serenapp] Detected Firebase authentication payload, triggering signin action directly'
+          );
 
           try {
             // Import and trigger signin action directly
@@ -411,16 +417,20 @@ const messageReceivedHandler = async ({
               const signinResult = await signinAction.handler(runtime, message, undefined, {});
 
               if (signinResult) {
-                logger.info(`[serenapp] Signin action completed: ${JSON.stringify({
-                  success: signinResult.success,
-                  webId: signinResult.values?.webId,
-                  hasEmail: !!signinResult.values?.email,
-                  personCreated: signinResult.values?.personCreated,
-                  personAlreadyExisted: signinResult.values?.personAlreadyExisted
-                })}`);
+                logger.info(
+                  `[serenapp] Signin action completed: ${JSON.stringify({
+                    success: signinResult.success,
+                    webId: signinResult.values?.webId,
+                    hasEmail: !!signinResult.values?.email,
+                    personCreated: signinResult.values?.personCreated,
+                    personAlreadyExisted: signinResult.values?.personAlreadyExisted,
+                  })}`
+                );
 
                 if (signinResult.success) {
-                  logger.debug('[serenapp] Signin successful, continuing with normal message processing');
+                  logger.debug(
+                    '[serenapp] Signin successful, continuing with normal message processing'
+                  );
                 } else {
                   logger.warn('[serenapp] Signin action failed, continuing with normal processing');
                 }
@@ -530,7 +540,9 @@ const messageReceivedHandler = async ({
 
             retries++;
             if (!responseContent?.thought || !responseContent?.actions) {
-              logger.warn(`[serenapp] *** Missing required fields (thought or actions), retrying... *** response: ${JSON.stringify(response)} parsedXml: ${JSON.stringify(parsedXml)} responseContent: ${JSON.stringify(responseContent)}`);
+              logger.warn(
+                `[serenapp] *** Missing required fields (thought or actions), retrying... *** response: ${JSON.stringify(response)} parsedXml: ${JSON.stringify(parsedXml)} responseContent: ${JSON.stringify(responseContent)}`
+              );
             }
           }
 
@@ -622,7 +634,9 @@ const messageReceivedHandler = async ({
 
             if (action === 'CREATE_CONNECTION') {
               // Execute the action so it persists HumanConnection in Memgraph
-              logger.debug('[serenapp] CREATE_CONNECTION: executing processActions to persist connection');
+              logger.debug(
+                '[serenapp] CREATE_CONNECTION: executing processActions to persist connection'
+              );
               await runtime.processActions(message, responseMessages, state, callback);
             } else if (action === 'NONE' && responseContent.text) {
               // NONE action: callback message only, no action execution
@@ -682,9 +696,11 @@ const messageReceivedHandler = async ({
             createdAt: Date.now(),
           };
           await runtime.createMemory(ignoreMemory, 'messages');
-          logger.debug(`[serenapp] Saved ignore response to memory: ${JSON.stringify({
-            memoryId: ignoreMemory.id,
-          })}`);
+          logger.debug(
+            `[serenapp] Saved ignore response to memory: ${JSON.stringify({
+              memoryId: ignoreMemory.id,
+            })}`
+          );
 
           // Clean up the response ID since we handled it
           agentResponses.delete(message.roomId);
@@ -943,7 +959,9 @@ const postGeneratedHandler = async ({
 
     retries++;
     if (!responseContent?.thought || !responseContent?.actions) {
-      logger.warn(`[serenapp] *** Missing required fields, retrying... ***\nresponse: ${response}\nparsedXml: ${JSON.stringify(parsedXml)}\nresponseContent: ${JSON.stringify(responseContent)}`);
+      logger.warn(
+        `[serenapp] *** Missing required fields, retrying... ***\nresponse: ${response}\nparsedXml: ${JSON.stringify(parsedXml)}\nresponseContent: ${JSON.stringify(responseContent)}`
+      );
     }
   }
 
@@ -965,7 +983,9 @@ const postGeneratedHandler = async ({
   const parsedXmlResponse = parseKeyValueXml(xmlResponseText);
 
   if (!parsedXmlResponse) {
-    logger.error(`[serenapp] Failed to parse XML response for post creation. Raw response: ${xmlResponseText}`);
+    logger.error(
+      `[serenapp] Failed to parse XML response for post creation. Raw response: ${xmlResponseText}`
+    );
     // Handle the error appropriately, maybe retry or return an error state
     return;
   }
@@ -1128,14 +1148,14 @@ const syncSingleUser = async (
     const worldMetadata =
       type === ChannelType.DM
         ? {
-          ownership: {
-            ownerId: entityId,
-          },
-          roles: {
-            [entityId]: Role.OWNER,
-          },
-          settings: {}, // Initialize empty settings for onboarding
-        }
+            ownership: {
+              ownerId: entityId,
+            },
+            roles: {
+              [entityId]: Role.OWNER,
+            },
+            settings: {}, // Initialize empty settings for onboarding
+          }
         : undefined;
 
     logger.info(
@@ -1429,11 +1449,7 @@ const events = {
 export const serenappPlugin: Plugin = {
   name: 'serenapp',
   description: 'Agent serenapp with connection invite functionality',
-  actions: [
-    actions.createConnectionAction,
-    actions.ignoreAction,
-    actions.noneAction,
-  ],
+  actions: [actions.createConnectionAction, actions.ignoreAction, actions.noneAction],
   // this is jank, these events are not valid
   events: events as any as PluginEvents,
   evaluators: [evaluators.reflectionEvaluator],

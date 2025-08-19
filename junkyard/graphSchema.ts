@@ -1,9 +1,9 @@
 /**
  * Seren AI Graph Schema for Memgraph Property Graph
- * 
+ *
  * This schema defines the node types, relationships, and properties for modeling
  * romantic couples and their interactions within the Seren AI framework.
- * 
+ *
  * Core Design Principles:
  * 1. Individual Dimensions: Personal traits, communication styles, emotional states
  * 2. Dyadic Relationships: Shared experiences, mutual perceptions, joint activities
@@ -23,7 +23,7 @@ export interface PersonNode {
   culturalContext?: string;
   createdAt: number;
   updatedAt: number;
-  
+
   // Communication Style Dimensions
   communicationStyle: {
     expressiveness: number; // 1-10 scale (reserved to talkative)
@@ -33,7 +33,7 @@ export interface PersonNode {
     activeListening: number; // 1-10 scale
     empathyLevel: number; // 1-10 scale
   };
-  
+
   // Emotional Intelligence Dimensions
   emotionalProfile: {
     selfAwareness: number; // 1-10 scale
@@ -43,7 +43,7 @@ export interface PersonNode {
     stressResponse: string; // "withdraw" | "engage" | "seek_support" | "problem_solve"
     gratitudeExpression: number; // 1-10 scale
   };
-  
+
   // Attachment and Intimacy
   attachmentStyle: {
     primary: string; // "secure" | "anxious" | "avoidant" | "disorganized"
@@ -52,14 +52,14 @@ export interface PersonNode {
     trustLevel: number; // 1-10 scale
     dependencyComfort: number; // 1-10 scale
   };
-  
+
   // Personal Values and Interests
   values: {
     coreValues: string[]; // e.g., ["family", "career", "adventure", "stability"]
     relationshipPriorities: string[]; // e.g., ["communication", "intimacy", "shared_goals"]
     conflictResolutionValues: string[]; // e.g., ["fairness", "harmony", "honesty"]
   };
-  
+
   // Current State Tracking
   currentState: {
     stressLevel: number; // 1-10 scale
@@ -81,7 +81,7 @@ export interface CoupleNode {
   primaryCommunicationLanguage: string;
   createdAt: number;
   updatedAt: number;
-  
+
   // Relationship Dynamics
   dynamics: {
     communicationPatterns: {
@@ -91,7 +91,7 @@ export interface CoupleNode {
       activeListeningUsage: number; // 1-10 scale
       gratitudeExpressionFrequency: number; // times per week
     };
-    
+
     intimacyLevels: {
       emotional: number; // 1-10 scale
       physical: number; // 1-10 scale
@@ -99,14 +99,14 @@ export interface CoupleNode {
       experiential: number; // 1-10 scale (shared activities)
       spiritual: number; // 1-10 scale
     };
-    
+
     copingStrategies: {
       dyadicCopingStyle: string; // "collaborative" | "supportive" | "delegated" | "protective"
       stressManagementTogether: number; // 1-10 effectiveness scale
       problemSolvingApproach: string; // "joint" | "individual" | "alternating"
       supportSeekingPattern: string; // "mutual" | "one_sided" | "external"
     };
-    
+
     sharedGoals: {
       shortTerm: string[]; // goals for next 3-6 months
       longTerm: string[]; // goals for 1+ years
@@ -114,7 +114,7 @@ export interface CoupleNode {
       progressTracking: { [goal: string]: number }; // progress on each goal (0-1)
     };
   };
-  
+
   // Relationship Health Metrics
   healthMetrics: {
     overallSatisfaction: number; // 1-10 scale (average of both partners)
@@ -135,7 +135,7 @@ export interface SessionNode {
   endTime?: number;
   duration?: number; // minutes
   facilitatorAgent: string; // agent ID
-  
+
   // Session Content
   content: {
     topics: string[]; // main topics discussed
@@ -145,7 +145,7 @@ export interface SessionNode {
     emotionalTone: string; // "positive" | "neutral" | "tense" | "breakthrough"
     participationBalance: number; // -1 to 1 scale (-1 = person1 dominated, 0 = balanced, 1 = person2 dominated)
   };
-  
+
   // Outcomes
   outcomes: {
     satisfactionRating: { person1: number; person2: number }; // 1-10 scale
@@ -162,7 +162,7 @@ export interface InteractionNode {
   coupleId: string;
   timestamp: number;
   interactionType: string; // "gratitude_expression" | "conflict" | "support_seeking" | "affection" | "problem_solving"
-  
+
   // Interaction Details
   details: {
     initiator: string; // person1 | person2 | both
@@ -171,7 +171,7 @@ export interface InteractionNode {
     intensity: number; // 1-10 scale
     duration: number; // minutes
     resolution?: string; // "resolved" | "unresolved" | "partially_resolved" | "escalated"
-    
+
     // Communication Quality Metrics
     activeListeningUsed: boolean;
     empathyDemonstrated: boolean;
@@ -180,7 +180,7 @@ export interface InteractionNode {
     supportOffered: boolean;
     supportReceived: boolean;
   };
-  
+
   // Outcomes
   outcomes: {
     satisfactionLevel: { person1: number; person2: number }; // 1-10 scale
@@ -197,7 +197,7 @@ export interface TaskNode {
   coupleId: string;
   assignedBy: string; // session ID or agent ID
   taskType: string; // "gratitude_exercise" | "communication_practice" | "shared_activity" | "reflection" | "conflict_resolution"
-  
+
   // Task Details
   details: {
     title: string;
@@ -207,7 +207,7 @@ export interface TaskNode {
     difficulty: number; // 1-10 scale
     category: string; // "appreciation" | "communication" | "intimacy" | "problem_solving" | "fun"
   };
-  
+
   // Scheduling
   scheduling: {
     assignedAt: number;
@@ -215,7 +215,7 @@ export interface TaskNode {
     reminderFrequency?: string; // "daily" | "weekly" | "none"
     priority: string; // "low" | "medium" | "high" | "urgent"
   };
-  
+
   // Completion Tracking
   completion: {
     status: string; // "assigned" | "in_progress" | "completed" | "skipped" | "overdue"
@@ -233,7 +233,7 @@ export interface MemoryNode {
   id: string;
   coupleId: string;
   memoryType: string; // "shared_experience" | "milestone" | "conflict_resolution" | "breakthrough" | "tradition"
-  
+
   // Memory Content
   content: {
     title: string;
@@ -244,7 +244,7 @@ export interface MemoryNode {
     emotionalSignificance: number; // 1-10 scale
     relationshipImpact: string; // "strengthening" | "challenging" | "neutral" | "transformative"
   };
-  
+
   // Memory Attributes
   attributes: {
     valence: string; // "positive" | "negative" | "mixed" | "neutral"
@@ -254,7 +254,7 @@ export interface MemoryNode {
     triggers: string[]; // what brings this memory to mind
     lessons: string[]; // what was learned from this experience
   };
-  
+
   // Recall Information
   recall: {
     lastRecalled: number;
@@ -269,12 +269,12 @@ export interface MemoryNode {
 // ============================================================================
 
 export interface PersonToPersonRelationship {
-  type: "PARTNERS_WITH";
+  type: 'PARTNERS_WITH';
   properties: {
     since: number; // timestamp when relationship started
     relationshipType: string; // "romantic" | "married" | "engaged"
     currentStatus: string; // "active" | "on_break" | "complicated"
-    
+
     // Mutual Perception Dimensions
     mutualPerception: {
       person1ViewOfPerson2: {
@@ -297,7 +297,7 @@ export interface PersonToPersonRelationship {
         perceivedHappiness: number;
         appreciationLevel: number;
       };
-      
+
       // Empathic Accuracy Tracking
       empathicAccuracy: {
         person1AccuracyScore: number; // 0-1 scale (how accurately person1 perceives person2)
@@ -306,7 +306,7 @@ export interface PersonToPersonRelationship {
         improvementTrend: string; // "improving" | "stable" | "declining"
       };
     };
-    
+
     // Interaction Patterns
     interactionPatterns: {
       communicationFrequency: number; // interactions per day
@@ -314,7 +314,7 @@ export interface PersonToPersonRelationship {
       affectionFrequency: number; // affectionate interactions per day
       supportFrequency: number; // support-seeking/giving per week
       qualityTimeFrequency: number; // dedicated time together per week (hours)
-      
+
       // Gottman's Four Horsemen Tracking
       fourHorsemenFrequency: {
         criticism: number; // instances per month
@@ -322,7 +322,7 @@ export interface PersonToPersonRelationship {
         defensiveness: number; // instances per month
         stonewalling: number; // instances per month
       };
-      
+
       // Positive Interaction Tracking
       positiveInteractions: {
         gratitudeExpressions: number; // per week
@@ -336,7 +336,7 @@ export interface PersonToPersonRelationship {
 }
 
 export interface PersonToSessionRelationship {
-  type: "PARTICIPATED_IN";
+  type: 'PARTICIPATED_IN';
   properties: {
     participationLevel: number; // 1-10 scale
     emotionalEngagement: number; // 1-10 scale
@@ -349,7 +349,7 @@ export interface PersonToSessionRelationship {
 }
 
 export interface PersonToTaskRelationship {
-  type: "ASSIGNED_TO" | "COMPLETED";
+  type: 'ASSIGNED_TO' | 'COMPLETED';
   properties: {
     assignedAt?: number;
     completedAt?: number;
@@ -363,7 +363,7 @@ export interface PersonToTaskRelationship {
 }
 
 export interface PersonToMemoryRelationship {
-  type: "REMEMBERS" | "CREATED";
+  type: 'REMEMBERS' | 'CREATED';
   properties: {
     emotionalResponse: string; // "joy" | "sadness" | "pride" | "regret" | "love"
     personalSignificance: number; // 1-10 scale
@@ -376,7 +376,7 @@ export interface PersonToMemoryRelationship {
 }
 
 export interface SessionToInteractionRelationship {
-  type: "CONTAINS";
+  type: 'CONTAINS';
   properties: {
     sequenceOrder: number; // order within the session
     timeOffset: number; // minutes from session start
@@ -385,7 +385,7 @@ export interface SessionToInteractionRelationship {
 }
 
 export interface InteractionToMemoryRelationship {
-  type: "BECAME" | "TRIGGERED";
+  type: 'BECAME' | 'TRIGGERED';
   properties: {
     transformationReason: string; // why this interaction became a memory
     emotionalImpact: number; // 1-10 scale
@@ -395,7 +395,7 @@ export interface InteractionToMemoryRelationship {
 }
 
 export interface TaskToSessionRelationship {
-  type: "ASSIGNED_IN" | "REVIEWED_IN";
+  type: 'ASSIGNED_IN' | 'REVIEWED_IN';
   properties: {
     assignmentContext: string; // why this task was assigned
     expectedOutcome: string; // what the facilitator hoped to achieve
@@ -409,7 +409,7 @@ export interface TaskToSessionRelationship {
 // ============================================================================
 
 export interface TemporalProgressRelationship {
-  type: "PROGRESSED_TO";
+  type: 'PROGRESSED_TO';
   properties: {
     timespan: number; // days between measurements
     changeDirection: string; // "improved" | "declined" | "stable"
@@ -430,30 +430,30 @@ export class SerenGraphSchema {
   static getSchemaQueries(): string[] {
     return [
       // Node constraints
-      "CREATE CONSTRAINT person_id IF NOT EXISTS FOR (p:Person) REQUIRE p.id IS UNIQUE;",
-      "CREATE CONSTRAINT couple_id IF NOT EXISTS FOR (c:Couple) REQUIRE c.id IS UNIQUE;",
-      "CREATE CONSTRAINT session_id IF NOT EXISTS FOR (s:Session) REQUIRE s.id IS UNIQUE;",
-      "CREATE CONSTRAINT interaction_id IF NOT EXISTS FOR (i:Interaction) REQUIRE i.id IS UNIQUE;",
-      "CREATE CONSTRAINT task_id IF NOT EXISTS FOR (t:Task) REQUIRE t.id IS UNIQUE;",
-      "CREATE CONSTRAINT memory_id IF NOT EXISTS FOR (m:Memory) REQUIRE m.id IS UNIQUE;",
-      
+      'CREATE CONSTRAINT person_id IF NOT EXISTS FOR (p:Person) REQUIRE p.id IS UNIQUE;',
+      'CREATE CONSTRAINT couple_id IF NOT EXISTS FOR (c:Couple) REQUIRE c.id IS UNIQUE;',
+      'CREATE CONSTRAINT session_id IF NOT EXISTS FOR (s:Session) REQUIRE s.id IS UNIQUE;',
+      'CREATE CONSTRAINT interaction_id IF NOT EXISTS FOR (i:Interaction) REQUIRE i.id IS UNIQUE;',
+      'CREATE CONSTRAINT task_id IF NOT EXISTS FOR (t:Task) REQUIRE t.id IS UNIQUE;',
+      'CREATE CONSTRAINT memory_id IF NOT EXISTS FOR (m:Memory) REQUIRE m.id IS UNIQUE;',
+
       // Indexes for performance
-      "CREATE INDEX person_name IF NOT EXISTS FOR (p:Person) ON (p.name);",
-      "CREATE INDEX couple_stage IF NOT EXISTS FOR (c:Couple) ON (c.relationshipStage);",
-      "CREATE INDEX session_type IF NOT EXISTS FOR (s:Session) ON (s.sessionType);",
-      "CREATE INDEX interaction_type IF NOT EXISTS FOR (i:Interaction) ON (i.interactionType);",
-      "CREATE INDEX task_status IF NOT EXISTS FOR (t:Task) ON (t.completion.status);",
-      "CREATE INDEX memory_type IF NOT EXISTS FOR (m:Memory) ON (m.memoryType);",
-      
+      'CREATE INDEX person_name IF NOT EXISTS FOR (p:Person) ON (p.name);',
+      'CREATE INDEX couple_stage IF NOT EXISTS FOR (c:Couple) ON (c.relationshipStage);',
+      'CREATE INDEX session_type IF NOT EXISTS FOR (s:Session) ON (s.sessionType);',
+      'CREATE INDEX interaction_type IF NOT EXISTS FOR (i:Interaction) ON (i.interactionType);',
+      'CREATE INDEX task_status IF NOT EXISTS FOR (t:Task) ON (t.completion.status);',
+      'CREATE INDEX memory_type IF NOT EXISTS FOR (m:Memory) ON (m.memoryType);',
+
       // Temporal indexes
-      "CREATE INDEX person_updated IF NOT EXISTS FOR (p:Person) ON (p.updatedAt);",
-      "CREATE INDEX session_start IF NOT EXISTS FOR (s:Session) ON (s.startTime);",
-      "CREATE INDEX interaction_timestamp IF NOT EXISTS FOR (i:Interaction) ON (i.timestamp);",
-      "CREATE INDEX task_assigned IF NOT EXISTS FOR (t:Task) ON (t.scheduling.assignedAt);",
-      "CREATE INDEX memory_date IF NOT EXISTS FOR (m:Memory) ON (m.content.date);",
+      'CREATE INDEX person_updated IF NOT EXISTS FOR (p:Person) ON (p.updatedAt);',
+      'CREATE INDEX session_start IF NOT EXISTS FOR (s:Session) ON (s.startTime);',
+      'CREATE INDEX interaction_timestamp IF NOT EXISTS FOR (i:Interaction) ON (i.timestamp);',
+      'CREATE INDEX task_assigned IF NOT EXISTS FOR (t:Task) ON (t.scheduling.assignedAt);',
+      'CREATE INDEX memory_date IF NOT EXISTS FOR (m:Memory) ON (m.content.date);',
     ];
   }
-  
+
   /**
    * Sample queries for common Seren AI operations
    */
@@ -464,7 +464,7 @@ export class SerenGraphSchema {
         MATCH (c:Couple {id: $coupleId})
         RETURN c.healthMetrics as health, c.dynamics as dynamics
       `,
-      
+
       // Get recent interactions for pattern analysis
       getRecentInteractions: `
         MATCH (i:Interaction {coupleId: $coupleId})
@@ -473,14 +473,14 @@ export class SerenGraphSchema {
         ORDER BY i.timestamp DESC
         LIMIT $limit
       `,
-      
+
       // Get empathic accuracy trends
       getEmpathicAccuracy: `
         MATCH (p1:Person)-[r:PARTNERS_WITH]-(p2:Person)
         WHERE p1.id = $person1Id AND p2.id = $person2Id
         RETURN r.properties.mutualPerception.empathicAccuracy as accuracy
       `,
-      
+
       // Get incomplete tasks for follow-up
       getIncompleteTasks: `
         MATCH (t:Task {coupleId: $coupleId})
@@ -488,7 +488,7 @@ export class SerenGraphSchema {
         RETURN t
         ORDER BY t.scheduling.dueDate ASC
       `,
-      
+
       // Get positive memories for gratitude exercises
       getPositiveMemories: `
         MATCH (m:Memory {coupleId: $coupleId})
@@ -498,7 +498,7 @@ export class SerenGraphSchema {
         ORDER BY m.content.date DESC
         LIMIT $limit
       `,
-      
+
       // Track communication pattern improvements
       getCommunicationTrends: `
         MATCH (s:Session {coupleId: $coupleId})
@@ -507,14 +507,14 @@ export class SerenGraphSchema {
         RETURN s.startTime, s.outcomes.progressMade, s.content.emotionalTone
         ORDER BY s.startTime ASC
       `,
-      
+
       // Get relationship milestone progression
       getMilestoneProgression: `
         MATCH (m:Memory {coupleId: $coupleId})
         WHERE m.memoryType = 'milestone'
         RETURN m.content.date, m.content.title, m.attributes.relationshipImpact
         ORDER BY m.content.date ASC
-      `
+      `,
     };
   }
 }
