@@ -233,6 +233,11 @@ export const introAcceptAction: Action = {
             logger.info(
               `[quinn] Successfully notified original user ${otherUserId} about accepted introduction`
             );
+
+            // Log message content sent to original user
+            logger.info(
+              `[quinn] MESSAGE_SENT_TO_USER: User ${otherUserId} received connection success message: "${successMessage.substring(0, 100)}${successMessage.length > 100 ? '...' : ''}"`
+            );
           } else {
             // Fallback method - For DMs, roomId equals the target user's entityId
             const fallbackTargetInfo = {
@@ -249,6 +254,11 @@ export const introAcceptAction: Action = {
 
             logger.info(
               `[quinn] Sent success notification using fallback method to user ${otherUserId}`
+            );
+
+            // Log message content sent to original user (fallback)
+            logger.info(
+              `[quinn] MESSAGE_SENT_TO_USER: User ${otherUserId} received connection success message (fallback): "${successMessage.substring(0, 100)}${successMessage.length > 100 ? '...' : ''}"`
             );
           }
         } catch (messageError) {
@@ -344,6 +354,11 @@ export const introAcceptAction: Action = {
           text: responseText,
           actions: ['REPLY'],
         });
+
+        // Log message content sent to accepting user
+        logger.info(
+          `[quinn] MESSAGE_SENT_TO_USER: User ${respondingUserId} received response: "${responseText.substring(0, 100)}${responseText.length > 100 ? '...' : ''}"`
+        );
       }
 
       return {

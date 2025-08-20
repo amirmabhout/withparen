@@ -271,6 +271,11 @@ export const introProposalAction: Action = {
         logger.info(
           `[quinn] Successfully sent introduction message to user ${targetUserId} with roomId ${targetUserId}`
         );
+
+        // Log message content sent to user
+        logger.info(
+          `[quinn] MESSAGE_SENT_TO_USER: User ${targetUserId} received introduction message: "${introductionMessage.substring(0, 100)}${introductionMessage.length > 100 ? '...' : ''}"`
+        );
       } catch (messageError) {
         logger.error(
           `[quinn] Failed to send introduction message to user ${targetUserId}: ${messageError}`

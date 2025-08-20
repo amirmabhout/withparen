@@ -223,6 +223,11 @@ export const createConnectionAction: Action = {
             text: fallbackText,
             actions: ['REPLY'],
           });
+
+          // Log error message sent to user
+          logger.info(
+            `[quinn] MESSAGE_SENT_TO_USER: User ${message.entityId} received error message: "${fallbackText.substring(0, 100)}${fallbackText.length > 100 ? '...' : ''}"`
+          );
         }
 
         return {
@@ -245,6 +250,11 @@ export const createConnectionAction: Action = {
             text: fallbackText,
             actions: ['REPLY'],
           });
+
+          // Log fallback message sent to user
+          logger.info(
+            `[quinn] MESSAGE_SENT_TO_USER: User ${message.entityId} received fallback message: "${fallbackText.substring(0, 100)}${fallbackText.length > 100 ? '...' : ''}"`
+          );
         }
 
         return {
@@ -370,6 +380,11 @@ export const createConnectionAction: Action = {
             text: noMatchText,
             actions: ['REPLY'],
           });
+
+          // Log no match message sent to user
+          logger.info(
+            `[quinn] MESSAGE_SENT_TO_USER: User ${message.entityId} received no match message: "${noMatchText.substring(0, 100)}${noMatchText.length > 100 ? '...' : ''}"`
+          );
         }
 
         return {
@@ -422,6 +437,11 @@ Looking for: ${matchConnectionContext.length > 0 ? matchConnectionContext[0].con
             text: errorText,
             actions: ['REPLY'],
           });
+
+          // Log compatibility error message sent to user
+          logger.info(
+            `[quinn] MESSAGE_SENT_TO_USER: User ${message.entityId} received compatibility error: "${errorText.substring(0, 100)}${errorText.length > 100 ? '...' : ''}"`
+          );
         }
 
         return {
@@ -497,6 +517,11 @@ Looking for: ${matchConnectionContext.length > 0 ? matchConnectionContext[0].con
           text: responseText,
           actions: ['REPLY'],
         });
+
+        // Log match result sent to user
+        logger.info(
+          `[quinn] MESSAGE_SENT_TO_USER: User ${message.entityId} received match result: "${responseText.substring(0, 100)}${responseText.length > 100 ? '...' : ''}"`
+        );
       }
 
       return {
@@ -521,6 +546,11 @@ Looking for: ${matchConnectionContext.length > 0 ? matchConnectionContext[0].con
           text: errorText,
           actions: ['REPLY'],
         });
+
+        // Log error message sent to user
+        logger.info(
+          `[quinn] MESSAGE_SENT_TO_USER: User ${message.entityId} received error: "${errorText.substring(0, 100)}${errorText.length > 100 ? '...' : ''}"`
+        );
       }
 
       return {

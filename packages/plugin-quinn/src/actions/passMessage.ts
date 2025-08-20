@@ -200,6 +200,11 @@ export const passMessageAction: Action = {
           `[quinn] Successfully passed message from ${senderUserId} to ${recipientUserId}`
         );
 
+        // Log message content sent to recipient
+        logger.info(
+          `[quinn] MESSAGE_SENT_TO_USER: User ${recipientUserId} received passed message from ${senderDisplayName}: "${formattedMessage.substring(0, 150)}${formattedMessage.length > 150 ? '...' : ''}"`
+        );
+
         const confirmationText = `✅ I've passed your message to ${recipientDisplayName}. They should receive it shortly!`;
 
         if (callback) {
@@ -207,6 +212,11 @@ export const passMessageAction: Action = {
             text: confirmationText,
             actions: ['REPLY'],
           });
+
+          // Log confirmation message sent to sender
+          logger.info(
+            `[quinn] MESSAGE_SENT_TO_USER: User ${senderUserId} received confirmation: "${confirmationText}"`
+          );
         }
 
         return {
