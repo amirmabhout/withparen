@@ -15,8 +15,7 @@ import {
  */
 export const introAcceptAction: Action = {
   name: 'INTRO_ACCEPT',
-  description:
-    'Handles acceptance or decline of introduction proposals from potential matches',
+  description: 'Handles acceptance or decline of introduction proposals from potential matches',
   similes: [
     'ACCEPT_INTRODUCTION',
     'DECLINE_INTRODUCTION',
@@ -35,7 +34,7 @@ export const introAcceptAction: Action = {
       });
 
       // Find matches where this user has incoming introductions
-      const incomingIntroductions = matches.filter(match => {
+      const incomingIntroductions = matches.filter((match) => {
         const matchData = match.content as any;
         return (
           (matchData.user1Id === message.entityId || matchData.user2Id === message.entityId) &&
@@ -45,8 +44,17 @@ export const introAcceptAction: Action = {
 
       // Check if user is responding to an introduction in their message
       const messageText = message.content.text?.toLowerCase() || '';
-      const responseKeywords = ['yes', 'no', 'accept', 'decline', 'sure', 'not interested', 'sounds good', 'connect'];
-      const hasIntroductionResponse = responseKeywords.some(keyword => 
+      const responseKeywords = [
+        'yes',
+        'no',
+        'accept',
+        'decline',
+        'sure',
+        'not interested',
+        'sounds good',
+        'connect',
+      ];
+      const hasIntroductionResponse = responseKeywords.some((keyword) =>
         messageText.includes(keyword)
       );
 
@@ -73,7 +81,7 @@ export const introAcceptAction: Action = {
         count: 50,
       });
 
-      const incomingIntroductions = matches.filter(match => {
+      const incomingIntroductions = matches.filter((match) => {
         const matchData = match.content as any;
         return (
           (matchData.user1Id === message.entityId || matchData.user2Id === message.entityId) &&
@@ -82,8 +90,9 @@ export const introAcceptAction: Action = {
       });
 
       if (incomingIntroductions.length === 0) {
-        const noIntroText = "I don't see any pending introduction requests for you right now. Would you like me to search for new connections?";
-        
+        const noIntroText =
+          "I don't see any pending introduction requests for you right now. Would you like me to search for new connections?";
+
         if (callback) {
           await callback({
             text: noIntroText,
@@ -109,16 +118,25 @@ export const introAcceptAction: Action = {
 
       // Analyze the user's response to determine acceptance or decline
       const messageText = message.content.text?.toLowerCase() || '';
-      const acceptKeywords = ['yes', 'accept', 'sure', 'sounds good', 'i would like', 'connect', 'interested'];
+      const acceptKeywords = [
+        'yes',
+        'accept',
+        'sure',
+        'sounds good',
+        'i would like',
+        'connect',
+        'interested',
+      ];
       const declineKeywords = ['no', 'decline', 'not interested', 'pass', 'not right now'];
-      
-      const isAccepting = acceptKeywords.some(keyword => messageText.includes(keyword));
-      const isDeclining = declineKeywords.some(keyword => messageText.includes(keyword));
+
+      const isAccepting = acceptKeywords.some((keyword) => messageText.includes(keyword));
+      const isDeclining = declineKeywords.some((keyword) => messageText.includes(keyword));
 
       if (!isAccepting && !isDeclining) {
         // Ambiguous response, ask for clarification
-        const clarificationText = "I want to make sure I understand correctly - would you like me to connect you with this person? Please let me know 'yes' if you'd like the introduction or 'no' if you'd prefer to pass on this connection.";
-        
+        const clarificationText =
+          "I want to make sure I understand correctly - would you like me to connect you with this person? Please let me know 'yes' if you'd like the introduction or 'no' if you'd prefer to pass on this connection.";
+
         if (callback) {
           await callback({
             text: clarificationText,
@@ -138,26 +156,41 @@ export const introAcceptAction: Action = {
 
       if (isAccepting) {
         // Both users accepted - make the connection!
-        
+
         // Get other user's information for the connection message
         const otherUserEntity = await runtime.getEntityById(otherUserId);
-        
-        const otherUserName = otherUserEntity?.metadata?.username || 
-                             otherUserEntity?.metadata?.name || 
-                             `User${otherUserId}`;
+
+        // Extract display name and username separately
+        const otherUserDisplayName =
+          otherUserEntity?.metadata?.name ||
+          otherUserEntity?.metadata?.username ||
+          `User${otherUserId}`;
+
+        const otherUserUsername = otherUserEntity?.metadata?.username;
 
         // Update status to connected
         newStatus = 'connected';
-        
-        responseText = `Wonderful! I'm excited to connect you two. You can now reach out to ${otherUserName} directly using their username: ${otherUserName}. They're also looking forward to connecting with you! Here's a great way to start: mention what drew you to connect and share what you're working on. Good luck with your new connection!`;
+
+        // Construct response with proper name and @username format
+        if (otherUserUsername) {
+          responseText = `Wonderful! I'm excited to connect you two. You can now reach out to ${otherUserDisplayName} directly using @${otherUserUsername}. They're also looking forward to connecting with you! Here's a great way to start: mention what drew you to connect and share what you're working on. Good luck with your new connection!`;
+        } else {
+          // Fallback if no username is available
+          responseText = `Wonderful! I'm excited to connect you two. ${otherUserDisplayName} hasn't set a username on Telegram yet, so I couldn't share it with you. But don't worry - they have your username and should reach out any minute! In the meantime, if you'd like to send them a message, just let me know and I'll pass it along.`;
+        }
 
         // Send success message to the original requesting user
         try {
           // Get the accepting user's info for the message
           const acceptingUserEntity = await runtime.getEntityById(respondingUserId);
-          const acceptingUserName = acceptingUserEntity?.metadata?.username || 
-                                   acceptingUserEntity?.metadata?.name || 
-                                   `User${respondingUserId}`;
+
+          // Extract display name and username separately
+          const acceptingUserDisplayName =
+            acceptingUserEntity?.metadata?.name ||
+            acceptingUserEntity?.metadata?.username ||
+            `User${respondingUserId}`;
+
+          const acceptingUserUsername = acceptingUserEntity?.metadata?.username;
 
           // Find the original user's room to send them the good news
           const originalUserRooms = await runtime.getMemories({
@@ -174,13 +207,20 @@ export const introAcceptAction: Action = {
             }
           }
 
-          const successMessage = `Great news! ${acceptingUserName} accepted your introduction and is excited to connect with you. You can now reach out to them directly using their username: ${acceptingUserName}. Here's a great way to start: mention what drew you to connect and share what you're working on. Good luck with your new connection!`;
+          // Construct success message with proper name and @username format
+          let successMessage: string;
+          if (acceptingUserUsername) {
+            successMessage = `Great news! ${acceptingUserDisplayName} accepted your introduction and is excited to connect with you. You can now reach out to them directly using @${acceptingUserUsername}. Here's a great way to start: mention what drew you to connect and share what you're working on. Good luck with your new connection!`;
+          } else {
+            // Fallback if no username is available
+            successMessage = `Great news! ${acceptingUserDisplayName} accepted your introduction and is excited to connect with you! They haven't set a username on Telegram yet, so I couldn't share it with you. But they have your username and should reach out any minute! If you'd like to send them a message in the meantime, just let me know and I'll pass it along.`;
+          }
 
           if (originalUserRoom) {
             const roomContent = originalUserRoom.content as any;
             const targetInfo = {
-              source: roomContent.source || 'websocket-api',
-              roomId: originalUserRoom.roomId || otherUserId,
+              source: roomContent.source || 'telegram',
+              roomId: otherUserId, // For DMs, roomId equals the target user's entityId
               entityId: otherUserId,
             };
 
@@ -190,12 +230,14 @@ export const introAcceptAction: Action = {
               type: 'connection_success',
             });
 
-            logger.info(`[quinn] Successfully notified original user ${otherUserId} about accepted introduction`);
+            logger.info(
+              `[quinn] Successfully notified original user ${otherUserId} about accepted introduction`
+            );
           } else {
-            // Fallback method
+            // Fallback method - For DMs, roomId equals the target user's entityId
             const fallbackTargetInfo = {
-              source: 'websocket-api',
-              roomId: otherUserId,
+              source: 'telegram',
+              roomId: otherUserId, // For DMs, roomId equals the target user's entityId
               entityId: otherUserId,
             };
 
@@ -205,10 +247,14 @@ export const introAcceptAction: Action = {
               type: 'connection_success',
             });
 
-            logger.info(`[quinn] Sent success notification using fallback method to user ${otherUserId}`);
+            logger.info(
+              `[quinn] Sent success notification using fallback method to user ${otherUserId}`
+            );
           }
         } catch (messageError) {
-          logger.error(`[quinn] Failed to send success message to original user ${otherUserId}: ${messageError}`);
+          logger.error(
+            `[quinn] Failed to send success message to original user ${otherUserId}: ${messageError}`
+          );
           // Continue with the workflow even if message delivery fails
         }
 
@@ -218,7 +264,7 @@ export const introAcceptAction: Action = {
           count: 50,
         });
 
-        const otherUserMatch = otherUserMatches.find(match => {
+        const otherUserMatch = otherUserMatches.find((match) => {
           const matchData = match.content as any;
           return (
             (matchData.user1Id === otherUserId || matchData.user2Id === otherUserId) &&
@@ -240,11 +286,11 @@ export const introAcceptAction: Action = {
 
           logger.info(`[quinn] Updated other user's match status to connected: ${otherUserId}`);
         }
-
       } else {
         // User declined the introduction
         newStatus = 'declined';
-        responseText = "No problem at all! Not every connection is the right fit, and that's perfectly okay. I'll keep looking for other potential matches that might be more aligned with what you're seeking. Thanks for letting me know!";
+        responseText =
+          "No problem at all! Not every connection is the right fit, and that's perfectly okay. I'll keep looking for other potential matches that might be more aligned with what you're seeking. Thanks for letting me know!";
       }
 
       // Update the introduction status
@@ -267,7 +313,7 @@ export const introAcceptAction: Action = {
         count: 50,
       });
 
-      const matchingIntroduction = introductions.find(intro => {
+      const matchingIntroduction = introductions.find((intro) => {
         const introContent = intro.content as any;
         return (
           introContent.toUserId === respondingUserId &&
@@ -288,7 +334,9 @@ export const introAcceptAction: Action = {
           content: updatedIntroductionContent,
         });
 
-        logger.info(`[quinn] Updated introduction record status to ${updatedIntroductionContent.status}`);
+        logger.info(
+          `[quinn] Updated introduction record status to ${updatedIntroductionContent.status}`
+        );
       }
 
       if (callback) {
@@ -311,7 +359,8 @@ export const introAcceptAction: Action = {
     } catch (error) {
       logger.error(`[quinn] Error in introduction response: ${error}`);
 
-      const errorText = "I encountered an issue while processing your response. Please try again in a moment.";
+      const errorText =
+        'I encountered an issue while processing your response. Please try again in a moment.';
 
       if (callback) {
         await callback({

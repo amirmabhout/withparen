@@ -307,7 +307,7 @@ export const createConnectionAction: Action = {
 
       // Filter out users that have already been matched with this user
       const matchedUserIds = new Set<UUID>();
-      existingMatches.forEach(match => {
+      existingMatches.forEach((match) => {
         const matchData = match.content as any;
         if (matchData.user1Id === message.entityId) {
           matchedUserIds.add(matchData.user2Id);
@@ -316,7 +316,9 @@ export const createConnectionAction: Action = {
         }
       });
 
-      logger.info(`[quinn] Found ${matchedUserIds.size} existing matches for user ${message.entityId}`);
+      logger.info(
+        `[quinn] Found ${matchedUserIds.size} existing matches for user ${message.entityId}`
+      );
 
       // Check available data for connection discovery
       const allPersonaContexts = await runtime.getMemories({
@@ -347,11 +349,13 @@ export const createConnectionAction: Action = {
         });
 
         // Filter out the requesting user and already matched users from potential matches
-        potentialMatches = potentialMatches.filter((match) => 
-          match.entityId !== message.entityId && !matchedUserIds.has(match.entityId)
+        potentialMatches = potentialMatches.filter(
+          (match) => match.entityId !== message.entityId && !matchedUserIds.has(match.entityId)
         );
 
-        logger.info(`[quinn] Found ${potentialMatches.length} potential matches (excluding self and existing matches)`);
+        logger.info(
+          `[quinn] Found ${potentialMatches.length} potential matches (excluding self and existing matches)`
+        );
       } catch (error) {
         logger.warn(`[quinn] Vector search failed: ${error}`);
         // Continue with empty matches
@@ -389,7 +393,8 @@ export const createConnectionAction: Action = {
             count: 1,
           });
 
-          return `Candidate ${index + 1} (ID: ${match.entityId}):
+          return `Match Option ${index + 1}:
+ID: ${match.entityId}
 Persona: ${match.content.text}
 Looking for: ${matchConnectionContext.length > 0 ? matchConnectionContext[0].content.text : 'Not specified'}`;
         })
@@ -443,14 +448,14 @@ Looking for: ${matchConnectionContext.length > 0 ? matchConnectionContext[0].con
       // Check for existing matches to prevent duplicates
       if (bestMatch && bestMatch !== 'none') {
         const matchedUserId = bestMatch as UUID;
-        
+
         // Check if this match already exists
         const existingMatches = await runtime.getMemories({
           tableName: 'matches',
           count: 100,
         });
 
-        const duplicateMatch = existingMatches.find(match => {
+        const duplicateMatch = existingMatches.find((match) => {
           const matchData = match.content as any;
           return (
             (matchData.user1Id === message.entityId && matchData.user2Id === matchedUserId) ||
@@ -481,7 +486,9 @@ Looking for: ${matchConnectionContext.length > 0 ? matchConnectionContext[0].con
           await runtime.createMemory(matchRecord, 'matches');
           logger.info(`[quinn] Created new match record: ${message.entityId} <-> ${matchedUserId}`);
         } else {
-          logger.info(`[quinn] Match already exists between ${message.entityId} and ${matchedUserId}, skipping duplicate creation`);
+          logger.info(
+            `[quinn] Match already exists between ${message.entityId} and ${matchedUserId}, skipping duplicate creation`
+          );
         }
       }
 

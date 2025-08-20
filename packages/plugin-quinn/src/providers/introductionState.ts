@@ -1,10 +1,4 @@
-import {
-  type IAgentRuntime,
-  type Memory,
-  type Provider,
-  type State,
-  logger,
-} from '@elizaos/core';
+import { type IAgentRuntime, type Memory, type Provider, type State, logger } from '@elizaos/core';
 
 /**
  * Introduction State Provider for Quinn
@@ -18,7 +12,7 @@ export const introductionStateProvider: Provider = {
   get: async (runtime: IAgentRuntime, message: Memory, _state?: State) => {
     try {
       const userId = message.entityId;
-      
+
       // Get all introduction records for this user
       const introductions = await runtime.getMemories({
         tableName: 'introductions',
@@ -26,26 +20,26 @@ export const introductionStateProvider: Provider = {
       });
 
       // Filter introductions involving this user (both sent and received)
-      const userIntroductions = introductions.filter(intro => {
+      const userIntroductions = introductions.filter((intro) => {
         const introData = intro.content as any;
         return introData.fromUserId === userId || introData.toUserId === userId;
       });
 
       if (userIntroductions.length === 0) {
         return {
-          text: "No introduction requests yet.",
+          text: 'No introduction requests yet.',
           data: { introductionCount: 0 },
-          values: { introSummary: "No introduction requests yet." }
+          values: { introSummary: 'No introduction requests yet.' },
         };
       }
 
       // Separate sent and received introductions
-      const sentIntroductions = userIntroductions.filter(intro => {
+      const sentIntroductions = userIntroductions.filter((intro) => {
         const introData = intro.content as any;
         return introData.fromUserId === userId;
       });
 
-      const receivedIntroductions = userIntroductions.filter(intro => {
+      const receivedIntroductions = userIntroductions.filter((intro) => {
         const introData = intro.content as any;
         return introData.toUserId === userId;
       });
@@ -55,14 +49,14 @@ export const introductionStateProvider: Provider = {
       // Sent introductions
       if (sentIntroductions.length > 0) {
         introSummary += `Introduction Requests You Sent: ${sentIntroductions.length}\n`;
-        
+
         sentIntroductions.forEach((intro, index) => {
           const introData = intro.content as any;
           const status = introData.status;
           const createdAt = new Date(intro.createdAt || 0).toLocaleDateString();
-          
+
           introSummary += `  ${index + 1}. To ${introData.toUserId} - Status: ${status} (${createdAt})\n`;
-          
+
           if (status === 'proposal_sent') {
             introSummary += `     Waiting for their response...\n`;
           } else if (status === 'accepted') {
@@ -77,14 +71,14 @@ export const introductionStateProvider: Provider = {
       // Received introductions
       if (receivedIntroductions.length > 0) {
         introSummary += `Introduction Requests You Received: ${receivedIntroductions.length}\n`;
-        
+
         receivedIntroductions.forEach((intro, index) => {
           const introData = intro.content as any;
           const status = introData.status;
           const createdAt = new Date(intro.createdAt || 0).toLocaleDateString();
-          
+
           introSummary += `  ${index + 1}. From ${introData.fromUserId} - Status: ${status} (${createdAt})\n`;
-          
+
           if (status === 'proposal_sent') {
             introSummary += `     Awaiting your response: "${introData.introductionMessage?.substring(0, 100)}..."\n`;
           } else if (status === 'accepted') {
@@ -97,12 +91,12 @@ export const introductionStateProvider: Provider = {
       }
 
       // Add current pending actions
-      const pendingReceivedIntros = receivedIntroductions.filter(intro => {
+      const pendingReceivedIntros = receivedIntroductions.filter((intro) => {
         const introData = intro.content as any;
         return introData.status === 'proposal_sent';
       });
 
-      const pendingSentIntros = sentIntroductions.filter(intro => {
+      const pendingSentIntros = sentIntroductions.filter((intro) => {
         const introData = intro.content as any;
         return introData.status === 'proposal_sent';
       });
@@ -117,7 +111,7 @@ export const introductionStateProvider: Provider = {
       }
 
       // Success summary
-      const successfulConnections = userIntroductions.filter(intro => {
+      const successfulConnections = userIntroductions.filter((intro) => {
         const introData = intro.content as any;
         return introData.status === 'accepted';
       });
@@ -134,22 +128,21 @@ export const introductionStateProvider: Provider = {
           receivedCount: receivedIntroductions.length,
           pendingReceived: pendingReceivedIntros.length,
           pendingSent: pendingSentIntros.length,
-          successfulConnections: successfulConnections.length
+          successfulConnections: successfulConnections.length,
         },
         values: {
           introSummary,
           hasPendingReceived: pendingReceivedIntros.length > 0,
           hasPendingSent: pendingSentIntros.length > 0,
-          successCount: successfulConnections.length
-        }
+          successCount: successfulConnections.length,
+        },
       };
-
     } catch (error) {
       logger.error(`[quinn] Error in introduction state provider: ${error}`);
       return {
         text: 'Unable to retrieve introduction status information at this time.',
         data: { error: true },
-        values: { introSummary: 'Error retrieving introduction status' }
+        values: { introSummary: 'Error retrieving introduction status' },
       };
     }
   },

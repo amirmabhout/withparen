@@ -56,6 +56,22 @@ Analyze compatibility between the user and ALL candidates provided. For each can
 
 Provide analysis for each candidate and select the best match.
 
+## CRITICAL RULES for the <text> field:
+1. Keep it CONCISE - maximum 2-3 sentences
+2. NEVER mention user IDs or candidate numbers
+3. NEVER use phrases like "Candidate 1" or "let's call them"
+4. Focus on ONE key alignment or complementary skill
+5. MUST end with: "Would you like me to introduce you?"
+
+## Good Example:
+"I found someone who's building a grassroots protocol and needs exactly your expertise in tokenomics and community economics. Your skills seem perfectly complementary to their vision. Would you like me to introduce you?"
+
+## Bad Examples (DO NOT DO THIS):
+- Too long with multiple paragraphs
+- Mentioning "Candidate 1" or user IDs
+- Not ending with the introduction question
+- Over-explaining the match
+
 ## Instructions
 Do NOT include any thinking, reasoning, or analysis sections in your response. 
 Go directly to the XML response format without any preamble or explanation.
@@ -64,7 +80,7 @@ Respond using XML format like this:
 <response>
     <bestMatch>ID or identifier of the best matching candidate</bestMatch>
     <compatibilityScorePlusReasoning>Score 0-100 for the best match followed by detailed explanation of why this is the best match or why no good matches were found</compatibilityScorePlusReasoning>
-    <text>Introducing the potential match to the user and potential possibiliteies and ask if they would like an introduction</text>
+    <text>A concise 2-3 sentence introduction highlighting the key match reason and ending with "Would you like me to introduce you?"</text>
 </response>
 
 IMPORTANT: Your response must ONLY contain the <response></response> XML block above. Do not include any text, thinking, or reasoning before or after this XML block. Start your response immediately with <response> and end with </response>.
@@ -127,6 +143,15 @@ Create a compelling introduction message that:
 2. Mentions relevant shared interests or complementary skills
 3. Asks if they would like to be introduced
 4. Keeps it concise but engaging (2-3 sentences max)
+
+## CRITICAL RULES:
+- NEVER use phrases like "Candidate 1" or "The Datadao Visionary"
+- Simply describe the person by their interests/expertise
+- Keep it to 2-3 sentences maximum
+- End with asking if they're interested in the introduction
+
+## Good Example:
+"I've found someone seeking builders with protocol expertise who could really benefit from your experience in grassroots economies and tokenomics. Your skills align perfectly with their mission to create real-world impact through decentralized technology. Would you be interested in an introduction?"
 
 ## Instructions
 Do NOT include any thinking, reasoning, or analysis sections in your response.

@@ -39,7 +39,7 @@ export const introProposalAction: Action = {
       });
 
       // Find matches where this user is involved and status is "match_found"
-      const pendingMatches = matches.filter(match => {
+      const pendingMatches = matches.filter((match) => {
         const matchData = match.content as any;
         return (
           (matchData.user1Id === message.entityId || matchData.user2Id === message.entityId) &&
@@ -49,8 +49,15 @@ export const introProposalAction: Action = {
 
       // Also check if user is explicitly asking for an introduction in their message
       const messageText = message.content.text?.toLowerCase() || '';
-      const introductonKeywords = ['introduction', 'introduce', 'connect', 'yes', 'i would like', 'sounds good'];
-      const hasIntroductionRequest = introductonKeywords.some(keyword => 
+      const introductonKeywords = [
+        'introduction',
+        'introduce',
+        'connect',
+        'yes',
+        'i would like',
+        'sounds good',
+      ];
+      const hasIntroductionRequest = introductonKeywords.some((keyword) =>
         messageText.includes(keyword)
       );
 
@@ -77,7 +84,7 @@ export const introProposalAction: Action = {
         count: 50,
       });
 
-      const pendingMatches = matches.filter(match => {
+      const pendingMatches = matches.filter((match) => {
         const matchData = match.content as any;
         return (
           (matchData.user1Id === message.entityId || matchData.user2Id === message.entityId) &&
@@ -86,8 +93,9 @@ export const introProposalAction: Action = {
       });
 
       if (pendingMatches.length === 0) {
-        const noMatchText = "I don't see any pending matches ready for introduction right now. Would you like me to search for new connections?";
-        
+        const noMatchText =
+          "I don't see any pending matches ready for introduction right now. Would you like me to search for new connections?";
+
         if (callback) {
           await callback({
             text: noMatchText,
@@ -105,7 +113,7 @@ export const introProposalAction: Action = {
       // Take the most recent match for introduction
       const matchToProcess = pendingMatches[0];
       const matchData = matchToProcess.content as any;
-      
+
       // Determine who is the requesting user and who is the target
       const isUser1 = matchData.user1Id === message.entityId;
       const targetUserId = isUser1 ? matchData.user2Id : matchData.user1Id;
@@ -120,9 +128,10 @@ export const introProposalAction: Action = {
         count: 1,
       });
 
-      const targetConnectionContext = targetConnectionContexts.length > 0 
-        ? targetConnectionContexts[0].content.text 
-        : 'Not specified';
+      const targetConnectionContext =
+        targetConnectionContexts.length > 0
+          ? targetConnectionContexts[0].content.text
+          : 'Not specified';
 
       // Get requesting user's persona context
       const requestingPersonaContexts = await runtime.getMemories({
@@ -131,16 +140,20 @@ export const introProposalAction: Action = {
         count: 1,
       });
 
-      const requestingPersonaContext = requestingPersonaContexts.length > 0
-        ? requestingPersonaContexts[0].content.text
-        : 'Not available';
+      const requestingPersonaContext =
+        requestingPersonaContexts.length > 0
+          ? requestingPersonaContexts[0].content.text
+          : 'Not available';
 
       // Generate personalized introduction message
       const prompt = introductionProposalTemplate
         .replace('{{requestingUserPersona}}', requestingPersonaContext || 'Not available')
         .replace('{{targetUserDesiredConnection}}', targetConnectionContext || 'Not specified')
         .replace('{{compatibilityScore}}', (matchData.compatibilityScore || 0).toString())
-        .replace('{{compatibilityReasoning}}', matchData.reasoning || 'Good compatibility detected');
+        .replace(
+          '{{compatibilityReasoning}}',
+          matchData.reasoning || 'Good compatibility detected'
+        );
 
       const response = await runtime.useModel(ModelType.TEXT_LARGE, {
         prompt,
@@ -150,8 +163,9 @@ export const introProposalAction: Action = {
 
       if (!parsedResponse || !parsedResponse.introductionMessage) {
         logger.error('[quinn] Failed to generate introduction message');
-        const errorText = "I had trouble generating the introduction message. Let me try a different approach.";
-        
+        const errorText =
+          'I had trouble generating the introduction message. Let me try a different approach.';
+
         if (callback) {
           await callback({
             text: errorText,
@@ -204,7 +218,7 @@ export const introProposalAction: Action = {
       const targetMatchRecord = {
         entityId: targetUserId,
         agentId: runtime.agentId,
-        roomId: message.roomId, // Note: This might need to be the target user's room
+        roomId: targetUserId, // For DMs, roomId equals the target user's entityId
         content: {
           text: `Match found between ${targetUserId} and ${requestingUserId} with compatibility score ${matchData.compatibilityScore}`,
           type: 'match_record',
@@ -240,42 +254,27 @@ export const introProposalAction: Action = {
           }
         }
 
-        if (targetRoom) {
-          const roomContent = targetRoom.content as any;
-          const targetInfo = {
-            source: roomContent.source || 'websocket-api', // Default to websocket-api if not specified
-            roomId: targetRoom.roomId || targetUserId, // Use target user's ID as roomId for DMs
-            entityId: targetUserId,
-          };
+        // For DMs, roomId should always equal the target user's entityId
+        const targetInfo = {
+          source: targetRoom?.content?.source || 'telegram', // Fallback to telegram if no room source
+          roomId: targetUserId, // CRITICAL: For DMs, roomId = target user's entityId
+          entityId: targetUserId,
+        };
 
-          // Send the introduction message to the target user
-          await runtime.sendMessageToTarget(targetInfo, {
-            text: introductionMessage,
-            source: 'agent_introduction',
-            type: 'introduction_proposal',
-          });
+        // Send the introduction message to the target user
+        await runtime.sendMessageToTarget(targetInfo, {
+          text: introductionMessage,
+          source: 'agent_introduction',
+          type: 'introduction_proposal',
+        });
 
-          logger.info(`[quinn] Successfully sent introduction message to user ${targetUserId}`);
-        } else {
-          // Fallback: try sending with basic target info
-          logger.warn(`[quinn] Could not find target room for user ${targetUserId}, using fallback method`);
-          
-          const fallbackTargetInfo = {
-            source: 'websocket-api', // Default source
-            roomId: targetUserId, // Use target user ID as room ID
-            entityId: targetUserId,
-          };
-
-          await runtime.sendMessageToTarget(fallbackTargetInfo, {
-            text: introductionMessage,
-            source: 'agent_introduction',
-            type: 'introduction_proposal',
-          });
-
-          logger.info(`[quinn] Sent introduction message using fallback method to user ${targetUserId}`);
-        }
+        logger.info(
+          `[quinn] Successfully sent introduction message to user ${targetUserId} with roomId ${targetUserId}`
+        );
       } catch (messageError) {
-        logger.error(`[quinn] Failed to send introduction message to user ${targetUserId}: ${messageError}`);
+        logger.error(
+          `[quinn] Failed to send introduction message to user ${targetUserId}: ${messageError}`
+        );
         // Continue with the workflow even if message delivery fails
         // The introduction is still stored and can be seen when the target user next interacts
       }
@@ -303,7 +302,8 @@ export const introProposalAction: Action = {
     } catch (error) {
       logger.error(`[quinn] Error in introduction proposal: ${error}`);
 
-      const errorText = "I encountered an issue while sending the introduction proposal. Please try again in a moment.";
+      const errorText =
+        'I encountered an issue while sending the introduction proposal. Please try again in a moment.';
 
       if (callback) {
         await callback({

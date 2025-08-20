@@ -1,10 +1,4 @@
-import {
-  type IAgentRuntime,
-  type Memory,
-  type Provider,
-  type State,
-  logger,
-} from '@elizaos/core';
+import { type IAgentRuntime, type Memory, type Provider, type State, logger } from '@elizaos/core';
 
 /**
  * Match State Provider for Quinn
@@ -18,7 +12,7 @@ export const matchStateProvider: Provider = {
   get: async (runtime: IAgentRuntime, message: Memory, _state?: State) => {
     try {
       const userId = message.entityId;
-      
+
       // Get all matches for this user
       const matches = await runtime.getMemories({
         tableName: 'matches',
@@ -26,16 +20,16 @@ export const matchStateProvider: Provider = {
       });
 
       // Filter matches involving this user
-      const userMatches = matches.filter(match => {
+      const userMatches = matches.filter((match) => {
         const matchData = match.content as any;
         return matchData.user1Id === userId || matchData.user2Id === userId;
       });
 
       if (userMatches.length === 0) {
         return {
-          text: "No matches found yet.",
+          text: 'No matches found yet.',
           data: { matchCount: 0 },
-          values: { statusSummary: "No matches found yet." }
+          values: { statusSummary: 'No matches found yet.' },
         };
       }
 
@@ -48,7 +42,7 @@ export const matchStateProvider: Provider = {
         declined: [] as any[],
       };
 
-      userMatches.forEach(match => {
+      userMatches.forEach((match) => {
         const matchData = match.content as any;
         const status = matchData.status;
         if (matchStatusCategories[status as keyof typeof matchStatusCategories]) {
@@ -103,34 +97,35 @@ export const matchStateProvider: Provider = {
 
       // Add context for next actions
       if (matchStatusCategories.match_found.length > 0) {
-        statusSummary += '\nNext Action: You can request introductions for your pending matches by saying "I would like an introduction" or "Yes, connect us".';
+        statusSummary +=
+          '\nNext Action: You can request introductions for your pending matches by saying "I would like an introduction" or "Yes, connect us".';
       }
 
       if (matchStatusCategories.introduction_incoming.length > 0) {
-        statusSummary += '\nNext Action: You can respond to introduction requests by saying "Yes, I accept" or "No, not interested".';
+        statusSummary +=
+          '\nNext Action: You can respond to introduction requests by saying "Yes, I accept" or "No, not interested".';
       }
 
       return {
         text: statusSummary,
         data: {
           matchCount: userMatches.length,
-          categories: matchStatusCategories
+          categories: matchStatusCategories,
         },
         values: {
           statusSummary,
           pendingMatches: matchStatusCategories.match_found.length,
           outgoingIntros: matchStatusCategories.introduction_outgoing.length,
           incomingIntros: matchStatusCategories.introduction_incoming.length,
-          connections: matchStatusCategories.connected.length
-        }
+          connections: matchStatusCategories.connected.length,
+        },
       };
-
     } catch (error) {
       logger.error(`[quinn] Error in match state provider: ${error}`);
       return {
         text: 'Unable to retrieve match status information at this time.',
         data: { error: true },
-        values: { statusSummary: 'Error retrieving match status' }
+        values: { statusSummary: 'Error retrieving match status' },
       };
     }
   },

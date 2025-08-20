@@ -1397,6 +1397,7 @@ export const quinnPlugin: Plugin = {
     actions.createConnectionAction,
     actions.introProposalAction,
     actions.introAcceptAction,
+    actions.passMessageAction,
     actions.ignoreAction,
     actions.noneAction,
     actions.seedTestDataAction, // Development helper for testing
