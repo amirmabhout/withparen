@@ -13,7 +13,7 @@ export const character: Character = {
     '@elizaos/plugin-sql',
     '@elizaos/plugin-google-genai',
     '@elizaos/plugin-telegram',
-    '@elizaos/plugin-seren',
+    '@elizaos/plugin-deepen-connection',
   ],
   settings: {
     clients: ['telegram'],
