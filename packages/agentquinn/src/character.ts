@@ -14,6 +14,7 @@ export const character: Character = {
     '@elizaos/plugin-google-genai',
     '@elizaos/plugin-telegram',
     '@elizaos/plugin-quinn',
+    '@elizaos/plugin-safe'
   ],
   settings: {
     clients: ['telegram'],
