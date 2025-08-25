@@ -13,11 +13,11 @@ const configSchema = z.object({
     .string()
     .url()
     .optional()
-    .default('https://sepolia.drpc.org'),
+    .default('https://sepolia.optimism.io'), // Optimism Sepolia for Ocean Protocol
   CHAIN_ID: z
     .number()
     .optional()
-    .default(11155111), // Sepolia chain ID
+    .default(11155420), // Optimism Sepolia chain ID
   DELEGATEE_ADDRESS: z
     .string()
     .optional()

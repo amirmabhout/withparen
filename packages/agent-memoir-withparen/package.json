@@ -34,6 +34,7 @@
     "@elizaos/plugin-google-genai": "^1.0.1",
     "@elizaos/plugin-discover-connection": "workspace:*",
     "@elizaos/plugin-safe": "workspace:*",
+    "@elizaos/plugin-ocean": "workspace:*",
     "@elizaos/plugin-sql": "latest",
     "@elizaos/plugin-telegram": "latest",
     "@tanstack/react-query": "^5.29.0",
