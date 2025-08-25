@@ -50,23 +50,23 @@ function getPreviousWeekStartDate(date: Date): Date {
  * Get current day's theme and activities from weekly plan
  */
 export async function getCurrentDayThemeFromWeeklyPlan(
-  runtime: IAgentRuntime, 
+  runtime: IAgentRuntime,
   userId: UUID
 ): Promise<{ theme: string; activities: string }> {
   try {
     const weekStartDate = getWeekStartDate(new Date()).toISOString().split('T')[0];
     const weeklyPlan = await getWeeklyPlan(runtime, userId, weekStartDate);
-    
+
     if (!weeklyPlan) {
       return { theme: '', activities: '' };
     }
 
     const currentDay = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
-    
+
     switch (currentDay) {
       case 1: // Monday
         return { theme: weeklyPlan.mondayTheme, activities: weeklyPlan.mondayActivities };
-      case 2: // Tuesday  
+      case 2: // Tuesday
         return { theme: weeklyPlan.tuesdayTheme, activities: weeklyPlan.tuesdayActivities };
       case 3: // Wednesday
         return { theme: weeklyPlan.wednesdayTheme, activities: weeklyPlan.wednesdayActivities };
@@ -94,7 +94,10 @@ export async function getCurrentDayThemeFromWeeklyPlan(
  * @param {UUID} userId - The user ID to get the previous weekly plan for
  * @returns {Promise<string>} The formatted previous weekly plan context
  */
-export async function formatPreviousWeekPlan(runtime: IAgentRuntime, userId: UUID): Promise<string> {
+export async function formatPreviousWeekPlan(
+  runtime: IAgentRuntime,
+  userId: UUID
+): Promise<string> {
   try {
     const previousWeekStartDate = getPreviousWeekStartDate(new Date()).toISOString().split('T')[0];
     const previousWeekPlan = await getWeeklyPlan(runtime, userId, previousWeekStartDate);
@@ -229,7 +232,8 @@ export async function getWeeklyPlan(
   weekStartDate?: string
 ): Promise<WeeklyPlan | null> {
   try {
-    const targetWeekStart = weekStartDate || getWeekStartDate(new Date()).toISOString().split('T')[0];
+    const targetWeekStart =
+      weekStartDate || getWeekStartDate(new Date()).toISOString().split('T')[0];
     const cacheKey = `weekly-plan-${userId}-${targetWeekStart}`;
 
     const cachedPlan = await runtime.getCache(cacheKey);
@@ -273,7 +277,7 @@ export const weeklyPlanProvider = {
 
       // Get this week's plan for the user
       const weeklyPlan = await formatWeeklyPlan(runtime, userId);
-      
+
       // Get current day's theme from the weekly plan
       const currentDayInfo = await getCurrentDayThemeFromWeeklyPlan(runtime, userId);
 

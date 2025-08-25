@@ -1,7 +1,6 @@
 //export { generateImageAction } from './imageGeneration';
 //export { choiceAction } from './choice';
 export { dailyPlanningAction } from './dailyCheckin';
-// export { testRelationshipSyncAction } from './testRelationshipSync'; // Deregistered with RelationshipAddingService
 //export { followRoomAction } from './followRoom';
 //export { ignoreAction } from './ignore';
 //export { muteRoomAction } from './muteRoom';

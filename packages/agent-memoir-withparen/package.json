@@ -1,6 +1,6 @@
 {
-  "name": "agentquinn",
-  "description": "Quinn - AI agent for connection discovery",
+  "name": "agent-memoir-withparen",
+  "description": "Memoir - AI agent for connection discovery that matches people based on their passion and goals",
   "version": "0.1.0",
   "type": "module",
   "main": "dist/src/index.js",

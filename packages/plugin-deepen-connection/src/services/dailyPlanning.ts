@@ -202,7 +202,9 @@ export class DailyPlanningService extends Service {
             `[Deepen-Connection] Queued planning task for connection: ${connectionData.connection.partners.join(' & ')}`
           );
         } catch (error: unknown) {
-          logger.error(`[Deepen-Connection] Failed to queue planning task for connection: ${error instanceof Error ? error.message : String(error)}`);
+          logger.error(
+            `[Deepen-Connection] Failed to queue planning task for connection: ${error instanceof Error ? error.message : String(error)}`
+          );
         }
       }
 
@@ -212,7 +214,9 @@ export class DailyPlanningService extends Service {
         connectionsProcessed: activeConnections.length,
       });
     } catch (error: unknown) {
-      logger.error(`[Deepen-Connection] Error in daily planning task execution: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error(
+        `[Deepen-Connection] Error in daily planning task execution: ${error instanceof Error ? error.message : String(error)}`
+      );
     } finally {
       await this.memgraphService.disconnect();
     }
@@ -235,9 +239,7 @@ export class DailyPlanningService extends Service {
       const person1 = participants[0];
       const person2 = participants[1];
 
-      logger.info(
-        `[Deepen-Connection] Starting planning for ${person1.name} and ${person2.name}`
-      );
+      logger.info(`[Deepen-Connection] Starting planning for ${person1.name} and ${person2.name}`);
 
       // First, profile the relationship and save as memories
       logger.debug('[Deepen-Connection] Profiling relationship before daily planning');
@@ -252,7 +254,9 @@ export class DailyPlanningService extends Service {
           `[Deepen-Connection] Relationship profile completed: Stage=${profileData.relationshipStage}, Length=${profileData.relationshipLength} months`
         );
       } else {
-        logger.warn('[Deepen-Connection] Relationship profiling failed, continuing with daily planning');
+        logger.warn(
+          '[Deepen-Connection] Relationship profiling failed, continuing with daily planning'
+        );
       }
 
       logger.info(
@@ -286,9 +290,15 @@ export class DailyPlanningService extends Service {
       // Get current day's theme from weekly plan (try person1 first, fallback to person2, then default)
       let dailyTheme = '';
       try {
-        const person1DayTheme = await getCurrentDayThemeFromWeeklyPlan(runtime, person1.userId as UUID);
-        const person2DayTheme = await getCurrentDayThemeFromWeeklyPlan(runtime, person2.userId as UUID);
-        
+        const person1DayTheme = await getCurrentDayThemeFromWeeklyPlan(
+          runtime,
+          person1.userId as UUID
+        );
+        const person2DayTheme = await getCurrentDayThemeFromWeeklyPlan(
+          runtime,
+          person2.userId as UUID
+        );
+
         // Use person1's theme if available, otherwise person2's, otherwise default
         if (person1DayTheme.theme) {
           dailyTheme = `${person1DayTheme.theme}${person1DayTheme.activities ? '\n\nSuggested Activities: ' + person1DayTheme.activities : ''}`;
@@ -299,17 +309,19 @@ export class DailyPlanningService extends Service {
           const dayOfWeek = new Date().getDay();
           const defaultThemes = [
             'Reflection Sunday - Integration & Future Visioning',
-            'Fresh Start Monday - Realignment & Goal Setting', 
+            'Fresh Start Monday - Realignment & Goal Setting',
             'Gratitude Tuesday - Fondness & Admiration Building',
             'Connection Wednesday - Bids & Emotional Attunement',
             'Growth Thursday - Self-Expansion & Novel Experiences',
             'Intimacy Friday - Vulnerability & Deep Connection',
-            'Adventure Saturday - Shared Experiences & Fun'
+            'Adventure Saturday - Shared Experiences & Fun',
           ];
           dailyTheme = defaultThemes[dayOfWeek] || 'Connection & Growth';
         }
       } catch (error: unknown) {
-        logger.error(`[Deepen-Connection] Error getting daily theme from weekly plan: ${error instanceof Error ? error.message : String(error)}`);
+        logger.error(
+          `[Deepen-Connection] Error getting daily theme from weekly plan: ${error instanceof Error ? error.message : String(error)}`
+        );
         dailyTheme = 'Connection & Growth';
       }
 
@@ -364,7 +376,9 @@ export class DailyPlanningService extends Service {
         logger.error('[Deepen-Connection] Failed to parse planning response');
       }
     } catch (error: unknown) {
-      logger.error(`[Deepen-Connection] Error in single connection planning: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error(
+        `[Deepen-Connection] Error in single connection planning: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -398,7 +412,9 @@ export class DailyPlanningService extends Service {
           );
           return memories;
         } catch (error: unknown) {
-          logger.warn(`[Deepen-Connection] Failed to get memories from ${tableName}: ${error instanceof Error ? error.message : String(error)}`);
+          logger.warn(
+            `[Deepen-Connection] Failed to get memories from ${tableName}: ${error instanceof Error ? error.message : String(error)}`
+          );
           return [];
         }
       });
@@ -421,7 +437,9 @@ export class DailyPlanningService extends Service {
 
       return formatPersonaMemories(allPersonaMemories);
     } catch (error: unknown) {
-      logger.error(`[Deepen-Connection] Error getting persona memories for ${userId}: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error(
+        `[Deepen-Connection] Error getting persona memories for ${userId}: ${error instanceof Error ? error.message : String(error)}`
+      );
       return 'No persona memories available.';
     }
   }
@@ -455,7 +473,9 @@ export class DailyPlanningService extends Service {
           );
           return memories;
         } catch (error: unknown) {
-          logger.warn(`[Deepen-Connection] Failed to get memories from ${tableName}: ${error instanceof Error ? error.message : String(error)}`);
+          logger.warn(
+            `[Deepen-Connection] Failed to get memories from ${tableName}: ${error instanceof Error ? error.message : String(error)}`
+          );
           return [];
         }
       });
@@ -478,7 +498,9 @@ export class DailyPlanningService extends Service {
 
       return formatConnectionMemories(allConnectionMemories);
     } catch (error) {
-      logger.error(`[Deepen-Connection] Error getting connection memories for ${userId}: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error(
+        `[Deepen-Connection] Error getting connection memories for ${userId}: ${error instanceof Error ? error.message : String(error)}`
+      );
       return 'No connection insights available.';
     }
   }
@@ -512,7 +534,9 @@ export class DailyPlanningService extends Service {
 
       return recentMessages || 'No recent messages in the last 24 hours.';
     } catch (error) {
-      logger.error(`[Deepen-Connection] Error getting recent messages for ${userId}: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error(
+        `[Deepen-Connection] Error getting recent messages for ${userId}: ${error instanceof Error ? error.message : String(error)}`
+      );
       return 'No recent conversation history available.';
     }
   }
@@ -536,7 +560,9 @@ export class DailyPlanningService extends Service {
 
       return 'No previous daily plan available.';
     } catch (error) {
-      logger.error(`[Deepen-Connection] Error getting previous daily plan for ${userId}: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error(
+        `[Deepen-Connection] Error getting previous daily plan for ${userId}: ${error instanceof Error ? error.message : String(error)}`
+      );
       return 'No previous daily plan available.';
     }
   }
@@ -582,7 +608,9 @@ export class DailyPlanningService extends Service {
         person2CheckIn: person2CheckInMatch[1].trim(),
       };
     } catch (error: unknown) {
-      logger.error(`[Deepen-Connection] Error parsing planning response: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error(
+        `[Deepen-Connection] Error parsing planning response: ${error instanceof Error ? error.message : String(error)}`
+      );
       return null;
     }
   }
@@ -728,7 +756,9 @@ export class DailyPlanningService extends Service {
     person2Id: UUID
   ): Promise<any> {
     try {
-      logger.debug(`[Deepen-Connection] Profiling relationship between ${person1Id} and ${person2Id}`);
+      logger.debug(
+        `[Deepen-Connection] Profiling relationship between ${person1Id} and ${person2Id}`
+      );
 
       // Get conversation histories for both partners
       const partner1History = await this.getConversationHistory(runtime, person1Id);
@@ -762,18 +792,22 @@ export class DailyPlanningService extends Service {
         logger.info(
           `[Deepen-Connection] Successfully profiled relationship: ${profileData.relationshipStage || 'Unknown'}`
         );
-        
+
         // Save profile data as memories for both users
         await this.saveProfileAsMemories(runtime, person1Id, person2Id, profileData);
-        
+
         return profileData;
       } else {
         logger.error('[Deepen-Connection] Failed to parse profiling response');
-        logger.debug(`[Deepen-Connection] Raw response (first 500 chars): ${response.substring(0, 500)}`);
+        logger.debug(
+          `[Deepen-Connection] Raw response (first 500 chars): ${response.substring(0, 500)}`
+        );
         return null;
       }
     } catch (error: unknown) {
-      logger.error(`[Deepen-Connection] Error profiling relationship: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error(
+        `[Deepen-Connection] Error profiling relationship: ${error instanceof Error ? error.message : String(error)}`
+      );
       return null;
     }
   }
@@ -884,7 +918,9 @@ export class DailyPlanningService extends Service {
 
       return null;
     } catch (error: unknown) {
-      logger.error(`[Deepen-Connection] Error parsing profiling response: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error(
+        `[Deepen-Connection] Error parsing profiling response: ${error instanceof Error ? error.message : String(error)}`
+      );
       return null;
     }
   }
@@ -913,32 +949,38 @@ export class DailyPlanningService extends Service {
       for (const { key, type } of memoryTypes) {
         if (profileData[key]) {
           // Save for person1
-          await runtime.createMemory({
-            entityId: person1Id,
-            content: {
-              text: String(profileData[key]),
-            } as Content,
-            roomId: person1Id,
-            metadata: {
-              type: type,
-              profiledAt: profileData.profiledAt,
-              partnerId: person2Id,
+          await runtime.createMemory(
+            {
+              entityId: person1Id,
+              content: {
+                text: String(profileData[key]),
+              } as Content,
+              roomId: person1Id,
+              metadata: {
+                type: type,
+                profiledAt: profileData.profiledAt,
+                partnerId: person2Id,
+              },
             },
-          }, 'memories');
+            'memories'
+          );
 
           // Save for person2
-          await runtime.createMemory({
-            entityId: person2Id,
-            content: {
-              text: String(profileData[key]),
-            } as Content,
-            roomId: person2Id,
-            metadata: {
-              type: type,
-              profiledAt: profileData.profiledAt,
-              partnerId: person1Id,
+          await runtime.createMemory(
+            {
+              entityId: person2Id,
+              content: {
+                text: String(profileData[key]),
+              } as Content,
+              roomId: person2Id,
+              metadata: {
+                type: type,
+                profiledAt: profileData.profiledAt,
+                partnerId: person1Id,
+              },
             },
-          }, 'memories');
+            'memories'
+          );
 
           logger.debug(`[Deepen-Connection] Saved ${type} memory for both users`);
         }
@@ -946,7 +988,9 @@ export class DailyPlanningService extends Service {
 
       logger.info('[Deepen-Connection] Successfully saved profile data as memories for both users');
     } catch (error: unknown) {
-      logger.error(`[Deepen-Connection] Error saving profile data as memories: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error(
+        `[Deepen-Connection] Error saving profile data as memories: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -981,12 +1025,14 @@ export class DailyPlanningService extends Service {
         });
 
         // Filter memories by type on the client side
-        const filteredMemories = memories.filter(m => m.metadata && (m.metadata as any).type === type);
-        
+        const filteredMemories = memories.filter(
+          (m) => m.metadata && (m.metadata as any).type === type
+        );
+
         if (filteredMemories.length > 0 && filteredMemories[0].content.text) {
           const value = filteredMemories[0].content.text;
-          
-          switch(type) {
+
+          switch (type) {
             case 'shared_relationship_stage':
               contextParts.push(`Relationship Stage: ${value}`);
               break;
@@ -1007,21 +1053,23 @@ export class DailyPlanningService extends Service {
         });
 
         // Filter memories by type on the client side first
-        const filteredMemories = memories.filter(m => m.metadata && (m.metadata as any).type === type);
-        
+        const filteredMemories = memories.filter(
+          (m) => m.metadata && (m.metadata as any).type === type
+        );
+
         if (filteredMemories.length > 0) {
           // Sort by creation time (most recent first) and extract values, limit to 3
           const values = filteredMemories
             .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
             .slice(0, 3)
-            .map(m => m.content.text)
-            .filter(text => text); // Filter out any empty values
+            .map((m) => m.content.text)
+            .filter((text) => text); // Filter out any empty values
 
           if (values.length > 0) {
             // Format the context based on type
             const formattedValues = values.join('; ');
-            
-            switch(type) {
+
+            switch (type) {
               case 'shared_relationship_dynamic':
                 contextParts.push(`Current Dynamics (recent): ${formattedValues}`);
                 break;
@@ -1047,11 +1095,15 @@ export class DailyPlanningService extends Service {
         return contextParts.join('\n');
       } else {
         // Fallback to basic info if no profiling data exists yet
-        logger.debug('[Deepen-Connection] No relationship profile memories found, using basic context');
+        logger.debug(
+          '[Deepen-Connection] No relationship profile memories found, using basic context'
+        );
         return 'No detailed relationship profile available yet. This is a new or recently established connection.';
       }
     } catch (error: unknown) {
-      logger.error(`[Deepen-Connection] Error fetching shared relationship context: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error(
+        `[Deepen-Connection] Error fetching shared relationship context: ${error instanceof Error ? error.message : String(error)}`
+      );
       return 'Unable to fetch relationship context at this time.';
     }
   }

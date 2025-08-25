@@ -31,14 +31,14 @@ export async function formatSharedRelationshipMemories(
       });
 
       // Filter by metadata type
-      const filteredMemories = memories.filter(m => 
-        m.metadata && (m.metadata as any).type === type
+      const filteredMemories = memories.filter(
+        (m) => m.metadata && (m.metadata as any).type === type
       );
 
       if (filteredMemories.length > 0 && filteredMemories[0].content.text) {
         const value = filteredMemories[0].content.text;
-        
-        switch(type) {
+
+        switch (type) {
           case 'shared_relationship_stage':
             contextParts.push(`Relationship Stage: ${value}`);
             break;
@@ -60,21 +60,21 @@ export async function formatSharedRelationshipMemories(
 
       // Filter by metadata type and take last 3
       const filteredMemories = memories
-        .filter(m => m.metadata && (m.metadata as any).type === type)
+        .filter((m) => m.metadata && (m.metadata as any).type === type)
         .slice(0, 3);
 
       if (filteredMemories.length > 0) {
         // Sort by creation time (most recent first) and extract values
         const values = filteredMemories
           .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
-          .map(m => m.content.text)
-          .filter(text => text); // Filter out any empty values
+          .map((m) => m.content.text)
+          .filter((text) => text); // Filter out any empty values
 
         if (values.length > 0) {
           // Format the context based on type
           const formattedValues = values.join('; ');
-          
-          switch(type) {
+
+          switch (type) {
             case 'shared_relationship_dynamic':
               contextParts.push(`Current Dynamics (recent): ${formattedValues}`);
               break;
@@ -114,24 +114,26 @@ export async function formatSharedRelationshipMemories(
  */
 export const sharedRelationshipMemoryProvider: Provider = {
   name: 'SHARED_RELATIONSHIP_MEMORY',
-  
+
   async get(runtime: IAgentRuntime, message: Memory) {
     try {
       // Get the user ID from the message
       const userId = message.entityId as UUID;
-      
+
       if (!userId) {
-        logger.debug('[Deepen-Connection] No user ID found in message for shared relationship memory provider');
+        logger.debug(
+          '[Deepen-Connection] No user ID found in message for shared relationship memory provider'
+        );
         return { text: '' };
       }
 
       // Format and return the shared relationship memories
       const formattedMemories = await formatSharedRelationshipMemories(runtime, userId);
-      
+
       if (formattedMemories) {
         logger.debug('[Deepen-Connection] Provided shared relationship context to message handler');
       }
-      
+
       return { text: formattedMemories };
     } catch (error) {
       logger.error('[Deepen-Connection] Error in shared relationship memory provider:');
