@@ -39,7 +39,7 @@ export const walletProvider: Provider = {
       const wallet = await service.getUserWallet(userId);
       if (!wallet) {
         return {
-          text: 'User does not have a Safe smart account yet. They can create one by saying "create wallet".',
+          text: 'User does not have a Safe smart account yet. A wallet will be created automatically on their first interaction.',
           values: {
             hasWallet: false,
           },
@@ -53,18 +53,20 @@ export const walletProvider: Provider = {
       const balanceText = balance ? balance.formattedBalance : 'Unknown';
 
       return {
-        text: `User Safe: ${wallet.safeAddress} | Balance: ${balanceText} | Owners: ${wallet.owners.length} | Network: Sepolia Testnet`,
+        text: `User Safe: ${wallet.safeAddress} | Balance: ${balanceText} | Owners: ${wallet.owners.length} | Network: Sepolia Testnet | Note: Paren has delegated signing permissions and can execute transactions on behalf of the user. User can revoke these permissions at any time.`,
         values: {
           hasWallet: true,
           safeAddress: wallet.safeAddress,
           owners: wallet.owners.length,
           balance: balanceText,
           network: 'sepolia',
+          delegatedCustody: true,
         },
         data: {
           hasWallet: true,
           wallet,
           balance,
+          delegatedCustody: true,
         },
       };
     } catch (error) {

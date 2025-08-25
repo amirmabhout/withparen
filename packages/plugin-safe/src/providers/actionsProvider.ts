@@ -4,16 +4,16 @@ import { addHeader, composeActionExamples, formatActionNames, formatActions } fr
 /**
  * Provider for Safe wallet actions
  * 
- * Makes Safe wallet actions (CREATE_WALLET, CHECK_BALANCE, SEND_ETH) available to the agent's prompt
- * so the agent knows what wallet actions it can perform.
+ * Makes Safe wallet actions (CHECK_BALANCE, SEND_ETH) available to the agent's prompt.
+ * Wallets are now created automatically, so CREATE_WALLET is no longer needed.
  */
 export const safeActionsProvider: Provider = {
   name: 'SAFE_ACTIONS',
   description: 'Available Safe wallet actions and their usage',
   position: -1, // High priority provider
   get: async (runtime: IAgentRuntime, message: Memory, state: State) => {
-    // Filter for Safe wallet actions specifically
-    const safeActionNames = ['CREATE_WALLET', 'CHECK_BALANCE', 'SEND_ETH'];
+    // Filter for Safe wallet actions specifically (CREATE_WALLET removed - wallets created automatically)
+    const safeActionNames = ['CHECK_BALANCE', 'SEND_ETH'];
     const safeActions = runtime.actions.filter((action: Action) => 
       safeActionNames.includes(action.name)
     );

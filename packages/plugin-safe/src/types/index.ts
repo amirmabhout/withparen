@@ -7,10 +7,11 @@ export interface UserWallet {
   threshold: number;
   createdAt: number;
   lastUsed?: number;
-  status?: 'pending_deployment' | 'deployed' | 'active';
+  status?: 'predicted' | 'pending_deployment' | 'deployed' | 'active';
   deploymentTxHash?: string;
   moduleEnabled?: boolean;
   delegateeModule?: string;
+  saltNonce?: string;
 }
 
 export interface SafeConfig {

@@ -32,7 +32,7 @@
     "@elizaos/core": "latest",
     "@elizaos/plugin-bootstrap": "1.3.1",
     "@elizaos/plugin-google-genai": "^1.0.1",
-    "@elizaos/plugin-quinn": "workspace:*",
+    "@elizaos/plugin-discover-connection": "workspace:*",
     "@elizaos/plugin-safe": "workspace:*",
     "@elizaos/plugin-sql": "latest",
     "@elizaos/plugin-telegram": "latest",

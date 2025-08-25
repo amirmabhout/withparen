@@ -38,7 +38,7 @@ export const sendEthAction: Action = {
         throw new Error('Safe Wallet Service not available');
       }
 
-      const userId = (message as any).userId || message.agentId || message.roomId;
+      const userId = message.entityId;
       if (!userId) {
         throw new Error('User ID not found');
       }

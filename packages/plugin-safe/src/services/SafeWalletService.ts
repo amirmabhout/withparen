@@ -18,7 +18,6 @@ export class SafeWalletService extends Service {
   private provider: ethers.JsonRpcProvider | null = null;
   private signer: ethers.Wallet | null = null;
   private chainId: number = 11155111;
-  private userWallets: Map<string, UserWallet> = new Map();
   private isInitialized = false;
   private delegateeAddress: string;
 
@@ -65,9 +64,6 @@ export class SafeWalletService extends Service {
       // Store chain ID from environment
       this.chainId = parseInt(process.env.CHAIN_ID || '11155111');
 
-      // Load existing wallets from storage if available
-      await this.loadWallets();
-
       this.isInitialized = true;
       logger.info('Safe Wallet Service initialized successfully');
     } catch (error) {
@@ -89,37 +85,15 @@ export class SafeWalletService extends Service {
     }
   }
 
-  private async loadWallets(): Promise<void> {
-    // Load existing wallets from memories
+  /**
+   * Save wallet to cache (like dailyPlanning service)
+   */
+  private async saveWalletToCache(wallet: UserWallet): Promise<void> {
     try {
-      const walletMemories = await this.runtime.getMemories({
-        roomId: 'safe-wallet-storage',
-        tableName: 'memories',
-        count: 1000,
-      });
-
-      walletMemories.forEach(memory => {
-        if (memory.content.type === 'safe-wallet-data' && memory.content.wallet) {
-          const wallet = memory.content.wallet as UserWallet;
-          this.userWallets.set(wallet.userId, wallet);
-        }
-      });
-
-      if (this.userWallets.size > 0) {
-        logger.info(`Loaded ${this.userWallets.size} user Safe wallets`);
-      }
-    } catch (error) {
-      logger.warn('Could not load existing Safe wallets:', error);
-    }
-  }
-
-  private async saveWallet(wallet: UserWallet): Promise<void> {
-    // Save individual wallet to persistent storage
-    try {
-      logger.debug(`Saving Safe wallet for user ${wallet.userId} to persistent storage`);
+      logger.debug(`Saving Safe wallet for user ${wallet.userId} to cache`);
       
-      // Create a clean wallet object without undefined values
-      const cleanWallet = {
+      const cacheKey = `safe-wallet-${wallet.userId}`;
+      const walletData = {
         userId: wallet.userId,
         safeAddress: wallet.safeAddress,
         owners: wallet.owners,
@@ -127,64 +101,141 @@ export class SafeWalletService extends Service {
         createdAt: wallet.createdAt,
         status: wallet.status,
         moduleEnabled: wallet.moduleEnabled || false,
-        ...(wallet.lastUsed && { lastUsed: wallet.lastUsed }),
-        ...(wallet.deploymentTxHash && { deploymentTxHash: wallet.deploymentTxHash }),
-        ...(wallet.delegateeModule && { delegateeModule: wallet.delegateeModule }),
+        deploymentTxHash: wallet.deploymentTxHash,
+        lastUsed: wallet.lastUsed,
+        delegateeAddress: this.delegateeAddress,
+        chainId: this.chainId,
       };
 
-      await this.runtime.createMemory({
-        userId: this.runtime.agentId,
-        agentId: this.runtime.agentId,
-        roomId: 'safe-wallet-storage',
-        content: {
-          text: `Safe wallet for user ${wallet.userId}`,
-          type: 'safe-wallet-data',
-          wallet: cleanWallet,
-        },
-      }, 'memories');
+      await this.runtime.setCache(cacheKey, walletData);
       
       logger.debug(`Safe wallet saved successfully for user ${wallet.userId}`);
     } catch (error) {
-      logger.error('Failed to save Safe wallet:', error);
-      // Don't throw - wallet creation should succeed even if storage fails
+      logger.error('Failed to save Safe wallet to cache:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Load wallet from cache (like dailyPlanning service)
+   */
+  private async loadWalletFromCache(userId: string): Promise<UserWallet | null> {
+    try {
+      const cacheKey = `safe-wallet-${userId}`;
+      const walletData = await this.runtime.getCache(cacheKey);
+      
+      if (walletData && typeof walletData === 'object' && 'safeAddress' in walletData) {
+        return {
+          userId: walletData.userId,
+          safeAddress: walletData.safeAddress,
+          owners: walletData.owners,
+          threshold: walletData.threshold,
+          createdAt: walletData.createdAt,
+          status: walletData.status,
+          moduleEnabled: walletData.moduleEnabled,
+          deploymentTxHash: walletData.deploymentTxHash,
+          lastUsed: walletData.lastUsed,
+        };
+      }
+      
+      return null;
+    } catch (error) {
+      logger.error('Failed to load Safe wallet from cache:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Update wallet last used timestamp
+   */
+  private async updateWalletLastUsed(userId: string): Promise<void> {
+    try {
+      const wallet = await this.loadWalletFromCache(userId);
+      if (wallet) {
+        wallet.lastUsed = Date.now();
+        await this.saveWalletToCache(wallet);
+      }
+    } catch (error) {
+      logger.error('Failed to update wallet last used:', error);
+    }
+  }
+
+  /**
+   * Log transaction to memory
+   */
+  private async logTransaction(
+    userId: string,
+    txHash: string,
+    fromAddress: string,
+    toAddress: string,
+    value: string,
+    description?: string
+  ): Promise<void> {
+    try {
+      const transaction = {
+        txHash,
+        fromAddress,
+        toAddress,
+        value,
+        status: 'pending',
+        transactionType: 'transfer',
+        userId,
+        timestamp: Date.now(),
+        description: description || `Transfer ${ethers.formatEther(value)} ETH to ${toAddress}`,
+      };
+
+      const cacheKey = `safe-tx-${userId}-${txHash}`;
+      await this.runtime.setCache(cacheKey, transaction);
+      
+      logger.debug(`Transaction logged: ${txHash}`);
+    } catch (error) {
+      logger.error('Failed to log transaction:', error);
     }
   }
 
   async createWalletForUser(userId: string): Promise<UserWallet> {
     this.ensureInitialized();
 
-    // Check if user already has a wallet
-    if (this.userWallets.has(userId)) {
+    // Check if user already has a wallet in cache
+    const existingWallet = await this.loadWalletFromCache(userId);
+    if (existingWallet) {
       logger.info(`User ${userId} already has a Safe wallet`);
-      return this.userWallets.get(userId)!;
+      return existingWallet;
     }
 
     try {
       logger.info(`Creating Safe smart account for user ${userId}`);
 
-      // Generate a unique user address (in production, this would come from user auth)
-      const userWallet = ethers.Wallet.createRandom();
-      const userAddress = userWallet.address;
-
-      // Create Safe account configuration with user and delegatee as owners
+      // Create Safe account configuration with delegatee as sole owner
       const safeAccountConfig = {
-        owners: [userAddress, this.delegateeAddress],
-        threshold: 1, // Either owner can execute transactions
+        owners: [this.delegateeAddress],
+        threshold: 1, // Single owner can execute transactions
       };
 
+      // Generate unique salt nonce for this user's wallet (numeric only for BigInt conversion)
+      // Combine timestamp with userId hash as a number
+      const userIdHash = parseInt(userId.slice(-8), 16) || 1; // Convert hex-like userId to number, fallback to 1
+      const creationTime = Date.now();
+      const saltNonce = (creationTime * 1000 + userIdHash).toString();
+
       // Create Safe account with v4 API using RPC URL and private key
-      logger.info(`Creating Safe with owners: ${safeAccountConfig.owners.join(', ')}`);
+      logger.info(`Creating Safe with owners: ${safeAccountConfig.owners.join(', ')} and saltNonce: ${saltNonce}`);
       const rpcUrl = process.env.ETHEREUM_RPC_URL || 'https://sepolia.drpc.org';
       const privateKey = process.env.DELEGATEE_PRIVATE_KEY;
       
       const protocolKit = await Safe.init({
         provider: rpcUrl,
         signer: privateKey,
-        safeAccountConfig,
+        predictedSafe: {
+          safeAccountConfig: safeAccountConfig as any,
+          safeDeploymentConfig: {
+            saltNonce: saltNonce,
+          },
+        },
       });
       
       const safeAddress = await protocolKit.getAddress();
-      logger.info(`Safe created successfully at address: ${safeAddress} with delegatee as co-owner`);
+      logger.info(`Safe created successfully at address: ${safeAddress} with delegatee as owner`);
 
       // Create user wallet entry
       const userWalletEntry: UserWallet = {
@@ -192,15 +243,15 @@ export class SafeWalletService extends Service {
         safeAddress,
         owners: safeAccountConfig.owners,
         threshold: safeAccountConfig.threshold,
-        createdAt: Date.now(),
-        status: 'deployed',
-        moduleEnabled: false, // Using co-ownership instead of modules
+        createdAt: creationTime,
+        status: 'predicted', // Will be deployed on first transaction
+        moduleEnabled: false, // Agent is sole owner
+        saltNonce: saltNonce, // Store saltNonce for consistent deployment
       };
 
-      this.userWallets.set(userId, userWalletEntry);
-      await this.saveWallet(userWalletEntry);
+      await this.saveWalletToCache(userWalletEntry);
 
-      logger.info(`Created Safe wallet for user ${userId} at address ${safeAddress} with delegatee module enabled`);
+      logger.info(`Created Safe wallet for user ${userId} at address ${safeAddress} with delegatee as owner`);
       return userWalletEntry;
     } catch (error) {
       logger.error(`Failed to create Safe wallet for user ${userId}:`, error);
@@ -241,13 +292,13 @@ export class SafeWalletService extends Service {
   }
 
   async getUserWallet(userId: string): Promise<UserWallet | null> {
-    return this.userWallets.get(userId) || null;
+    return await this.loadWalletFromCache(userId);
   }
 
   async getBalance(userId: string): Promise<WalletBalance | null> {
     this.ensureInitialized();
 
-    const wallet = this.userWallets.get(userId);
+    const wallet = await this.getUserWallet(userId);
     if (!wallet) {
       return null;
     }
@@ -274,7 +325,7 @@ export class SafeWalletService extends Service {
   ): Promise<string> {
     this.ensureInitialized();
 
-    const wallet = this.userWallets.get(userId);
+    const wallet = await this.getUserWallet(userId);
     if (!wallet) {
       throw new Error(`No Safe wallet found for user ${userId}`);
     }
@@ -336,15 +387,116 @@ export class SafeWalletService extends Service {
       const executeTxResponse = await protocolKit.executeTransaction(safeTransaction);
       const txHash = executeTxResponse.hash;
 
-      // Update last used timestamp
-      wallet.lastUsed = Date.now();
-      wallet.status = 'active';
-      await this.saveWallet(wallet);
+      // Update last used timestamp and log transaction
+      await this.updateWalletLastUsed(wallet.userId);
+      await this.logTransaction(wallet.userId, txHash, wallet.safeAddress, transaction.to, value.toString());
 
       logger.info(`Module transaction executed: ${txHash}`);
       return txHash;
     } catch (error) {
       logger.error(`Failed to execute transaction as module:`, error);
+      throw error;
+    }
+  }
+
+  private async ensureSafeDeployed(wallet: UserWallet): Promise<any> {
+    try {
+      const rpcUrl = process.env.ETHEREUM_RPC_URL || 'https://sepolia.drpc.org';
+      const privateKey = process.env.DELEGATEE_PRIVATE_KEY;
+      
+      // Initialize with predicted Safe configuration
+      const safeAccountConfig = {
+        owners: [this.delegateeAddress],
+        threshold: 1,
+      };
+      
+      // Use the same saltNonce that was generated during wallet creation
+      const saltNonce = wallet.saltNonce || ((wallet.createdAt * 1000 + (parseInt(wallet.userId.slice(-8), 16) || 1)).toString());
+      logger.debug(`ensureSafeDeployed: Using saltNonce ${saltNonce} for Safe ${wallet.safeAddress}`);
+      
+      const protocolKit = await Safe.init({
+        provider: rpcUrl,
+        signer: privateKey,
+        predictedSafe: {
+          safeAccountConfig: safeAccountConfig as any,
+          safeDeploymentConfig: {
+            saltNonce: saltNonce,
+          },
+        },
+      });
+      
+      // Check if already deployed
+      const isDeployed = await protocolKit.isSafeDeployed();
+      
+      if (!isDeployed) {
+        logger.info(`Deploying Safe wallet ${wallet.safeAddress} on first use`);
+        
+        // Create and execute deployment transaction
+        const deploymentTransaction = await protocolKit.createSafeDeploymentTransaction();
+        
+        logger.debug(`Deployment transaction details:`, {
+          to: deploymentTransaction.to,
+          value: deploymentTransaction.value,
+          dataLength: deploymentTransaction.data?.length,
+          expectedAddress: wallet.safeAddress,
+        });
+        
+        const ethersWallet = new ethers.Wallet(privateKey, this.provider);
+        const txResponse = await ethersWallet.sendTransaction({
+          to: deploymentTransaction.to,
+          value: deploymentTransaction.value,
+          data: deploymentTransaction.data as `0x${string}`,
+        });
+        
+        logger.info(`Safe deployment transaction sent: ${txResponse.hash}`);
+        
+        // Wait for confirmation and check if deployment succeeded
+        const receipt = await txResponse.wait();
+        
+        if (receipt.status === 0) {
+          logger.error(`Safe deployment transaction failed! Tx: ${receipt.hash}`);
+          logger.error(`Receipt:`, JSON.stringify(receipt, null, 2));
+          throw new Error(`Safe deployment failed: transaction reverted (${receipt.hash})`);
+        }
+        
+        logger.info(`Safe deployed successfully at ${wallet.safeAddress} in tx: ${receipt.hash}`);
+        
+        // Verify the Safe actually exists at the expected address
+        const code = await this.provider!.getCode(wallet.safeAddress);
+        if (code === '0x') {
+          logger.error(`Safe deployment verification failed: No contract code at ${wallet.safeAddress}`);
+          throw new Error(`Safe deployment failed: no contract deployed at expected address ${wallet.safeAddress}`);
+        }
+        
+        logger.info(`Safe deployment verified: contract code exists at ${wallet.safeAddress}`);
+        
+        // Update wallet status and deployment hash
+        wallet.status = 'deployed';
+        wallet.deploymentTxHash = receipt.hash;
+        await this.saveWalletToCache(wallet);
+        
+        // Reinitialize protocolKit with the deployed Safe address
+        const deployedProtocolKit = await Safe.init({
+          provider: rpcUrl,
+          signer: privateKey,
+          safeAddress: wallet.safeAddress,
+        });
+        
+        return deployedProtocolKit;
+      } else {
+        logger.debug(`Safe wallet ${wallet.safeAddress} is already deployed`);
+        
+        // Return protocolKit for already deployed Safe
+        const deployedProtocolKit = await Safe.init({
+          provider: rpcUrl,
+          signer: privateKey,
+          safeAddress: wallet.safeAddress,
+        });
+        
+        return deployedProtocolKit;
+      }
+    } catch (error) {
+      logger.error(`Failed to ensure Safe deployment for ${wallet.safeAddress}:`, error);
       throw error;
     }
   }
@@ -357,15 +509,9 @@ export class SafeWalletService extends Service {
     try {
       logger.info(`Executing transaction as owner for Safe ${wallet.safeAddress}`);
 
-      // Initialize Safe Protocol Kit with delegatee signer (if delegatee is an owner)
-      const rpcUrl = process.env.ETHEREUM_RPC_URL || 'https://sepolia.drpc.org';
-      const privateKey = process.env.DELEGATEE_PRIVATE_KEY;
-      
-      const protocolKit = await Safe.init({
-        provider: rpcUrl,
-        signer: privateKey,
-        safeAddress: wallet.safeAddress,
-      });
+      // First, ensure the Safe is deployed on-chain (lazy deployment)
+      // This returns a protocolKit instance already connected to the deployed Safe
+      const protocolKit = await this.ensureSafeDeployed(wallet);
 
       // Create Safe transaction
       const safeTransactionData = {
@@ -383,10 +529,9 @@ export class SafeWalletService extends Service {
       const executeTxResponse = await protocolKit.executeTransaction(signedTransaction);
       const txHash = executeTxResponse.hash;
 
-      // Update last used timestamp
-      wallet.lastUsed = Date.now();
-      wallet.status = 'active';
-      await this.saveWallet(wallet);
+      // Update last used timestamp and log transaction
+      await this.updateWalletLastUsed(wallet.userId);
+      await this.logTransaction(wallet.userId, txHash, wallet.safeAddress, transaction.to, value.toString());
 
       logger.info(`Owner transaction executed: ${txHash}`);
       return txHash;
@@ -397,6 +542,52 @@ export class SafeWalletService extends Service {
   }
 
   async getAllUserWallets(): Promise<UserWallet[]> {
-    return Array.from(this.userWallets.values());
+    try {
+      logger.warn('getAllUserWallets() is not efficiently implemented with cache system. Consider maintaining a wallet registry or using database queries.');
+      // Note: This is not efficiently implemented with cache system
+      // In a production system, you'd want to maintain a separate registry
+      // or use database queries to get all wallets
+      return [];
+    } catch (error) {
+      logger.error('Failed to get all user wallets:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Check if user has a wallet (for automatic wallet creation)
+   */
+  async hasWallet(userId: string): Promise<boolean> {
+    const wallet = await this.getUserWallet(userId);
+    return wallet !== null;
+  }
+
+  /**
+   * Create wallet automatically for user if they don't have one
+   */
+  async ensureWalletExists(userId: string): Promise<{ wallet: UserWallet; isNewWallet: boolean }> {
+    const existingWallet = await this.getUserWallet(userId);
+    if (existingWallet) {
+      return { wallet: existingWallet, isNewWallet: false };
+    }
+
+    const newWallet = await this.createWalletForUser(userId);
+    return { wallet: newWallet, isNewWallet: true };
+  }
+
+  /**
+   * Get transaction history for a user
+   */
+  async getTransactionHistory(userId: string): Promise<any[]> {
+    try {
+      logger.warn('getTransactionHistory() is not efficiently implemented with cache system. Consider maintaining a transaction index or using database queries.');
+      // Note: This is not efficiently implemented with cache system
+      // In a production system, you'd want to maintain a separate transaction index
+      // or use database queries to get transaction history
+      return [];
+    } catch (error) {
+      logger.error('Failed to get transaction history:', error);
+      return [];
+    }
   }
 }

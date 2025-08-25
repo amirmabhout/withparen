@@ -13,7 +13,7 @@ export const character: Character = {
     '@elizaos/plugin-sql',
     '@elizaos/plugin-google-genai',
     '@elizaos/plugin-telegram',
-    '@elizaos/plugin-connection-discovery',
+    '@elizaos/plugin-discover-connection',
     '@elizaos/plugin-safe'
   ],
   settings: {

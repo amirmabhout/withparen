@@ -37,7 +37,7 @@ export const checkBalanceAction: Action = {
         throw new Error('Safe Wallet Service not available');
       }
 
-      const userId = (message as any).userId || message.agentId || message.roomId;
+      const userId = message.entityId;
       if (!userId) {
         throw new Error('User ID not found');
       }
@@ -74,7 +74,7 @@ export const checkBalanceAction: Action = {
         ? `\n⏰ Last used: ${new Date(wallet.lastUsed).toLocaleString()}`
         : '';
 
-      const response = `💰 Safe Balance\n\n🔒 Safe Address: ${wallet.safeAddress}\n💎 Balance: ${balance.formattedBalance}\n🔗 Network: Sepolia Testnet\n👥 Owners: ${wallet.owners.length}${lastUsedText}\n\nTo get testnet ETH, visit a Sepolia faucet.`;
+      const response = `💰 Safe Balance\n\n🔒 Safe Address: ${wallet.safeAddress}\n💎 Balance: ${balance.formattedBalance}\n🔗 Network: Sepolia Testnet\n👤 Managed by: Agent${lastUsedText}\n\nTo get testnet ETH, visit a Sepolia faucet.`;
 
       if (callback) {
         await callback({
@@ -123,7 +123,7 @@ export const checkBalanceAction: Action = {
       {
         name: '{{agentName}}',
         content: {
-          text: '💰 Safe Balance\n\n🔒 Safe Address: 0x742d35Cc6634C0532925a3b844Bc454e4438f44e\n💎 Balance: 1.5 ETH\n🔗 Network: Sepolia Testnet\n👥 Owners: 2',
+          text: '💰 Safe Balance\n\n🔒 Safe Address: 0x742d35Cc6634C0532925a3b844Bc454e4438f44e\n💎 Balance: 1.5 ETH\n🔗 Network: Sepolia Testnet\n👤 Managed by: Agent',
           action: 'CHECK_BALANCE',
         },
       },
@@ -138,7 +138,7 @@ export const checkBalanceAction: Action = {
       {
         name: '{{agentName}}',
         content: {
-          text: '💰 Safe Balance\n\n🔒 Safe Address: 0x123...\n💎 Balance: 0.25 ETH\n👥 Owners: 2',
+          text: '💰 Safe Balance\n\n🔒 Safe Address: 0x123...\n💎 Balance: 0.25 ETH\n👤 Managed by: Agent',
           action: 'CHECK_BALANCE',
         },
       },

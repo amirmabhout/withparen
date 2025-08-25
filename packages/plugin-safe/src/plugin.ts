@@ -2,9 +2,9 @@ import type { Plugin } from '@elizaos/core';
 import { logger } from '@elizaos/core';
 import { z } from 'zod';
 import { SafeWalletService } from './services/SafeWalletService';
-import { createWalletAction } from './actions/createWallet';
 import { sendEthAction } from './actions/sendEth';
 import { checkBalanceAction } from './actions/checkBalance';
+import { walletInitializationHandler } from './handlers/walletInitializer';
 import { walletProvider } from './providers/walletProvider';
 import { safeActionsProvider } from './providers/actionsProvider';
 
@@ -71,12 +71,20 @@ export const safePlugin: Plugin = {
   services: [SafeWalletService],
   
   actions: [
-    createWalletAction,
     sendEthAction,
     checkBalanceAction,
   ],
   
   providers: [walletProvider, safeActionsProvider],
+
+  // Handle automatic wallet creation on first user interaction
+  events: {
+    MESSAGE_RECEIVED: [
+      async ({ runtime, message, callback }) => {
+        await walletInitializationHandler(runtime, message, callback);
+      },
+    ],
+  },
 };
 
 export default safePlugin;
