@@ -12,29 +12,106 @@ import {
 /**
  * Template string for generating Deepen-Connection's reflection on persona insights and human connections.
  */
-const reflectionTemplate = `# Task: Generate Deepen-Connection Reflection and Extract Persona & Connection Insights
+const reflectionTemplate = `# Task: Extract Persona and Connection Insights for Memory Storage
 
-You are Deepen-Connection, an AI agent focused on deepening human connections through 1-on-1 conversations. Your role is to:
-1. Reflect on the conversation quality and your performance
-2. Extract insights about the user's persona using the PEACOCK framework
-3. Extract insights about human connections the user has mentioned
+You are analyzing a conversation to extract psychological insights about a user and their relationships. Extract NEW insights not already present in the known insights section.
 
-## PEACOCK Framework Dimensions:
-- **demographic**: Static facts (age, gender, location, religion, environment)
-- **characteristic**: Intrinsic traits, communication/attachment styles in relationships
-- **routine**: Regular habits or behaviors
-- **goal**: Ambitions or future plans
-- **experience**: Past events or experiences
-- **persona_relationship**: Social connections or interactions
-- **emotional_state**: Current feelings, mood, or pain points
+## PEACOCK Framework - Self Memory Dimensions
 
-## Connection Dimensions:
-- **profile**: How they met, relationship stage, history
-- **routine**: Shared rituals and habits together
-- **goal**: Shared goals or future plans together
-- **experience**: Shared experiences, places visited, events attended
-- **communication**: Communication style and habits with this person
-- **emotion**: Feelings toward the relationship
+### demographic
+Observable facts about the person's life circumstances and identity. This includes age, gender, location, occupation, education level, family structure, cultural background, religion, living situation, and socioeconomic indicators. These are factual, relatively stable attributes that provide context for understanding their life situation.
+Look for: Direct statements about where they live, their job, their age, their family composition, their education, their cultural identity.
+
+### characteristic
+Enduring personality traits and behavioral tendencies that shape how someone consistently interacts with the world. This dimension captures:
+
+PERSONALITY TRAITS - stable patterns of thinking, feeling, and behaving:
+- Openness: Intellectual curiosity, creativity, imagination, appreciation for art and abstract ideas. Someone high in openness enjoys philosophical discussions, seeks novel experiences, thinks metaphorically.
+- Conscientiousness: Organization, self-discipline, achievement-focus, reliability. Someone high in conscientiousness plans ahead, completes tasks, maintains schedules, follows through on commitments.
+- Extraversion: Social energy, enthusiasm, assertiveness, talkativeness. Someone high in extraversion seeks social stimulation, expresses positive emotions readily, takes charge in groups.
+- Agreeableness: Cooperation, trust, empathy, altruism. Someone high in agreeableness avoids conflict, helps others, sees the best in people, compromises readily.
+- Neuroticism: Emotional instability, anxiety, moodiness, stress vulnerability. Someone high in neuroticism worries frequently, experiences mood swings, feels overwhelmed by stress.
+
+ATTACHMENT STYLE - learned patterns from early relationships that affect all close relationships:
+- Secure: Comfortable with intimacy and independence, trusts others appropriately, communicates needs directly, maintains stable relationships
+- Anxious: Craves closeness but fears abandonment, seeks excessive reassurance, becomes preoccupied with relationships, experiences emotional highs and lows
+- Avoidant: Values independence over intimacy, uncomfortable with emotional closeness, minimizes relationship importance, suppresses emotional expression
+- Disorganized: Simultaneous desire for and fear of closeness, inconsistent relationship behavior, unpredictable emotional responses
+
+Look for: Consistent patterns across multiple conversations, how they describe themselves, their typical reactions to situations, their relationship patterns.
+
+### routine
+Regular patterns of behavior, habits, and recurring activities that structure daily life. This includes work schedules, exercise habits, hobbies, social patterns, self-care routines, weekend activities, and any repeated behaviors that reveal priorities and lifestyle. Routines show what someone values enough to do regularly.
+Look for: "Every morning I...", "I usually...", "On weekends I...", "I always...", descriptions of typical days or weeks.
+
+### goal
+Aspirations, values, and future intentions that guide life decisions. Goals reveal what someone is working toward and what they value most deeply:
+
+SHORT-TERM GOALS (days to weeks): Immediate tasks, upcoming events, problems to solve soon
+MEDIUM-TERM GOALS (months to year): Projects underway, skills being developed, relationships being built
+LONG-TERM GOALS (years): Career aspirations, life dreams, legacy concerns, major life changes planned
+
+VALUES are revealed through: Strong emotional reactions, "should" or "must" statements, what they defend or argue for, trade-off decisions, repeated themes across conversations.
+Look for: "I want to...", "I'm working toward...", "My dream is...", "I believe in...", "It's important to me that..."
+
+### experience
+Significant past events that have shaped who they are today. This includes formative childhood experiences, relationship history, career journey, achievements and failures, losses and trauma, turning points, and lessons learned. Experiences provide context for current patterns and behaviors.
+Look for: "When I was younger...", "I learned that...", "After going through...", "That experience taught me...", stories about their past.
+
+### persona_relationship
+Social network and relationship patterns - how they connect with others in their life. This includes family dynamics, friendship patterns, work relationships, community involvement, social support availability, boundary setting, trust patterns, and social roles they play.
+Look for: References to people in their life, how they describe relationships, their role in groups, social support mentions, loneliness or connection.
+
+### emotional_state
+Current emotional experience and patterns of emotional processing:
+
+CURRENT MOOD: Present feelings, stress levels, emotional challenges they're facing
+EMOTIONAL GRANULARITY: Ability to distinguish between similar emotions (frustrated vs annoyed vs angry) versus using general terms (bad, upset)
+EMOTIONAL REGULATION: How they handle emotions:
+- Reappraisal: Reframing situations to change emotional impact ("Actually, this is good because...")
+- Suppression: Hiding emotions while still feeling them ("I didn't let it show")
+- Rumination: Repetitive thinking about negative events ("I keep wondering why...")
+- Acceptance: Acknowledging emotions without trying to change them ("It is what it is")
+
+Look for: Emotion words, intensity markers, how they describe feelings, coping strategies mentioned, stress indicators.
+
+## Connection Dimensions - Relationship Memory
+
+### profile
+Basic relationship information and context. Who is this person to them, how did they meet, how long have they known each other, what type of relationship is it (family, romantic, friendship, colleague), what stage is the relationship in (new, established, struggling, ending), what roles do they play for each other.
+Look for: "My partner/friend/mother...", "We met when...", "We've been together...", relationship labels and history.
+
+### routine
+Shared patterns and rituals with this person. Regular activities done together, communication frequency and methods, traditions or rituals, time spent together versus apart, predictable interaction patterns. These routines reveal relationship priorities and connection strength.
+Look for: "We always...", "Every week we...", "Our tradition is...", descriptions of regular interactions.
+
+### goal
+Shared future vision and aligned aspirations. What they're planning together, shared projects or dreams, relationship milestones ahead, compatible or conflicting life goals, commitment levels indicated by future-tense language with "we" pronouns.
+Look for: "We're planning to...", "Our goal is...", "We want to...", future-focused discussions about the relationship.
+
+### experience
+Shared history and significant events together. Important memories, challenges faced together, adventures or trips, conflicts and resolutions, achievements celebrated together. How they narrate shared stories reveals relationship dynamics.
+Look for: "Remember when we...", "We went through...", "Together we...", shared story telling.
+
+### communication
+Patterns of interaction and communication quality:
+
+PRONOUN PATTERNS: High "we/us/our" indicates couple identity; high "I/me/my" when discussing relationship indicates emotional distance
+CONFLICT STYLE using Gottman's Four Horsemen:
+- Criticism: Attacking character not behavior ("You always..." "You never...")
+- Contempt: Superiority, sarcasm, eye-rolling, mockery - most damaging pattern
+- Defensiveness: Playing victim, making excuses, counter-attacking
+- Stonewalling: Withdrawal, shutting down, refusing to engage
+REPAIR ATTEMPTS: Efforts to de-escalate conflict through humor, affection, apologies, breaks, or validation
+Look for: How they describe disagreements, communication satisfaction, feeling heard or ignored.
+
+### emotion
+Feelings about the relationship and satisfaction indicators:
+
+POSITIVE INDICATORS: Enthusiasm when discussing person, gratitude expressions, pride in relationship, excitement about future together, warm descriptive language
+CONCERN INDICATORS: Past-tense for good times, present-tense for problems, decreased detail in descriptions, comparisons to others, ambivalence, irritation
+SATISFACTION LEVEL: Overall relationship fulfillment, security in connection, joy versus obligation
+Look for: Emotional tone when discussing person, energy levels, affection expressions, complaint patterns.
 
 ## Recent Conversation:
 {{recentMessages}}
@@ -46,9 +123,13 @@ You are Deepen-Connection, an AI agent focused on deepening human connections th
 {{knownConnectionInsights}}
 
 # Instructions:
-1. Generate a self-reflective thought on the conversation about your performance and connection-building quality.
-2. Extract NEW persona insights about the user using PEACOCK dimensions that are NOT already captured in the known insights above.
-3. Extract NEW insights about human connections the user mentioned that are NOT already captured in the known insights above.
+1. Read the entire conversation first to understand context and emotional tone
+2. Identify patterns that appear multiple times, not single instances
+3. Look for insights NOT already captured in known insights above
+4. Extract specific, evidence-based insights that reveal psychological depth
+5. Consider how different dimensions interact (e.g., how attachment style affects goals)
+6. Note contradictions as they may indicate growth or complexity
+7. Focus on insights that could help deepen human connections
 
 For each insight, provide the description, dimension, and supporting evidence from the conversation. Only include insights that add new information not already present in the known insights.
 
@@ -218,7 +299,7 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
   });
 
   try {
-    const response = await runtime.useModel(ModelType.TEXT_SMALL, {
+    const response = await runtime.useModel(ModelType.TEXT_LARGE, {
       prompt,
     });
 
@@ -378,13 +459,26 @@ async function handler(runtime: IAgentRuntime, message: Memory, state?: State) {
       }
     }
 
+    // Save both the last processed message ID and user message count
     await runtime.setCache<string>(
       `${message.roomId}-deepen-connection-reflection-last-processed`,
       message?.id || ''
     );
 
+    // Count and save current user message count for next validation
+    const allMessages = await runtime.getMemories({
+      tableName: 'messages',
+      roomId,
+      count: runtime.getConversationLength(),
+    });
+    const userMessageCount = allMessages.filter((msg) => msg.entityId !== msg.agentId).length;
+    await runtime.setCache<number>(
+      `${message.roomId}-deepen-connection-reflection-last-user-count`,
+      userMessageCount
+    );
+
     logger.info(
-      `Deepen-Connection reflection processed: ${personaInsights.length} persona insights, ${connectionInsights.length} connection insights`
+      `Deepen-Connection reflection processed: ${personaInsights.length} persona insights, ${connectionInsights.length} connection insights (at ${userMessageCount} user messages)`
     );
   } catch (error) {
     logger.error(
@@ -398,25 +492,40 @@ export const reflectionEvaluator: Evaluator = {
   name: 'DEEPEN-CONNECTION_REFLECTION',
   similes: ['DEEPEN-CONNECTION_REFLECT', 'PERSONA_EXTRACT', 'CONNECTION_ANALYZE', 'INSIGHT_GATHER'],
   validate: async (runtime: IAgentRuntime, message: Memory): Promise<boolean> => {
-    const lastMessageId = await runtime.getCache<string>(
-      `${message.roomId}-deepen-connection-reflection-last-processed`
-    );
-    const messages = await runtime.getMemories({
+    // Get total conversation history
+    const allMessages = await runtime.getMemories({
       tableName: 'messages',
       roomId: message.roomId,
       count: runtime.getConversationLength(),
     });
 
-    if (lastMessageId) {
-      const lastMessageIndex = messages.findIndex((msg) => msg.id === lastMessageId);
-      if (lastMessageIndex !== -1) {
-        messages.splice(0, lastMessageIndex + 1);
-      }
+    // Count user messages (messages where entityId != agentId)
+    const userMessages = allMessages.filter((msg) => msg.entityId !== msg.agentId);
+    const userMessageCount = userMessages.length;
+    const totalMessageCount = allMessages.length;
+
+    // Check if we've already processed reflections
+    const lastProcessedCount = await runtime.getCache<number>(
+      `${message.roomId}-deepen-connection-reflection-last-user-count`
+    );
+
+    let shouldReflect = false;
+
+    if (!lastProcessedCount || lastProcessedCount === 0) {
+      // First reflection: after 10 user responses (20 total messages)
+      shouldReflect = userMessageCount >= 10;
+    } else {
+      // Subsequent reflections: every 25 user responses (50 total messages)
+      const messagesSinceLastReflection = userMessageCount - lastProcessedCount;
+      shouldReflect = messagesSinceLastReflection >= 25;
     }
 
-    // Trigger reflection every 5-7 messages in 1-on-1 conversations
-    const reflectionInterval = 6;
-    return messages.length >= reflectionInterval;
+    // Log for debugging
+    logger.debug(
+      `[deepen-connection] Reflection validation: ${userMessageCount} user messages, ${totalMessageCount} total messages, last processed at ${lastProcessedCount || 0} user messages, should reflect: ${shouldReflect}`
+    );
+
+    return shouldReflect;
   },
   description:
     'Generate Deepen-Connection reflection on 1-on-1 conversation quality and extract persona insights using PEACOCK framework and human connection insights.',

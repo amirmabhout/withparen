@@ -9,7 +9,7 @@ import {
   logger,
 } from '@elizaos/core';
 
-import { seedDiscover-ConnectionTestData, cleanupDiscover-ConnectionTestData } from '../utils/testDataSeeder.js';
+import { seedDiscoverConnectionTestData, cleanupDiscoverConnectionTestData } from '../utils/testDataSeeder.js';
 
 /**
  * Development action to seed test data for Discover-Connection connection discovery
@@ -60,7 +60,7 @@ export const seedTestDataAction: Action = {
 
       if (isCleanup) {
         // Handle cleanup request
-        await cleanupDiscover-ConnectionTestData(runtime, message.roomId);
+        await cleanupDiscoverConnectionTestData(runtime, message.roomId);
 
         const cleanupText =
           "I've initiated cleanup of test data. Please note that full cleanup may require manual database operations. Check the logs for more details.";
@@ -80,7 +80,7 @@ export const seedTestDataAction: Action = {
         // Handle seeding request
         const isForceReseed =
           content.includes('force') || content.includes('fresh') || content.includes('new');
-        const seededMemories = await seedDiscover-ConnectionTestData(runtime, {
+        const seededMemories = await seedDiscoverConnectionTestData(runtime, {
           roomId: message.roomId,
           skipIfExists: !isForceReseed, // Skip if exists unless forcing reseed
           userCount: 8, // All test users

@@ -84,7 +84,7 @@ export const TEST_USERS = [
 /**
  * Seed test data for Discover-Connection connection discovery
  */
-export async function seedDiscover-ConnectionTestData(
+export async function seedDiscoverConnectionTestData(
   runtime: IAgentRuntime,
   options: {
     roomId?: string;
@@ -239,7 +239,7 @@ export async function seedDiscover-ConnectionTestData(
 /**
  * Clean up test data (useful for development)
  */
-export async function cleanupDiscover-ConnectionTestData(runtime: IAgentRuntime, roomId?: string): Promise<void> {
+export async function cleanupDiscoverConnectionTestData(runtime: IAgentRuntime, roomId?: string): Promise<void> {
   logger.info(`[discover-connection] Cleaning up test data${roomId ? ` in room ${roomId}` : ''}...`);
 
   try {

@@ -43,6 +43,8 @@ import { messageHandlerTemplate } from './utils/promptTemplates.ts';
 
 import { TaskService } from './services/task.ts';
 import { DailyPlanningService } from './services/dailyPlanning.ts';
+import { WeeklyPlanningService } from './services/weeklyPlanning.ts';
+// import { RelationshipAddingService } from './services/relationshipAdding.ts'; // Deregistered - backup only
 
 export * from './actions/index.ts';
 export * from './evaluators/index.ts';
@@ -325,7 +327,9 @@ const messageReceivedHandler = async ({
   let timeoutId: NodeJS.Timeout | undefined = undefined;
 
   try {
-    logger.info(`[deepen-connection] Message received from ${message.entityId} in room ${message.roomId}`);
+    logger.info(
+      `[deepen-connection] Message received from ${message.entityId} in room ${message.roomId}`
+    );
     // Generate a new response ID
     const responseId = v4();
     // Get or create the agent-specific map
@@ -654,7 +658,9 @@ const messageReceivedHandler = async ({
           await runtime.evaluate(message, state, shouldRespond, callback, responseMessages);
         } else {
           // Handle the case where the agent decided not to respond
-          logger.debug('[deepen-connection] Agent decided not to respond (shouldRespond is false).');
+          logger.debug(
+            '[deepen-connection] Agent decided not to respond (shouldRespond is false).'
+          );
 
           // Check if we still have the latest response ID
           const currentResponseId = agentResponses.get(message.roomId);
@@ -666,7 +672,9 @@ const messageReceivedHandler = async ({
           }
 
           if (!message.id) {
-            logger.error('[deepen-connection] Message ID is missing, cannot create ignore response.');
+            logger.error(
+              '[deepen-connection] Message ID is missing, cannot create ignore response.'
+            );
             return;
           }
 
@@ -789,7 +797,9 @@ const messageDeletedHandler = async ({
       return;
     }
 
-    logger.info(`[deepen-connection] Deleting memory for message ${message.id} from room ${message.roomId}`);
+    logger.info(
+      `[deepen-connection] Deleting memory for message ${message.id} from room ${message.roomId}`
+    );
     await runtime.deleteMemory(message.id);
     logger.debug(`[deepen-connection] Successfully deleted memory for message ${message.id}`);
   } catch (error: unknown) {
@@ -1374,7 +1384,9 @@ const events = {
 
   [EventType.ENTITY_JOINED]: [
     async (payload: EntityPayload) => {
-      logger.debug(`[deepen-connection] ENTITY_JOINED event received for entity ${payload.entityId}`);
+      logger.debug(
+        `[deepen-connection] ENTITY_JOINED event received for entity ${payload.entityId}`
+      );
 
       if (!payload.worldId) {
         logger.error('[deepen-connection] No worldId provided for entity joined');
@@ -1422,14 +1434,18 @@ const events = {
 
   [EventType.ACTION_STARTED]: [
     async (payload: ActionEventPayload) => {
-      logger.debug(`[deepen-connection] Action started: ${payload.actionName} (${payload.actionId})`);
+      logger.debug(
+        `[deepen-connection] Action started: ${payload.actionName} (${payload.actionId})`
+      );
     },
   ],
 
   [EventType.ACTION_COMPLETED]: [
     async (payload: ActionEventPayload) => {
       const status = payload.error ? `failed: ${payload.error.message}` : 'completed';
-      logger.debug(`[deepen-connection] Action ${status}: ${payload.actionName} (${payload.actionId})`);
+      logger.debug(
+        `[deepen-connection] Action ${status}: ${payload.actionName} (${payload.actionId})`
+      );
     },
   ],
 
@@ -1456,7 +1472,13 @@ const events = {
 export const deepenConnectionPlugin: Plugin = {
   name: 'deepen-connection',
   description: 'Agent deepen-connection with connection deepening functionality',
-  actions: [actions.noneAction, actions.dailyPlanningAction],
+  actions: [
+    actions.noneAction,
+    actions.dailyPlanningAction,
+    // ...(process.env.ALLOW_TEST_ACTIONS === 'true'
+    //   ? [actions.testRelationshipSyncAction]
+    //   : []),
+  ],
   // this is jank, these events are not valid
   events: events as any as PluginEvents,
   evaluators: [evaluators.reflectionEvaluator],
@@ -1469,8 +1491,15 @@ export const deepenConnectionPlugin: Plugin = {
     providers.personaMemoryProvider,
     providers.connectionMemoryProvider,
     providers.dailyPlanProvider,
+    providers.weeklyPlanProvider,
+    providers.sharedRelationshipMemoryProvider,
   ],
-  services: [TaskService, DailyPlanningService],
+  services: [
+    TaskService,
+    DailyPlanningService,
+    WeeklyPlanningService,
+    // RelationshipAddingService, // Deregistered - backup only
+  ],
 };
 
 export default deepenConnectionPlugin;

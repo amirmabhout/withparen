@@ -139,7 +139,7 @@ describe('Reflection Evaluator', () => {
     );
 
     expect(mockRuntime.setCache).toHaveBeenCalledWith(
-      `${mockMessage.roomId}-reflection-last-processed`,
+      `${mockMessage.roomId}-deepen-connection-reflection-last-processed`,
       mockMessage.id
     );
   });
@@ -252,7 +252,7 @@ describe('Reflection Evaluator', () => {
     }
 
     expect(mockRuntime.setCache).toHaveBeenCalledWith(
-      `${mockMessage.roomId}-reflection-last-processed`,
+      `${mockMessage.roomId}-deepen-connection-reflection-last-processed`,
       mockMessage.id
     );
     // getEntityDetailsSpy removed - now handled by module mock
@@ -370,22 +370,31 @@ describe('Reflection Evaluator', () => {
     // Import the evaluator dynamically to avoid polluting the test scope
     const { reflectionEvaluator } = await import('../evaluators/reflection');
 
-    // Mock the getCache method to return a previous message ID
-    mockRuntime.getCache.mockResolvedValueOnce('previous-message-id');
+    // Mock the getCache method to return 0 for first reflection trigger
+    mockRuntime.getCache.mockResolvedValueOnce(0);
 
-    // Mock the getMemories method to return a list of messages
+    // Mock the getMemories method to return 20 messages (10 user messages)
+    // User messages have different entityId than agentId
+    const userMessages = Array.from({ length: 10 }, (_, i) => ({
+      id: `user-message-${i}`,
+      entityId: 'user-id',
+      agentId: 'test-agent-id',
+    }));
+    const agentMessages = Array.from({ length: 10 }, (_, i) => ({
+      id: `agent-message-${i}`,
+      entityId: 'test-agent-id',
+      agentId: 'test-agent-id',
+    }));
+
     mockRuntime.getMemories &&
       (mockRuntime.getMemories as ReturnType<typeof mock>).mockResolvedValueOnce([
-        { id: 'previous-message-id' },
-        { id: 'message-1' },
-        { id: 'message-2' },
-        { id: 'message-3' },
-        { id: 'message-4' },
+        ...userMessages,
+        ...agentMessages,
       ]);
 
     // Basic validation checks
     expect(reflectionEvaluator).toHaveProperty('name');
-    expect(reflectionEvaluator.name).toBe('REFLECTION');
+    expect(reflectionEvaluator.name).toBe('DEEPEN-CONNECTION_REFLECTION');
     expect(reflectionEvaluator).toHaveProperty('description');
     expect(reflectionEvaluator).toHaveProperty('handler');
     expect(reflectionEvaluator).toHaveProperty('validate');
@@ -400,12 +409,12 @@ describe('Reflection Evaluator', () => {
 
     expect(validationResult).toBe(true);
     expect(mockRuntime.getCache).toHaveBeenCalledWith(
-      `${mockMessage.roomId}-reflection-last-processed`
+      `${mockMessage.roomId}-deepen-connection-reflection-last-user-count`
     );
     expect(mockRuntime.getMemories).toHaveBeenCalledWith({
       tableName: 'messages',
       roomId: mockMessage.roomId,
-      count: 10,
+      count: expect.any(Number), // Count comes from runtime.getConversationLength()
     });
   });
 });

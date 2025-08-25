@@ -68,7 +68,9 @@ export class TaskService extends Service {
         const isNoonTime = hour === 12 && minute >= 0 && minute <= 30;
 
         if (isNoonTime) {
-          logger.debug('[Deepen-Connection] Daily check-in validation: It is noon time, task should run');
+          logger.debug(
+            '[Deepen-Connection] Daily check-in validation: It is noon time, task should run'
+          );
           return true;
         }
 
@@ -122,7 +124,10 @@ export class TaskService extends Service {
               logger.debug(`[Deepen-Connection] Sent daily check-in to room: ${roomId}`);
               successCount++;
             } catch (error) {
-              logger.error(`[Deepen-Connection] Failed to send daily check-in to room ${roomId}:`, error);
+              logger.error(
+                `[Deepen-Connection] Failed to send daily check-in to room ${roomId}:`,
+                error
+              );
               errorCount++;
             }
           }

@@ -13,15 +13,26 @@ export const dailyPlanningAction: Action = {
   name: 'DAILY_PLANNING_TEST',
   similes: ['TEST_DAILY_PLANNING', 'TRIGGER_PLANNING', 'GENERATE_PLANS'],
   description: 'Manually trigger daily planning for testing purposes',
-  validate: async (_runtime: IAgentRuntime, message: Memory, _state?: State) => {
-    // Only allow this action for admin/testing purposes
-    // You might want to add additional validation here
-    const messageText = message.content.text?.toLowerCase() || '';
-    return (
-      messageText.includes('test daily planning') ||
-      messageText.includes('trigger planning') ||
-      messageText.includes('generate daily plans')
-    );
+  validate: async (_runtime: IAgentRuntime, _message: Memory, _state?: State) => {
+    // Only allow this action when ALLOW_TEST_ACTIONS is true
+    const allowTestActions = process.env.ALLOW_TEST_ACTIONS === 'true';
+
+    if (!allowTestActions) {
+      logger.debug('[Deepen-Connection] Test actions are disabled (ALLOW_TEST_ACTIONS !== true)');
+      return false;
+    }
+
+    // When test actions are enabled, make this action always available
+    return true;
+
+    // Original logic (commented out):
+    // Check if the message matches the action patterns
+    // const messageText = message.content.text?.toLowerCase() || '';
+    // return (
+    //   messageText.includes('test daily planning') ||
+    //   messageText.includes('trigger planning') ||
+    //   messageText.includes('generate daily plans')
+    // );
   },
   handler: async (
     runtime: IAgentRuntime,

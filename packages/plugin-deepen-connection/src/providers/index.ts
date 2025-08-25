@@ -18,4 +18,6 @@ export { recentMessagesProvider } from './recentMessages';
 //export { settingsProvider } from './settings';
 export { timeProvider } from './time';
 export { onboardingProvider } from './onboarding';
+export { sharedRelationshipMemoryProvider } from './sharedRelationshipMemory';
+export { weeklyPlanProvider } from './weeklyPlan';
 //export { worldProvider } from './world';
