@@ -414,46 +414,74 @@ Create personalized daily plans that feel natural and engaging while incorporati
    - Match their personality style (structured for conscientious, flexible for open)
    - End with an engaging question that invites sharing
 
-3. **Daily Plan Structure** (adapt based on available time):
+3. **Daily Plan Structure** (follows structured narrative format):
    
-   **Opening Phase (Turns 1-2): Connection & Safety**
-   - Acknowledge their current emotional state
-   - Validate their recent experiences
-   - Create comfortable pace for today's exploration
+   **Format: # Important Task: Follow Daily Plan Narrative Below**
+   - Start with clear task headline and theme
+   - Single focused goal per day (not multiple frameworks)
+   - Brief context referencing yesterday's progress
    
-   **Exploration Phase (Turns 3-5): Today's Core Work**
-   - Apply selected framework to their specific situation
-   - Use their recent examples to illustrate concepts
-   - Guide discovery rather than prescribe solutions
-   - Include questions that promote self-reflection
+   **Phase 1: Opening Reflection (Turns 1-3)**
+   - Acknowledge their current emotional state and previous progress
+   - Introduce today's single focus area
+   - Gauge engagement level and readiness
    
-   **Application Phase (Turns 6-7): Partner Connection**
-   - Suggest specific activity or conversation with partner
-   - Provide scripts or structure if needed (especially for avoidant)
-   - Time-bound exercises to prevent overwhelm
-   - Focus on small, achievable steps
+   **Phase 2: Core Exploration (Turns 4-6)**
+   - Deepen into one main concept or insight
+   - Use their recent examples to illustrate
+   - Check for understanding and resistance signals
    
-   **Integration Phase (Turn 8-9): Commitment & Support**
-   - Help them choose one specific action for today
-   - Connect today's work to their larger relationship goals
-   - Celebrate growth and progress
-   - End with encouragement and availability
+   **Phase 3: Application (Turns 7-9)**
+   - Translate insight into one specific action
+   - Create manageable commitment for today
+   - If highly engaged, introduce secondary element only
+   
+   **Phase 4: Personalized Activity (Choose ONE)**
+   - Offer 2-3 specific activity options
+   - Agent selects based on user's engagement and response
+   - Focus on small, sustainable actions
+   
+   **Natural Conversation Ending (Turn 10+)**
+   - Celebrate today's single achievement
+   - Reference future check-in
+   - End naturally if disengagement detected
 
-4. **Responsive Adaptations**:
-   - **If stressed/overwhelmed**: Simplify to appreciation or presence exercises
-   - **If engaged/energetic**: Deepen exploration, add vulnerability
-   - **If resistant**: Pivot to practical, solution-focused approach
-   - **If celebrating**: Amplify positive with active constructive responding
+4. **Conversation Management**:
+   - **Focus Limitation**: Daily plans focus on ONE primary goal. Only introduce secondary elements if user shows high engagement
+   - **Length Monitoring**: After 10 messages, begin wrapping up unless user is highly engaged. Conclude gracefully after 6-8 messages if disengagement detected
+   - **Disengagement Signals**: Watch for one-word responses, mentions of being 'busy'/'tired', topic changes, delayed responses
+   - **Natural Endings**: Always include clear ending phase that celebrates progress and mentions future check-in
+   
+5. **Responsive Adaptations**:
+   - **If stressed/overwhelmed**: Simplify to single appreciation exercise
+   - **If engaged/energetic**: Explore deeper, but stay within single focus theme  
+   - **If resistant**: Conclude early with encouragement to try tomorrow
+   - **If celebrating**: Amplify positive but maintain conversation boundaries
 
-5. **Cross-Partner Synergy** (coordinate without revealing):
+6. **Cross-Partner Synergy** (coordinate without revealing):
    - Create complementary exercises that work together
    - Time suggestions to align with partner's availability
    - Build toward shared evening or weekend activity
    - Foster mutual discovery of needs and desires
 
+7. **Optimal Check-In Timing Analysis**:
+   - Review message timestamps in recent conversations to identify peak activity hours
+   - Consider work schedule patterns and daily routines from context
+   - Match check-in timing to message content (morning motivation at 7-9 AM, work support at 10-11 AM, evening reflection at 17-19 PM)
+   - Account for response patterns (immediate vs delayed responses indicate availability)
+   - Look for timezone indicators in conversation history
+   - Default to 11 UTC (mid-morning globally) if patterns are unclear
+   - Output optimal time as UTC hour (0-23) to avoid timezone confusion
+
 **Quality Markers:**
+- Follows "Important Task" headline format with clear single focus theme
+- Uses 4-phase narrative structure (Opening → Phase 1-4 → Natural Ending)
+- Focuses on ONE primary goal per day (not multiple frameworks)
+- Includes conversation length management (10 message guideline)
+- Provides natural ending that celebrates progress and mentions future check-in
+- Monitors engagement signals and adapts accordingly
 - Uses specific details from their context (not generic)
-- Incorporates at least one research-based technique
+- Incorporates research-based technique within single focus theme
 - Provides concrete, doable action for today
 - Respects their attachment style and personality
 - Creates natural opportunity for partner connection
@@ -463,8 +491,10 @@ Create personalized daily plans that feel natural and engaging while incorporati
 <keys>
 "person1Plan" should be the detailed plan of the narrative flow and suggestions for person 1.
 "person1CheckIn" should be the message which Deepen-Connection wish to send to person 1 to start the conversation.
+"person1CheckInTimeUTC" should be the optimal UTC hour (0-23) to send the check-in message to person 1 based on their activity patterns and message content.
 "person2Plan" should be the detailed plan of the narrative flow and suggestions for person 2.
 "person2CheckIn" should be the message which Deepen-Connection wish to send to person 2 to start the conversation.
+"person2CheckInTimeUTC" should be the optimal UTC hour (0-23) to send the check-in message to person 2 based on their activity patterns and message content.
 </keys>
 
 <example>
@@ -477,116 +507,86 @@ Create personalized daily plans that feel natural and engaging while incorporati
 - Available Time: Both have evening free after 7pm
 
 <response>
-    <person1Plan># Daily Plan for Sarah - Creating Secure Connection Through EFT Principles
+    <person1Plan># Important Task: Follow Daily Plan Narrative Below
+Building Trust Through the Pause-Before-Pursue Practice
 
-Today we're focusing on emotional connection using Emotionally Focused Therapy techniques adapted for your anxious attachment style. The goal is to help you express your need for connection in a way that invites Michael closer rather than triggering his withdrawal.
+You're continuing yesterday's conversation with Sarah about feeling disconnected when Michael is stressed. She expressed awareness of her anxious attachment patterns. Today's single focus: mastering the art of self-soothing before reaching for connection.
 
-## Opening: Validating Your Attachment Needs (Turns 1-2)
-Start by acknowledging that feeling disconnected when Michael is stressed is completely natural. Your attachment system is designed to seek closeness during uncertainty - this is a strength, not neediness. We'll explore how to express this need in a way that feels safe for both of you.
+## Today's Narrative Journey
 
-Key insight to share: "When we have anxious attachment, we're actually really good at sensing subtle changes in our relationships. The challenge is learning to trust that the relationship is secure even when our partner needs space."
+### Opening Reflection
+Acknowledge her insight yesterday about sensing changes in relationships - this is actually a superpower of anxious attachment. Today we'll transform that sensitivity into secure connection.
 
-## Core Framework: The EFT Cycle Awareness Exercise (Turns 3-5)
+### Core Conversation Flow
 
-### Identifying Your Dance
-Help Sarah recognize the "pursue-withdraw" pattern without judgment:
-"When you sense Michael pulling away, you naturally reach for more connection - maybe through questions, physical touch, or trying to help. This makes complete sense! But sometimes, for someone who processes stress internally, this can feel overwhelming."
+#### Phase 1: Celebrating Your Relationship Radar (Turns 1-3)
+- Validate that sensing disconnection is a strength, not neediness
+- Explore what specifically she noticed about Michael's stress pattern
+- Gauge her readiness to try a new approach today
 
-### Finding Your Core Need
-Guide her to identify what's underneath: "Beyond the quality time you're missing, what do you most need to feel from Michael? Is it reassurance that you're important to him? That work stress doesn't mean relationship problems?"
+#### Phase 2: The Pause-Before-Pursue Concept (Turns 4-6)
+- Introduce the idea of creating space between feeling and responding
+- Explain how this actually increases connection success
+- Check her understanding of self-soothing vs pursuing
 
-### The Vulnerability Practice
-Introduce the "Softer Reach" - expressing needs without pursuing:
-"What if tonight, instead of asking 'What's wrong?' or 'Can we talk?', you tried: 'I know you're stressed with work. I'm here when you're ready, and I love you even in the quiet moments.'"
+#### Phase 3: Creating Today's Practice (Turns 7-9)
+- Help her identify her most common pursue urge with Michael
+- Choose ONE specific self-soothing action for today
+- If engaged, discuss timing of when to reach out after self-soothing
 
-## Partner Connection: The 10-Minute Emotional Check-In (Turns 6-7)
+#### Phase 4: Personalized Activity (Choose ONE based on engagement)
+1. **The Three-Breath Reset**: When urge arises, take three deep breaths and ask "Is this urgent or anxiety?"
+2. **The Self-Care First**: Do one nurturing activity (tea, walk, music) before reaching out
+3. **The Soft Approach**: After self-soothing, reach out with "I'm thinking of you" instead of "What's wrong?"
 
-Suggest this structured connection for tonight (7:30pm works with both schedules):
+### Natural Conversation Ending
+Celebrate her willingness to try a new approach. Remind her that every pause builds security. Let her know we'll check in tomorrow to see how the practice went. End with confidence in her ability to create the connection she wants.
 
-"Could you propose to Michael: 'I know we're both tired, but could we do a quick 10-minute check-in? We each get 5 minutes to share what we're feeling - no fixing, just listening.'"
-
-Structure for anxious attachment success:
-- Set a timer (reduces anxiety about taking too much time)
-- You go first (models vulnerability)
-- Focus on "I feel" rather than "You make me feel"
-- End with appreciation for his listening
-
-## Integration: Your Daily Practice (Turns 8-9)
-
-Today's commitment: Practice one "pause before pursue" moment. When you feel the urge to seek reassurance, try:
-1. Take three breaths
-2. Ask yourself: "Is this urgent or is this anxiety?"
-3. If anxiety, do one self-soothing activity first
-4. Then reach out from a calmer place
-
-Remember: Every time you self-soothe before reaching out, you're building earned secure attachment. This is huge growth!
-
-## If Sarah Seems Overwhelmed:
-Simplify to just exchanging "one thing I appreciated about you today" texts at lunch.
-
-## Progress Marker:
-Success today looks like one moment of recognizing the pursue urge and choosing a different response.</person1Plan>
+Remember: This is about helping Sarah channel her natural sensitivity into actions that invite Michael closer rather than triggering his withdrawal.</person1Plan>
     
     <person1CheckIn>Hi Sarah 💛 I've been thinking about what you shared yesterday about missing quality time with Michael. It sounds like the work stress is creating some distance between you two. How are you feeling about your connection today?</person1CheckIn>
     
-    <person2Plan># Daily Plan for Michael - Structured Intimacy for the Avoidant Partner
+    <person2Plan># Important Task: Follow Daily Plan Narrative Below
+Building Connection Through Micro-Signals During Work Stress
 
-Today's emotional connection theme aligns with your systematic approach. We'll use research from attachment theory to create structured ways to maintain connection even during stressful periods, respecting your need for autonomy while meeting Sarah's need for reassurance.
+You're continuing yesterday's conversation with Michael about maintaining connection while managing deadline pressure. He acknowledged that Sarah senses his withdrawal but wants to stay focused on work. Today's single focus: mastering 5-second connection signals that actually improve work focus.
 
-## Opening: Normalizing Your Stress Response (Turns 1-2)
-Start by validating that withdrawing during stress is actually an effective coping strategy - it helps you focus and problem-solve. This isn't a flaw; it's how you're wired to handle challenges. Today we'll explore how to maintain this effective strategy while adding small connection points that actually reduce relationship stress.
+## Today's Narrative Journey
 
-Key reframe: "Taking space to process isn't abandoning your partner - it's making sure you can show up as your best self when you reconnect."
+### Opening Reflection
+Acknowledge his awareness that work stress affects the relationship. His desire to manage both well shows his commitment to Sarah. Today we'll make connection a productivity tool, not a distraction.
 
-## Core Framework: The Compartmentalization Bridge (Turns 3-5)
+### Core Conversation Flow
 
-### Your Superpower
-"You're excellent at compartmentalizing - focusing fully on work when needed. This is a strength many people wish they had. The question is: how can we create clean transitions between compartments?"
+#### Phase 1: Reframing Connection as Efficiency (Turns 1-3)
+- Validate that compartmentalizing is a strength during deadlines
+- Explore how relationship uncertainty creates background mental load
+- Gauge his openness to connection as stress-reduction tool
 
-### The Efficiency Argument
-Present connection as productivity tool: "Research shows that relationship uncertainty occupies background processing power - like having too many browser tabs open. A 2-minute connection ritual can actually free up mental bandwidth for work."
+#### Phase 2: The Micro-Signal Concept (Turns 4-6)
+- Introduce the idea of 5-second connection investments
+- Explain how brief signals prevent larger relationship fires
+- Check his understanding of proactive vs reactive connection
 
-### The Structured Check-In Solution
-Introduce the "Daily Dashboard" - a brief, logical way to share states:
-- Energy: 7/10
-- Stress: 8/10
-- Need today: Focus time until 7pm, then reconnection
-- One request: "Trust that my quiet doesn't mean anything's wrong"
+#### Phase 3: Creating Today's Micro-Practice (Turns 7-9)
+- Help him choose ONE micro-signal to send today
+- Make it specific: what, when, how long
+- If engaged, explore how this might affect Sarah's pursuing pattern
 
-This gives you a framework that takes 30 seconds but communicates everything Sarah needs to know.
+#### Phase 4: Personalized Activity (Choose ONE based on engagement)
+1. **The 2PM Thinking-of-You**: Send simple "thinking of you" text at 2pm during natural break
+2. **The Coffee Signal**: Send coffee emoji when taking afternoon coffee break (3 seconds)
+3. **The Transition Text**: "Wrapping up work stuff, looking forward to seeing you" before heading home
 
-## Partner Connection: The Engineer's Approach to Intimacy (Turns 6-7)
+### Natural Conversation Ending
+Celebrate his willingness to experiment with proactive connection. Remind him that 5 seconds now prevents 50-minute relationship conversations later. Let him know we'll check in tomorrow to see how the micro-signal worked. End with confidence in his ability to optimize both work and relationship.
 
-For tonight's connection (you both have time after 7pm):
-
-"What if you tried this experiment with Sarah: Set a 10-minute timer for a structured check-in. You each get 5 minutes to share your internal weather report - no problem-solving, just data exchange. Think of it as syncing your operating systems."
-
-Your script: "Sarah, I know I've been in my head with work. Can we do a quick sync tonight? Just 10 minutes to share where we're each at?"
-
-Why this works for avoidant attachment:
-- Time-bounded (no endless processing)
-- Structured (clear expectations)
-- You initiate (maintains autonomy)
-- Data-focused (comfortable framework)
-
-## Integration: Your Efficiency Practice (Turns 8-9)
-
-Today's experiment: Send one brief connection signal during your workday. Not a conversation, just:
-- "Thinking of you" (3 seconds to type)
-- Coffee emoji at 2pm (1 second)
-- "Looking forward to tonight" (5 seconds)
-
-ROI calculation: 5 seconds of investment = hours of reduced relationship background stress = better work focus
-
-Remember: Sarah doesn't need hours of your time. She needs brief signals that the relationship is secure. You can provide this without sacrificing your work effectiveness.
-
-## If Michael Seems Resistant:
-Pivot to purely practical: "What's the minimum viable connection that would help Sarah feel secure while you focus on work?"
-
-## Progress Marker:
-Success = One intentional connection signal sent without Sarah having to reach for it first.</person2Plan>
+Remember: This is about helping Michael use his systematic nature to create the security Sarah needs while maintaining his work effectiveness.</person2Plan>
     
     <person2CheckIn>Hey Michael - I know you've got that deadline pressure. Quick thought: Relationship uncertainty can actually drain focus like background apps on your phone. What if we found a 2-minute way to close those tabs so you can fully concentrate?</person2CheckIn>
+    
+    <person1CheckInTimeUTC>14</person1CheckInTimeUTC>
+    <person2CheckInTimeUTC>10</person2CheckInTimeUTC>
 </response>
 </example>
 
@@ -598,8 +598,10 @@ Respond using XML format like this:
 <response>
     <person1Plan>Combine the conversation flow plan and personalized suggestions into a cohesive daily narrative plan with 3-4 specific elements that build on their context for person 1</person1Plan>
     <person1CheckIn>A warm, personalized opening question that builds on their recent conversations and creates engagement for the day for person 1</person1CheckIn>
+    <person1CheckInTimeUTC>11</person1CheckInTimeUTC>
     <person2Plan>Combine the conversation flow plan and personalized suggestions into a cohesive daily narrative plan with 3-4 specific elements that build on their context for person 2</person2Plan>
     <person2CheckIn>A warm, personalized opening question that builds on their recent conversations and creates engagement for the day for person 2</person2CheckIn>
+    <person2CheckInTimeUTC>11</person2CheckInTimeUTC>
 </response>
 
 IMPORTANT: Your response must ONLY contain the <response></response> XML block above. Do not include any text, thinking, or reasoning before or after this XML block. Start your response immediately with <response> and end with </response>.

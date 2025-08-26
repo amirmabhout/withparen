@@ -97,14 +97,23 @@ export class DailyPlanningService extends Service {
     // Register the daily check-in task worker
     this.runtime.registerTaskWorker({
       name: 'DAILY_CHECKIN_TASK',
-      validate: async (_runtime, _message, _state) => {
+      validate: async (_runtime, _message, _state, task) => {
         const now = new Date();
         const hour = now.getHours();
         const minute = now.getMinutes();
 
-        // Check if it's the right time (noon with a window)
+        // Get the personalized check-in hour from task metadata, or use default
+        const targetHour = (task?.metadata?.checkInHour as number) ?? this.CHECKIN_HOUR;
+
+        // Check if it's the right time with a window
         const isCheckinTime =
-          hour === this.CHECKIN_HOUR && minute >= 0 && minute <= this.PLANNING_MINUTE_WINDOW;
+          hour === targetHour && minute >= 0 && minute <= this.PLANNING_MINUTE_WINDOW;
+
+        if (isCheckinTime) {
+          logger.debug(
+            `[Deepen-Connection] Check-in time validation: It is check-in time (${targetHour}:00 UTC) for user ${task?.metadata?.userId || 'unknown'}`
+          );
+        }
 
         return isCheckinTime;
       },
@@ -361,12 +370,14 @@ export class DailyPlanningService extends Service {
         await this.scheduleCheckinTasks(
           runtime,
           person1.userId as UUID,
-          planningResult.person1CheckIn
+          planningResult.person1CheckIn,
+          planningResult.person1CheckInTimeUTC
         );
         await this.scheduleCheckinTasks(
           runtime,
           person2.userId as UUID,
-          planningResult.person2CheckIn
+          planningResult.person2CheckIn,
+          planningResult.person2CheckInTimeUTC
         );
 
         logger.info(
@@ -573,8 +584,10 @@ export class DailyPlanningService extends Service {
   private parsePlanningResponse(response: string): {
     person1Plan: string;
     person1CheckIn: string;
+    person1CheckInTimeUTC?: number;
     person2Plan: string;
     person2CheckIn: string;
+    person2CheckInTimeUTC?: number;
   } | null {
     try {
       // Extract content between <response> tags
@@ -591,9 +604,15 @@ export class DailyPlanningService extends Service {
       const person1CheckInMatch = responseContent.match(
         /<person1CheckIn>([\s\S]*?)<\/person1CheckIn>/
       );
+      const person1CheckInTimeMatch = responseContent.match(
+        /<person1CheckInTimeUTC>([\s\S]*?)<\/person1CheckInTimeUTC>/
+      );
       const person2PlanMatch = responseContent.match(/<person2Plan>([\s\S]*?)<\/person2Plan>/);
       const person2CheckInMatch = responseContent.match(
         /<person2CheckIn>([\s\S]*?)<\/person2CheckIn>/
+      );
+      const person2CheckInTimeMatch = responseContent.match(
+        /<person2CheckInTimeUTC>([\s\S]*?)<\/person2CheckInTimeUTC>/
       );
 
       if (!person1PlanMatch || !person1CheckInMatch || !person2PlanMatch || !person2CheckInMatch) {
@@ -601,11 +620,35 @@ export class DailyPlanningService extends Service {
         return null;
       }
 
+      // Parse check-in times (optional fields with validation)
+      let person1CheckInTimeUTC: number | undefined;
+      let person2CheckInTimeUTC: number | undefined;
+
+      if (person1CheckInTimeMatch) {
+        const time = parseInt(person1CheckInTimeMatch[1].trim());
+        if (!isNaN(time) && time >= 0 && time <= 23) {
+          person1CheckInTimeUTC = time;
+        } else {
+          logger.warn(`[Deepen-Connection] Invalid person1 check-in time: ${person1CheckInTimeMatch[1].trim()}, using default`);
+        }
+      }
+
+      if (person2CheckInTimeMatch) {
+        const time = parseInt(person2CheckInTimeMatch[1].trim());
+        if (!isNaN(time) && time >= 0 && time <= 23) {
+          person2CheckInTimeUTC = time;
+        } else {
+          logger.warn(`[Deepen-Connection] Invalid person2 check-in time: ${person2CheckInTimeMatch[1].trim()}, using default`);
+        }
+      }
+
       return {
         person1Plan: person1PlanMatch[1].trim(),
         person1CheckIn: person1CheckInMatch[1].trim(),
+        person1CheckInTimeUTC,
         person2Plan: person2PlanMatch[1].trim(),
         person2CheckIn: person2CheckInMatch[1].trim(),
+        person2CheckInTimeUTC,
       };
     } catch (error: unknown) {
       logger.error(
@@ -618,7 +661,7 @@ export class DailyPlanningService extends Service {
   /**
    * Schedule check-in tasks for a user
    */
-  private async scheduleCheckinTasks(runtime: IAgentRuntime, userId: UUID, checkInMessage: string) {
+  private async scheduleCheckinTasks(runtime: IAgentRuntime, userId: UUID, checkInMessage: string, checkInHour?: number) {
     try {
       // Get the first available world ID for task creation
       let worldId: UUID;
@@ -636,17 +679,18 @@ export class DailyPlanningService extends Service {
 
       await runtime.createTask({
         name: 'DAILY_CHECKIN_TASK',
-        description: `Daily check-in task for user ${userId}`,
+        description: `Daily check-in task for user ${userId}${checkInHour !== undefined ? ` at ${checkInHour}:00 UTC` : ''}`,
         worldId: worldId,
         metadata: {
           updatedAt: Date.now(),
           userId: userId,
           checkInMessage: checkInMessage,
+          checkInHour: checkInHour, // Store the personalized check-in hour
         },
         tags: ['queue', 'daily-checkin-individual'],
       });
 
-      logger.debug(`[Deepen-Connection] Scheduled check-in task for user: ${userId}`);
+      logger.debug(`[Deepen-Connection] Scheduled check-in task for user: ${userId}${checkInHour !== undefined ? ` at ${checkInHour}:00 UTC` : ' (default time)'}`);
     } catch (error: unknown) {
       logger.error(
         `[Deepen-Connection] Failed to schedule check-in task for user ${userId}: ${error instanceof Error ? error.message : String(error)}`
