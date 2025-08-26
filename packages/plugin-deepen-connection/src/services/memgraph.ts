@@ -579,4 +579,30 @@ export class MemgraphService {
     const result = await this.runQuery(query, { userId, updatedAt });
     return result.records.length; // number of rows processed equals number of duplicates removed
   }
+
+  /**
+   * Get all Person nodes that participate in a specific HumanConnection
+   */
+  async getConnectionParticipants(humanConnection: HumanConnectionNode): Promise<PersonNode[]> {
+    const byConnectionId = humanConnection.connectionId
+      ? `MATCH (hc:HumanConnection {connectionId: $connectionId})`
+      : `MATCH (hc:HumanConnection {secret: $secret, partners: $partners})`;
+
+    const query = `
+      ${byConnectionId}
+      MATCH (p:Person)-[:PARTICIPATES_IN]->(hc)
+      RETURN p
+    `;
+
+    const result = await this.runQuery(query, {
+      connectionId: humanConnection.connectionId || null,
+      secret: humanConnection.secret,
+      partners: humanConnection.partners,
+    });
+
+    return result.records.map((record: any) => {
+      const personNode = record.get('p');
+      return personNode.properties as PersonNode;
+    });
+  }
 }

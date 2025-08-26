@@ -629,7 +629,9 @@ export class DailyPlanningService extends Service {
         if (!isNaN(time) && time >= 0 && time <= 23) {
           person1CheckInTimeUTC = time;
         } else {
-          logger.warn(`[Deepen-Connection] Invalid person1 check-in time: ${person1CheckInTimeMatch[1].trim()}, using default`);
+          logger.warn(
+            `[Deepen-Connection] Invalid person1 check-in time: ${person1CheckInTimeMatch[1].trim()}, using default`
+          );
         }
       }
 
@@ -638,7 +640,9 @@ export class DailyPlanningService extends Service {
         if (!isNaN(time) && time >= 0 && time <= 23) {
           person2CheckInTimeUTC = time;
         } else {
-          logger.warn(`[Deepen-Connection] Invalid person2 check-in time: ${person2CheckInTimeMatch[1].trim()}, using default`);
+          logger.warn(
+            `[Deepen-Connection] Invalid person2 check-in time: ${person2CheckInTimeMatch[1].trim()}, using default`
+          );
         }
       }
 
@@ -661,7 +665,12 @@ export class DailyPlanningService extends Service {
   /**
    * Schedule check-in tasks for a user
    */
-  private async scheduleCheckinTasks(runtime: IAgentRuntime, userId: UUID, checkInMessage: string, checkInHour?: number) {
+  private async scheduleCheckinTasks(
+    runtime: IAgentRuntime,
+    userId: UUID,
+    checkInMessage: string,
+    checkInHour?: number
+  ) {
     try {
       // Get the first available world ID for task creation
       let worldId: UUID;
@@ -690,7 +699,9 @@ export class DailyPlanningService extends Service {
         tags: ['queue', 'daily-checkin-individual'],
       });
 
-      logger.debug(`[Deepen-Connection] Scheduled check-in task for user: ${userId}${checkInHour !== undefined ? ` at ${checkInHour}:00 UTC` : ' (default time)'}`);
+      logger.debug(
+        `[Deepen-Connection] Scheduled check-in task for user: ${userId}${checkInHour !== undefined ? ` at ${checkInHour}:00 UTC` : ' (default time)'}`
+      );
     } catch (error: unknown) {
       logger.error(
         `[Deepen-Connection] Failed to schedule check-in task for user ${userId}: ${error instanceof Error ? error.message : String(error)}`

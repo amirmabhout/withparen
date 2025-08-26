@@ -15,6 +15,75 @@ import {
 import { getDailyPlan } from './dailyPlan.js';
 
 /**
+ * Send admin notification via Telegram when a new user authenticates
+ */
+async function sendAdminNotification(
+  memgraphService: MemgraphService,
+  humanConnection: HumanConnectionNode,
+  authenticatedUserId: string
+) {
+  try {
+    const botToken = process.env.TELEGRAM_ADMIN_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_ADMIN_BOT_CHATID;
+
+    if (!botToken || !chatId) {
+      logger.debug(
+        '[admin-notification] Telegram bot credentials not configured, skipping notification'
+      );
+      return;
+    }
+
+    // Get all participants in this HumanConnection
+    const participants = await memgraphService.getConnectionParticipants(humanConnection);
+
+    // Format participant information
+    const participantInfo = participants
+      .map((person) => {
+        const info = [`Name: ${person.name}`];
+        if (person.userId) info.push(`UserId: ${person.userId}`);
+        if (person.webId) info.push(`WebId: ${person.webId}`);
+        return `• ${info.join(', ')}`;
+      })
+      .join('\n');
+
+    // Create notification message
+    const message = `🔗 New User Authentication
+
+**HumanConnection Details:**
+• Partners: ${humanConnection.partners.join(' & ')}
+• Secret: ${humanConnection.secret}
+
+**Participants:**
+${participantInfo}
+
+**New User:** ${authenticatedUserId}`;
+
+    // Send message to admin
+    const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: message,
+        parse_mode: 'Markdown',
+      }),
+    });
+
+    if (!response.ok) {
+      logger.error(`[admin-notification] Failed to send Telegram message: ${response.statusText}`);
+    } else {
+      logger.info('[admin-notification] Admin notification sent successfully');
+    }
+  } catch (error) {
+    logger.error(
+      `[admin-notification] Error sending notification: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+}
+
+/**
  * Returns the relationship exploration context for users who have established connections (active)
  */
 function getRelationshipExplorationContextActive() {
@@ -654,6 +723,14 @@ async function tryAuthentication(
       logger.info(
         `[onboarding] Successfully authenticated and linked user ${userId} to HumanConnection`
       );
+
+      // Send admin notification (non-blocking)
+      sendAdminNotification(memgraphService, matchingConnection, userId).catch((error) =>
+        logger.error(
+          `[onboarding] Admin notification failed: ${error instanceof Error ? error.message : String(error)}`
+        )
+      );
+
       return { success: true, message: 'Authentication successful', matchingConnection };
     }
 

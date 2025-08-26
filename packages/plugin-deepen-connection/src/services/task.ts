@@ -135,7 +135,9 @@ export class TaskService extends Service {
             `[Deepen-Connection] Daily check-in completed: ${successCount} successful, ${errorCount} failed`
           );
         } catch (error) {
-          logger.error(`[Deepen-Connection] Error in daily check-in task execution: ${error instanceof Error ? error.message : String(error)}`);
+          logger.error(
+            `[Deepen-Connection] Error in daily check-in task execution: ${error instanceof Error ? error.message : String(error)}`
+          );
         }
       },
     });
@@ -236,7 +238,9 @@ export class TaskService extends Service {
       try {
         await this.checkTasks();
       } catch (error) {
-        logger.error(`[Bootstrap] Error checking tasks: ${error instanceof Error ? error.message : String(error)}`);
+        logger.error(
+          `[Bootstrap] Error checking tasks: ${error instanceof Error ? error.message : String(error)}`
+        );
       }
     }, this.TICK_INTERVAL) as unknown as NodeJS.Timeout;
   }
@@ -274,7 +278,9 @@ export class TaskService extends Service {
             continue;
           }
         } catch (error) {
-          logger.error(`[Bootstrap] Error validating task ${task.name}: ${error instanceof Error ? error.message : String(error)}`);
+          logger.error(
+            `[Bootstrap] Error validating task ${task.name}: ${error instanceof Error ? error.message : String(error)}`
+          );
           continue;
         }
       }
@@ -351,7 +357,9 @@ export class TaskService extends Service {
         }
       }
     } catch (error) {
-      logger.error(`[Bootstrap] Error checking tasks: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error(
+        `[Bootstrap] Error checking tasks: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -400,7 +408,9 @@ export class TaskService extends Service {
         );
       }
     } catch (error) {
-      logger.error(`[Bootstrap] Error executing task ${task.id}: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error(
+        `[Bootstrap] Error executing task ${task.id}: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
