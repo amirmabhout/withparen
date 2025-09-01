@@ -1,6 +1,6 @@
 # Eliza
 
-A framework for multi-agent development and deployment
+A framework for multi-agent development and deployment.
 
 ## ✨ Features
 
