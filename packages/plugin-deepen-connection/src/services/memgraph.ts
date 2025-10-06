@@ -224,6 +224,147 @@ export class MemgraphService {
   }
 
   /**
+   * Create a HumanConnection node with waitlist status
+   */
+  async createHumanConnectionWithWaitlist(
+    connectionId: string,
+    username?: string,
+    partnername?: string,
+    secret?: string
+  ): Promise<HumanConnectionNode> {
+    const now = new Date().toISOString();
+
+    // Build partners array from available names
+    const partners: string[] = [];
+    if (username) partners.push(username);
+    if (partnername) partners.push(partnername);
+
+    const query = `
+      CREATE (hc:HumanConnection {
+        connectionId: $connectionId,
+        partners: $partners,
+        secret: $secret,
+        status: "waitlist",
+        createdAt: $now,
+        updatedAt: $now
+      })
+      RETURN hc
+    `;
+
+    const result = await this.runQuery(query, {
+      connectionId,
+      partners,
+      secret: secret || '',
+      now,
+    });
+
+    const connectionNode = result.records[0].get('hc');
+    return connectionNode.properties as HumanConnectionNode;
+  }
+
+  /**
+   * Update an existing HumanConnection with new information
+   */
+  async updateHumanConnection(
+    connectionId: string,
+    updates: { username?: string; partnername?: string; secret?: string }
+  ): Promise<HumanConnectionNode> {
+    const updatedAt = new Date().toISOString();
+
+    // Build partners array from current and new values
+    const existingConnection = await this.findConnectionByConnectionId(connectionId);
+    const partners = existingConnection?.partners || [];
+
+    // Update partners array
+    if (updates.username && partners.length > 0) {
+      partners[0] = updates.username;
+    } else if (updates.username) {
+      partners.push(updates.username);
+    }
+
+    if (updates.partnername && partners.length > 1) {
+      partners[1] = updates.partnername;
+    } else if (updates.partnername) {
+      partners.push(updates.partnername);
+    }
+
+    const query = `
+      MATCH (hc:HumanConnection {connectionId: $connectionId})
+      SET hc.partners = $partners,
+          hc.secret = COALESCE($secret, hc.secret),
+          hc.updatedAt = $updatedAt
+      RETURN hc
+    `;
+
+    const result = await this.runQuery(query, {
+      connectionId,
+      partners,
+      secret: updates.secret || null,
+      updatedAt,
+    });
+
+    if (result.records.length === 0) {
+      throw new Error(`HumanConnection with connectionId ${connectionId} not found`);
+    }
+
+    const connectionNode = result.records[0].get('hc');
+    return connectionNode.properties as HumanConnectionNode;
+  }
+
+  /**
+   * Find a HumanConnection by its connectionId
+   */
+  async findConnectionByConnectionId(connectionId: string): Promise<HumanConnectionNode | null> {
+    const query = `
+      MATCH (hc:HumanConnection {connectionId: $connectionId})
+      RETURN hc
+    `;
+
+    const result = await this.runQuery(query, { connectionId });
+
+    if (result.records.length === 0) {
+      return null;
+    }
+
+    const connectionNode = result.records[0].get('hc');
+    return connectionNode.properties as HumanConnectionNode;
+  }
+
+  /**
+   * Find an existing HumanConnection with matching partner names and secret
+   */
+  async findExistingHumanConnection(
+    username: string,
+    partnername: string,
+    secret: string
+  ): Promise<HumanConnectionNode | null> {
+    // Try both orderings of partners
+    const query = `
+      MATCH (hc:HumanConnection)
+      WHERE hc.secret = $secret
+        AND (
+          (hc.partners[0] = $username AND hc.partners[1] = $partnername) OR
+          (hc.partners[0] = $partnername AND hc.partners[1] = $username)
+        )
+      RETURN hc
+      LIMIT 1
+    `;
+
+    const result = await this.runQuery(query, {
+      username,
+      partnername,
+      secret,
+    });
+
+    if (result.records.length === 0) {
+      return null;
+    }
+
+    const connectionNode = result.records[0].get('hc');
+    return connectionNode.properties as HumanConnectionNode;
+  }
+
+  /**
    * Update Person's name
    */
   async updatePersonName(userId: string, name: string): Promise<PersonNode> {

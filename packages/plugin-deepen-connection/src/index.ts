@@ -1473,6 +1473,7 @@ export const deepenConnectionPlugin: Plugin = {
   name: 'deepen-connection',
   description: 'Agent deepen-connection with connection deepening functionality',
   actions: [
+    actions.createConnectionAction,
     actions.noneAction,
     actions.dailyPlanningAction,
     // ...(process.env.ALLOW_TEST_ACTIONS === 'true'

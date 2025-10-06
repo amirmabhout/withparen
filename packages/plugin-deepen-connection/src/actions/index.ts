@@ -1,5 +1,6 @@
 //export { generateImageAction } from './imageGeneration';
 //export { choiceAction } from './choice';
+export { createConnectionAction } from './createConnection';
 export { dailyPlanningAction } from './dailyCheckin';
 //export { followRoomAction } from './followRoom';
 //export { ignoreAction } from './ignore';

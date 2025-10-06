@@ -3,6 +3,153 @@
  * Copied from @elizaos/core to allow for customization
  */
 
+export const connectionCreationNarrativeTemplate = `<task>Determine if the user is ready to provide connection details, or if we need to continue exploring their relationship narrative.</task>
+
+<context>
+You are having a warm conversation with someone who wants to create a connection with someone special in their life through Deepen-Connection. You're currently in the process of understanding their relationship before collecting the practical details (names and secret).
+
+Recent conversation messages:
+{{recentMessages}}
+</context>
+
+<instructions>
+Analyze the conversation to determine which phase we're in:
+
+**Phase: exploration** - User has just started, hasn't shared much about the relationship yet
+- Continue asking about what makes this relationship special
+- Explore what they hope to deepen
+- Example questions: "What makes your connection with them meaningful to you?", "What do you most appreciate about your time together?"
+
+**Phase: understanding** - User has shared some relationship context, but we haven't transitioned to practical details
+- Acknowledge what they've shared
+- Ask one more deepening question about the relationship
+- Example: "That's beautiful. What brought you two together in the first place?"
+
+**Phase: ready_for_details** - User has shared meaningful context about the relationship and seems ready for practical setup
+- Recognize indicators: they've mentioned specific names, they're asking "what's next", they've given substantial relationship information
+- Time to transition to gathering names and secret
+- Example transition: "I can hear how much this person means to you. Let's get you set up so you can start deepening this connection..."
+
+Determine which phase we're in and generate an appropriate response.
+</instructions>
+
+<output>
+Do NOT include any thinking, reasoning, or explanations in your response.
+Go directly to the XML response format without any preamble.
+
+Respond using XML format like this:
+<response>
+    <phase>exploration, understanding, or ready_for_details</phase>
+    <thought>Brief internal note about what you observe in the conversation</thought>
+    <message>Your warm, engaging response that continues the narrative or transitions to details</message>
+</response>
+
+IMPORTANT: Only extract information that is clearly stated. Your response must ONLY contain the <response></response> XML block above.
+</output>`;
+
+export const connectionExtractionTemplate = `<task>Extract connection information from user messages for creating a new Deepen-Connection human connection.</task>
+
+<context>
+The user wants to create a new human connection. You need to extract key pieces of information from their recent messages.
+
+1. Their own first name (lowercase)
+2. The first name of their special person/partner (lowercase)
+3. The shared secret word, phrase, or sentence they want to use
+4. Any insights about what they want to deepen in the relationship (optional)
+
+Recent conversation messages (oldest to newest):
+{{recentMessages}}
+</context>
+
+<instructions>
+Analyze the recent messages and extract the connection information. Look for:
+
+- **User's name**: Their first name, often mentioned when they introduce themselves
+- **Partner's name**: The first name of the person they want to connect with
+- **Secret**: A word, phrase, or sentence that only they and their partner would know
+- **Relationship insight**: What they shared about wanting to deepen (appreciation, communication, quality time, etc.)
+
+Be careful to:
+- Only extract clear, explicit information
+- Convert names to lowercase, first name only
+- Don't guess or infer if information isn't clearly stated
+- The secret should be something meaningful they explicitly provided
+</instructions>
+
+<output>
+Do NOT include any thinking, reasoning, or explanations in your response.
+Go directly to the XML response format without any preamble.
+
+Respond using XML format like this:
+<response>
+    <username>extracted user first name in lowercase or leave empty if not found</username>
+    <partnername>extracted partner first name in lowercase or leave empty if not found</partnername>
+    <secret>extracted secret word/phrase exactly as stated or leave empty if not found</secret>
+    <relationshipInsight>what they want to deepen in the relationship or leave empty if not mentioned</relationshipInsight>
+    <confidence>high/medium/low based on clarity of extraction</confidence>
+    <missing>comma-separated list of missing information if any</missing>
+</response>
+
+IMPORTANT: Only extract information that is clearly stated. Do not guess or infer. Your response must ONLY contain the <response></response> XML block above.
+</output>`;
+
+export const connectionResponseTemplate = `<task>Generate a response for the connection creation process based on the current state of information.</task>
+
+<context>
+The user is creating a human connection through Deepen-Connection. Based on what information we have and what's missing, generate an appropriate response.
+
+Current information:
+- Username: {{username}}
+- Partner name: {{partnername}}
+- Secret: {{secret}}
+- Missing information: {{missingInfo}}
+- Connection exists: {{connectionExists}}
+- Connection created: {{connectionCreated}}
+- Current phase: {{phase}}
+- Relationship insight: {{relationshipInsight}}
+</context>
+
+<instructions>
+Generate a response based on the current state:
+
+**If phase is "gathering" (missing information):**
+- Acknowledge what they've shared so far
+- Warmly ask for the next piece of missing information
+- Keep the tone encouraging and supportive
+- Don't overwhelm with multiple questions at once
+
+**If phase is "complete" (connection successfully created):**
+- Celebrate the connection creation
+- Mention that their partner can now join using the shared secret
+- Explain that they're on a waitlist (if applicable) and what happens next
+- Invite them to start exploring their relationship right away
+- Transition naturally into relationship exploration
+
+**If connectionExists is "true" (duplicate found):**
+- Gently explain that a connection with those details already exists
+- Ask if they might be trying to join an existing connection instead
+- Offer to help them with authentication
+
+Keep responses:
+- Warm and personal
+- Specific to their relationship context
+- Clear about next steps
+- Encouraging and supportive
+</instructions>
+
+<output>
+Do NOT include any thinking, reasoning, or explanations in your response.
+Go directly to the XML response format without any preamble.
+
+Respond using XML format like this:
+<response>
+    <thought>Brief internal note about the current state</thought>
+    <message>Your warm, personalized response to the user</message>
+</response>
+
+IMPORTANT: Your response must ONLY contain the <response></response> XML block above.
+</output>`;
+
 export const authenticationExtractionTemplate = `<task>Extract authentication information from user messages for Deepen-Connection human connection verification.</task>
 
 <context>
