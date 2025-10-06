@@ -1,7 +1,5 @@
-import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { logger } from '@elizaos/core';
 
 /**
@@ -62,7 +60,14 @@ function getLocalCliPath(): string | null {
  * Similar to server-manager.ts environment setup
  */
 function setupLocalEnvironment(): Record<string, string> {
-  const env = { ...process.env };
+  const env: Record<string, string> = {};
+
+  // Filter out undefined values from process.env
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== undefined) {
+      env[key] = value;
+    }
+  }
 
   // Add local node_modules to NODE_PATH for proper module resolution
   const localModulesPath = path.join(process.cwd(), 'node_modules');
@@ -96,51 +101,59 @@ function setupLocalEnvironment(): Record<string, string> {
  * @returns Promise that resolves when the local CLI process exits
  */
 async function delegateToLocalCli(localCliPath: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    logger.info('Using local @elizaos/cli installation');
+  logger.info('Using local @elizaos/cli installation');
 
-    const nodeExecutable = process.execPath;
-    const args = process.argv.slice(2); // Get all arguments after 'node script.js'
-    const env = setupLocalEnvironment();
+  const nodeExecutable = process.execPath;
+  const args = process.argv.slice(2); // Get all arguments after 'node script.js'
+  const env = setupLocalEnvironment();
 
-    // Spawn the local CLI process
-    const childProcess = spawn(nodeExecutable, [localCliPath, ...args], {
-      stdio: 'inherit', // Inherit stdio to maintain interactive behavior
-      env,
-      cwd: process.cwd(),
-    });
-
-    // Handle process completion
-    childProcess.on('exit', (code, signal) => {
-      if (code !== null) {
-        // Exit with the same code as the child process
-        process.exit(code);
-      } else if (signal) {
-        // If killed by signal, exit with appropriate code
-        const exitCode = signal === 'SIGINT' ? 130 : signal === 'SIGTERM' ? 143 : 1;
-        process.exit(exitCode);
-      }
-      resolve();
-    });
-
-    // Handle process errors
-    childProcess.on('error', (error) => {
-      logger.error({ message: error.message }, `Failed to start local CLI:`);
-      reject(error);
-    });
-
-    // Handle process signals to forward them to the child
-    const forwardSignal = (signal: NodeJS.Signals) => {
-      process.on(signal, () => {
-        if (childProcess.killed === false) {
-          childProcess.kill(signal);
-        }
-      });
-    };
-
-    forwardSignal('SIGINT');
-    forwardSignal('SIGTERM');
+  // Spawn the local CLI process using Bun.spawn
+  const childProcess = Bun.spawn([nodeExecutable, localCliPath, ...args], {
+    stdin: 'inherit',
+    stdout: 'inherit',
+    stderr: 'inherit',
+    env,
+    cwd: process.cwd(),
   });
+
+  // Handle process signals to forward them to the child
+  const forwardSignal = (signal: NodeJS.Signals) => {
+    const handler = () => {
+      // Bun's kill is idempotent - safe to call even if process already exited
+      childProcess.kill(signal);
+    };
+    // Use 'once' to avoid accumulating handlers across invocations
+    process.once(signal, handler);
+  };
+
+  forwardSignal('SIGINT');
+  forwardSignal('SIGTERM');
+
+  // Handle process completion using Bun's API
+  try {
+    const exitCode = await childProcess.exited;
+
+    // Check if process was terminated by signal
+    if (childProcess.signalCode) {
+      // Map signals to standard exit codes
+      const signalExitCode =
+        childProcess.signalCode === 'SIGINT'
+          ? 130
+          : childProcess.signalCode === 'SIGTERM'
+            ? 143
+            : 128; // Default for other signals
+      process.exit(signalExitCode);
+    } else {
+      // Exit with the same code as the child process
+      process.exit(exitCode);
+    }
+  } catch (error) {
+    logger.error(
+      `Failed to start local CLI:`,
+      error instanceof Error ? error.message : String(error)
+    );
+    throw error;
+  }
 }
 
 /**
@@ -239,7 +252,10 @@ export async function tryDelegateToLocalCli(): Promise<boolean> {
     await delegateToLocalCli(localCliPath);
     return true;
   } catch (error) {
-    logger.error('Error during local CLI delegation:', error);
+    logger.error(
+      'Error during local CLI delegation:',
+      error instanceof Error ? error.message : String(error)
+    );
     logger.info('Falling back to global CLI installation');
     return false;
   }

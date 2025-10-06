@@ -1,4 +1,4 @@
-import type { IAgentRuntime, UUID, Log } from '@elizaos/core';
+import type { ElizaOS, UUID, Log } from '@elizaos/core';
 import { validateUuid, logger } from '@elizaos/core';
 import express from 'express';
 import { sendError, sendSuccess } from '../shared/response-utils';
@@ -6,7 +6,7 @@ import { sendError, sendSuccess } from '../shared/response-utils';
 /**
  * Agent logs management
  */
-export function createAgentLogsRouter(agents: Map<UUID, IAgentRuntime>): express.Router {
+export function createAgentLogsRouter(elizaOS: ElizaOS): express.Router {
   const router = express.Router();
 
   // Get Agent Logs
@@ -17,7 +17,7 @@ export function createAgentLogsRouter(agents: Map<UUID, IAgentRuntime>): express
       return sendError(res, 400, 'INVALID_ID', 'Invalid agent ID format');
     }
 
-    const runtime = agents.get(agentId);
+    const runtime = elizaOS.getAgent(agentId);
     if (!runtime) {
       return sendError(res, 404, 'NOT_FOUND', 'Agent not found');
     }
@@ -70,7 +70,10 @@ export function createAgentLogsRouter(agents: Map<UUID, IAgentRuntime>): express
 
       sendSuccess(res, filteredLogs);
     } catch (error) {
-      logger.error(`[AGENT LOGS] Error retrieving logs for agent ${agentId}:`, error);
+      logger.error(
+        `[AGENT LOGS] Error retrieving logs for agent ${agentId}:`,
+        error instanceof Error ? error.message : String(error)
+      );
       sendError(
         res,
         500,
@@ -89,7 +92,7 @@ export function createAgentLogsRouter(agents: Map<UUID, IAgentRuntime>): express
       return sendError(res, 400, 'INVALID_ID', 'Invalid agent or log ID format');
     }
 
-    const runtime = agents.get(agentId);
+    const runtime = elizaOS.getAgent(agentId);
     if (!runtime) {
       return sendError(res, 404, 'NOT_FOUND', 'Agent not found');
     }
@@ -98,7 +101,10 @@ export function createAgentLogsRouter(agents: Map<UUID, IAgentRuntime>): express
       await runtime.deleteLog(logId);
       res.status(204).send();
     } catch (error) {
-      logger.error(`[LOG DELETE] Error deleting log ${logId} for agent ${agentId}:`, error);
+      logger.error(
+        `[LOG DELETE] Error deleting log ${logId} for agent ${agentId}:`,
+        error instanceof Error ? error.message : String(error)
+      );
       sendError(
         res,
         500,

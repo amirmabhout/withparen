@@ -5,6 +5,10 @@ import {
   logger,
   type UUID,
   parseBooleanFromText,
+  getDatabaseDir,
+  getGeneratedDir,
+  getUploadsAgentsDir,
+  ElizaOS,
 } from '@elizaos/core';
 import cors from 'cors';
 import express, { Request, Response } from 'express';
@@ -19,12 +23,12 @@ import { createApiRouter, createPluginRouteHandler, setupSocketIO } from './api/
 import { apiKeyAuthMiddleware } from './authMiddleware.js';
 import { messageBusConnectorPlugin } from './services/message.js';
 import { loadCharacterTryPath, jsonToCharacter } from './loader.js';
+import * as Sentry from '@sentry/node';
+import sqlPlugin, { createDatabaseAdapter, DatabaseMigrationService } from '@elizaos/plugin-sql';
+import { PluginLoader } from './managers/PluginLoader.js';
+import { ConfigManager } from './managers/ConfigManager.js';
+import { encryptedCharacter, stringToUuid, type Plugin } from '@elizaos/core';
 
-import {
-  createDatabaseAdapter,
-  DatabaseMigrationService,
-  plugin as sqlPlugin,
-} from '@elizaos/plugin-sql';
 import internalMessageBus from './bus.js';
 import type {
   CentralRootMessage,
@@ -70,21 +74,25 @@ export function resolvePgliteDir(dir?: string, fallbackDir?: string): string {
     dotenv.config({ path: envPath });
   }
 
-  const base =
-    dir ??
-    process.env.PGLITE_DATA_DIR ??
-    fallbackDir ??
-    path.join(process.cwd(), '.eliza', '.elizadb');
-
-  // Automatically migrate legacy path (<cwd>/.elizadb) to new location (<cwd>/.eliza/.elizadb)
-  const resolved = expandTildePath(base);
-  const legacyPath = path.join(process.cwd(), '.elizadb');
-  if (resolved === legacyPath) {
-    const newPath = path.join(process.cwd(), '.eliza', '.elizadb');
-    process.env.PGLITE_DATA_DIR = newPath;
-    return newPath;
+  // If explicit dir provided, use it
+  if (dir) {
+    const resolved = expandTildePath(dir);
+    process.env.PGLITE_DATA_DIR = resolved;
+    return resolved;
   }
 
+  // If fallbackDir provided, use it as fallback
+  if (fallbackDir && !process.env.PGLITE_DATA_DIR && !process.env.ELIZA_DATABASE_DIR) {
+    const resolved = expandTildePath(fallbackDir);
+    process.env.PGLITE_DATA_DIR = resolved;
+    return resolved;
+  }
+
+  // Use the centralized path configuration from core
+  const resolved = getDatabaseDir();
+
+  // Persist chosen root for the process so child modules see it (backward compat)
+  process.env.PGLITE_DATA_DIR = resolved;
   return resolved;
 }
 
@@ -144,19 +152,188 @@ export function isWebUIEnabled(): boolean {
  */
 export class AgentServer {
   public app!: express.Application;
-  private agents: Map<UUID, IAgentRuntime>;
   public server!: http.Server;
   public socketIO!: SocketIOServer;
   public isInitialized: boolean = false; // Flag to prevent double initialization
   private isWebUIEnabled: boolean = true; // Default to enabled until initialized
   private clientPath?: string; // Optional path to client dist files
+  public elizaOS?: ElizaOS; // Core ElizaOS instance (public for direct access)
+  private pluginLoader?: PluginLoader; // Plugin loading and resolution
+  private configManager?: ConfigManager; // Configuration management
 
   public database!: DatabaseAdapter;
 
-  public startAgent!: (character: Character) => Promise<IAgentRuntime>;
-  public stopAgent!: (runtime: IAgentRuntime) => void;
   public loadCharacterTryPath!: (characterPath: string) => Promise<Character>;
   public jsonToCharacter!: (character: unknown) => Promise<Character>;
+
+  /**
+   * Start multiple agents in batch (true parallel)
+   * @param characters - Array of character configurations
+   * @param plugins - Optional plugins to load
+   * @returns Array of started agent runtimes
+   */
+  public async startAgents(
+    characters: Character[],
+    plugins: (Plugin | string)[] = []
+  ): Promise<IAgentRuntime[]> {
+    if (!this.elizaOS || !this.pluginLoader || !this.configManager) {
+      throw new Error('Server not properly initialized');
+    }
+
+    // Prepare all characters in parallel
+    const preparations = await Promise.all(
+      characters.map(async (character) => {
+        character.id ??= stringToUuid(character.name);
+
+        // Handle secrets for character configuration
+        if (!this.configManager?.hasCharacterSecrets(character)) {
+          await this.configManager?.setDefaultSecretsFromEnv(character);
+        }
+
+        // Load and resolve plugins
+        const loadedPlugins = new Map<string, Plugin>();
+        const pluginsToLoad = new Set<string>(character.plugins || []);
+
+        for (const p of plugins) {
+          if (typeof p === 'string') {
+            pluginsToLoad.add(p);
+          } else if (this.pluginLoader?.isValidPluginShape(p) && !loadedPlugins.has(p.name)) {
+            loadedPlugins.set(p.name, p);
+            (p.dependencies || []).forEach((dep) => {
+              pluginsToLoad.add(dep);
+            });
+          }
+        }
+
+        // Load all requested plugins
+        const allAvailablePlugins = new Map<string, Plugin>();
+        for (const p of loadedPlugins.values()) {
+          allAvailablePlugins.set(p.name, p);
+        }
+        for (const name of pluginsToLoad) {
+          if (!allAvailablePlugins.has(name)) {
+            const loaded = await this.pluginLoader?.loadAndPreparePlugin(name);
+            if (loaded) {
+              allAvailablePlugins.set(loaded.name, loaded);
+            }
+          }
+        }
+
+        // Check if we have a SQL plugin
+        let haveSql = false;
+        for (const [name] of allAvailablePlugins.entries()) {
+          if (name === sqlPlugin.name || name === 'mysql') {
+            haveSql = true;
+            break;
+          }
+        }
+
+        // Each agent will get its own adapter instance from the plugin's init
+        if (!haveSql) {
+          allAvailablePlugins.set(sqlPlugin.name, sqlPlugin as unknown as Plugin);
+        }
+
+        // Always include the message bus connector plugin for server agents
+        allAvailablePlugins.set(
+          messageBusConnectorPlugin.name,
+          messageBusConnectorPlugin as unknown as Plugin
+        );
+
+        // Resolve dependencies and get final plugin list
+        const finalPlugins = this.pluginLoader?.resolvePluginDependencies(
+          allAvailablePlugins,
+          false // isTestMode
+        );
+
+        // Prepare the character with encrypted data
+        const preparedCharacter = encryptedCharacter(character);
+
+        return { character: preparedCharacter, plugins: finalPlugins };
+      })
+    );
+
+    const settings = await this.configManager?.loadEnvConfig();
+
+    const agentIds = await this.elizaOS.addAgents(
+      preparations.map((p) => ({
+        character: p.character,
+        plugins: p.plugins,
+        settings: settings || {},
+      }))
+    );
+
+    // Step 2: Start all agents (initialize them)
+    await this.elizaOS.startAgents(agentIds);
+
+    // Step 3: Collect started runtimes and register them
+    const runtimes: IAgentRuntime[] = [];
+
+    for (const id of agentIds) {
+      const runtime = this.elizaOS.getAgent(id);
+      if (runtime) {
+        // Register the agent in the server
+        await this.registerAgent(runtime);
+
+        // Persist to database
+        if (this.database) {
+          try {
+            const existingAgent = await this.database.getAgent(runtime.agentId);
+            if (!existingAgent) {
+              await this.database.createAgent({
+                ...runtime.character,
+                id: runtime.agentId,
+              });
+              logger.info(
+                `Persisted agent ${runtime.character.name} (${runtime.agentId}) to database`
+              );
+            }
+          } catch (error) {
+            logger.error({ error }, `Failed to persist agent ${runtime.agentId} to database`);
+          }
+        }
+
+        runtimes.push(runtime);
+      }
+    }
+
+    return runtimes;
+  }
+
+  /**
+   * Stop multiple agents in batch
+   * @param agentIds - Array of agent IDs to stop
+   */
+  public async stopAgents(agentIds: UUID[]): Promise<void> {
+    if (!this.elizaOS) {
+      throw new Error('ElizaOS not initialized');
+    }
+
+    // Delegate to ElizaOS for batch stop
+    await this.elizaOS.stopAgents(agentIds);
+  }
+
+  /**
+   * Get all agents from the ElizaOS instance
+   * @returns Array of agent runtimes
+   */
+  public getAllAgents(): IAgentRuntime[] {
+    if (!this.elizaOS) {
+      return [];
+    }
+    return this.elizaOS.getAgents();
+  }
+
+  /**
+   * Get an agent by ID from the ElizaOS instance
+   * @param agentId - The agent ID
+   * @returns The agent runtime or undefined
+   */
+  public getAgent(agentId: UUID): IAgentRuntime | undefined {
+    if (!this.elizaOS) {
+      return undefined;
+    }
+    return this.elizaOS.getAgent(agentId);
+  }
 
   /**
    * Constructor for AgentServer class.
@@ -166,7 +343,6 @@ export class AgentServer {
   constructor() {
     try {
       logger.debug('Initializing AgentServer (constructor)...');
-      this.agents = new Map();
 
       // Initialize character loading functions
       this.loadCharacterTryPath = loadCharacterTryPath;
@@ -197,15 +373,26 @@ export class AgentServer {
 
       const agentDataDir = resolvePgliteDir(options?.dataDir);
       logger.info(`[INIT] Database Dir for SQL plugin: ${agentDataDir}`);
+
+      // Ensure the database directory exists
+      const dbDir = path.dirname(agentDataDir);
+      if (!fs.existsSync(dbDir)) {
+        fs.mkdirSync(dbDir, { recursive: true });
+        logger.info(`[INIT] Created database directory: ${dbDir}`);
+      }
+
+      // Create a temporary database adapter just for server operations (migrations, default server)
+      // Each agent will have its own database adapter created by the SQL plugin
+      const tempServerAgentId = '00000000-0000-0000-0000-000000000000'; // Temporary ID for server operations
       this.database = createDatabaseAdapter(
         {
           dataDir: agentDataDir,
           postgresUrl: options?.postgresUrl,
         },
-        '00000000-0000-0000-0000-000000000002'
+        tempServerAgentId
       ) as DatabaseAdapter;
       await this.database.init();
-      logger.success('Consolidated database initialized successfully');
+      logger.success('Database initialized for server operations');
 
       // Run migrations for the SQL plugin schema
       logger.info('[INIT] Running database migrations for messaging tables...');
@@ -237,6 +424,25 @@ export class AgentServer {
       logger.info('[INIT] Ensuring default server exists...');
       await this.ensureDefaultServer();
       logger.success('[INIT] Default server setup complete');
+
+      // Server agent is no longer needed - each agent has its own database adapter
+      logger.info('[INIT] Server uses temporary adapter for migrations only');
+
+      logger.info('[INIT] Initializing ElizaOS...');
+      // Don't pass the server's database adapter to ElizaOS
+      // Each agent will get its own adapter from the SQL plugin
+      logger.debug('[INIT] ElizaOS will use agent-specific database adapters from SQL plugin');
+      this.elizaOS = new ElizaOS();
+
+      // Enable editable mode to allow updating agent characters at runtime
+      // This is required for the API to be able to update agents
+      this.elizaOS.enableEditableMode();
+
+      // Create AgentManager with ElizaOS instance
+      this.pluginLoader = new PluginLoader();
+      this.configManager = new ConfigManager();
+
+      logger.success('[INIT] ElizaOS initialized');
 
       await this.initializeServer(options);
       await new Promise((resolve) => setTimeout(resolve, 250));
@@ -340,6 +546,25 @@ export class AgentServer {
       // Initialize middleware and database
       this.app = express();
 
+      // Initialize Sentry (if configured) before any other middleware
+      const DEFAULT_SENTRY_DSN =
+        'https://c20e2d51b66c14a783b0689d536f7e5c@o4509349865259008.ingest.us.sentry.io/4509352524120064';
+      const sentryDsn = process.env.SENTRY_DSN?.trim() || DEFAULT_SENTRY_DSN;
+      const sentryEnabled = Boolean(sentryDsn);
+      if (sentryEnabled) {
+        try {
+          Sentry.init({
+            dsn: sentryDsn,
+            environment: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || 'development',
+            integrations: [Sentry.vercelAIIntegration({ force: sentryEnabled })],
+            tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE || 0),
+          });
+          logger.info('[Sentry] Initialized Sentry for @elizaos/server');
+        } catch (sentryInitError) {
+          logger.error({ error: sentryInitError }, '[Sentry] Failed to initialize Sentry');
+        }
+      }
+
       // Security headers first - before any other middleware
       const isProd = process.env.NODE_ENV === 'production';
       logger.debug('Setting up security headers...');
@@ -356,6 +581,7 @@ export class AgentServer {
                 directives: {
                   defaultSrc: ["'self'"],
                   styleSrc: ["'self'", "'unsafe-inline'", 'https:'],
+                  // this should probably be unlocked too
                   scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
                   imgSrc: ["'self'", 'data:', 'blob:', 'https:', 'http:'],
                   fontSrc: ["'self'", 'https:', 'data:'],
@@ -374,7 +600,9 @@ export class AgentServer {
                 directives: {
                   defaultSrc: ["'self'"],
                   styleSrc: ["'self'", "'unsafe-inline'", 'https:', 'http:'],
-                  scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+                  // unlocking this, so plugin can include the various frameworks from CDN if needed
+                  // https://cdn.tailwindcss.com and https://cdn.jsdelivr.net should definitely be unlocked as a minimum
+                  scriptSrc: ['*', "'unsafe-inline'", "'unsafe-eval'"],
                   imgSrc: ["'self'", 'data:', 'blob:', 'https:', 'http:'],
                   fontSrc: ["'self'", 'https:', 'http:', 'data:'],
                   connectSrc: ["'self'", 'ws:', 'wss:', 'https:', 'http:'],
@@ -468,8 +696,8 @@ export class AgentServer {
         }
       }
 
-      const uploadsBasePath = path.join(process.cwd(), '.eliza', 'data', 'uploads', 'agents');
-      const generatedBasePath = path.join(process.cwd(), '.eliza', 'data', 'generated');
+      const uploadsBasePath = getUploadsAgentsDir();
+      const generatedBasePath = getGeneratedDir();
       fs.mkdirSync(uploadsBasePath, { recursive: true });
       fs.mkdirSync(generatedBasePath, { recursive: true });
 
@@ -528,13 +756,40 @@ export class AgentServer {
           const sanitizedFilename = basename(filename);
           const agentGeneratedPath = join(generatedBasePath, agentId);
           const filePath = join(agentGeneratedPath, sanitizedFilename);
+
           if (!filePath.startsWith(agentGeneratedPath)) {
             res.status(403).json({ error: 'Access denied' });
             return;
           }
-          res.sendFile(filePath, (err) => {
+
+          // Check if file exists before sending
+          if (!existsSync(filePath)) {
+            res.status(404).json({ error: 'File not found' });
+            return;
+          }
+
+          // Make sure path is absolute for sendFile
+          const absolutePath = path.resolve(filePath);
+
+          // Use sendFile with proper options (no root needed for absolute paths)
+          const options = {
+            dotfiles: 'deny' as const,
+          };
+
+          res.sendFile(absolutePath, options, (err) => {
             if (err) {
-              res.status(404).json({ error: 'File not found' });
+              // Fallback to streaming if sendFile fails (non-blocking)
+              const ext = extname(filename).toLowerCase();
+              const mimeType =
+                ext === '.png'
+                  ? 'image/png'
+                  : ext === '.jpg' || ext === '.jpeg'
+                    ? 'image/jpeg'
+                    : 'application/octet-stream';
+              res.setHeader('Content-Type', mimeType);
+              const stream = fs.createReadStream(absolutePath);
+              stream.on('error', () => res.status(404).json({ error: 'File not found' }));
+              stream.pipe(res);
             }
           });
         }
@@ -576,9 +831,9 @@ export class AgentServer {
       );
 
       // Add specific middleware to handle portal assets
-      this.app.use((req, res, next) => {
+      this.app.use((_req, res, next) => {
         // Automatically detect and handle static assets based on file extension
-        const ext = extname(req.path).toLowerCase();
+        const ext = extname(_req.path).toLowerCase();
 
         // Set correct content type based on file extension
         if (ext === '.js' || ext === '.mjs') {
@@ -761,7 +1016,7 @@ export class AgentServer {
       }
 
       // *** NEW: Mount the plugin route handler BEFORE static serving ***
-      const pluginRouteHandler = createPluginRouteHandler(this.agents);
+      const pluginRouteHandler = createPluginRouteHandler(this.elizaOS!);
       this.app.use(pluginRouteHandler);
 
       // Mount the core API router under /api
@@ -774,7 +1029,7 @@ export class AgentServer {
       // - /api/server/* - Runtime and server management
       // - /api/tee/* - TEE (Trusted Execution Environment) operations
       // - /api/system/* - System configuration and health checks
-      const apiRouter = createApiRouter(this.agents, this);
+      const apiRouter = createApiRouter(this.elizaOS!, this);
       this.app.use(
         '/api',
         (req: express.Request, _res: express.Response, next: express.NextFunction) => {
@@ -785,6 +1040,18 @@ export class AgentServer {
         },
         apiRouter,
         (err: any, req: Request, res: Response, _next: express.NextFunction) => {
+          // Capture error with Sentry if configured
+          if (sentryDsn) {
+            Sentry.captureException(err, (scope) => {
+              scope.setTag('route', req.path);
+              scope.setContext('request', {
+                method: req.method,
+                path: req.path,
+                query: req.query,
+              });
+              return scope;
+            });
+          }
           logger.error({ err }, `API error: ${req.method} ${req.path}`);
           res.status(500).json({
             success: false,
@@ -796,12 +1063,35 @@ export class AgentServer {
         }
       );
 
+      // Global process-level handlers to capture unhandled errors (if Sentry enabled)
+      if (sentryDsn) {
+        process.on('uncaughtException', (error) => {
+          try {
+            Sentry.captureException(error, (scope) => {
+              scope.setTag('type', 'uncaughtException');
+              return scope;
+            });
+          } catch {}
+        });
+        process.on('unhandledRejection', (reason: any) => {
+          try {
+            Sentry.captureException(
+              reason instanceof Error ? reason : new Error(String(reason)),
+              (scope) => {
+                scope.setTag('type', 'unhandledRejection');
+                return scope;
+              }
+            );
+          } catch {}
+        });
+      }
+
       // Add a catch-all route for API 404s
-      this.app.use((req, res, next) => {
+      this.app.use((_req, res, next) => {
         // Check if this is an API route that wasn't handled
-        if (req.path.startsWith('/api/')) {
+        if (_req.path.startsWith('/api/')) {
           // worms are going to hitting it all the time, use a reverse proxy if you need this type of logging
-          //logger.warn(`API 404: ${req.method} ${req.path}`);
+          //logger.warn(`API 404: ${_req.method} ${_req.path}`);
           res.status(404).json({
             success: false,
             error: {
@@ -877,7 +1167,7 @@ export class AgentServer {
       this.server = http.createServer(this.app);
 
       // Initialize Socket.io, passing the AgentServer instance
-      this.socketIO = setupSocketIO(this.server, this.agents, this);
+      this.socketIO = setupSocketIO(this.server, this.elizaOS!, this);
 
       logger.success('AgentServer HTTP server and Socket.IO initialized');
     } catch (error) {
@@ -888,6 +1178,8 @@ export class AgentServer {
 
   /**
    * Registers an agent with the provided runtime.
+   * Note: Agents should ideally be created through ElizaOS.addAgent() for proper orchestration.
+   * This method exists primarily for backward compatibility.
    *
    * @param {IAgentRuntime} runtime - The runtime object containing agent information.
    * @throws {Error} if the runtime is null/undefined, if agentId is missing, if character configuration is missing,
@@ -905,8 +1197,8 @@ export class AgentServer {
         throw new Error('Runtime missing character configuration');
       }
 
-      this.agents.set(runtime.agentId, runtime);
-      logger.debug(`Agent ${runtime.character.name} (${runtime.agentId}) added to agents map`);
+      // Agent is now registered in ElizaOS
+      logger.debug(`Agent ${runtime.character.name} (${runtime.agentId}) registered`);
 
       // Auto-register the MessageBusConnector plugin
       try {
@@ -964,15 +1256,15 @@ export class AgentServer {
    * @param {UUID} agentId - The unique identifier of the agent to unregister.
    * @returns {void}
    */
-  public unregisterAgent(agentId: UUID) {
+  public async unregisterAgent(agentId: UUID) {
     if (!agentId) {
       logger.warn('[AGENT UNREGISTER] Attempted to unregister undefined or invalid agent runtime');
       return;
     }
 
     try {
-      // Retrieve the agent before deleting it from the map
-      const agent = this.agents.get(agentId);
+      // Retrieve the agent from ElizaOS
+      const agent = this.elizaOS?.getAgent(agentId);
 
       if (agent) {
         // Stop all services of the agent before unregistering it
@@ -992,9 +1284,12 @@ export class AgentServer {
         }
       }
 
-      // Delete the agent from the map
-      this.agents.delete(agentId);
-      logger.debug(`Agent ${agentId} removed from agents map`);
+      // Delete agent from ElizaOS
+      if (this.elizaOS) {
+        await this.elizaOS.deleteAgents([agentId]);
+      }
+
+      logger.debug(`Agent ${agentId} unregistered`);
     } catch (error) {
       logger.error({ error, agentId }, `Error removing agent ${agentId}:`);
     }
@@ -1023,7 +1318,7 @@ export class AgentServer {
         }
 
         logger.debug(`Starting server on port ${port}...`);
-        logger.debug(`Current agents count: ${this.agents.size}`);
+        logger.debug(`Current agents count: ${this.elizaOS?.getAgents().length || 0}`);
         logger.debug(`Environment: ${process.env.NODE_ENV}`);
 
         // Use http server instead of app.listen with explicit host binding and error handling
@@ -1058,9 +1353,10 @@ export class AgentServer {
             logger.success(
               `REST API bound to ${host}:${port}. If running locally, access it at http://localhost:${port}.`
             );
-            logger.debug(`Active agents: ${this.agents.size}`);
-            this.agents.forEach((agent, id) => {
-              logger.debug(`- Agent ${id}: ${agent.character.name}`);
+            const agents = this.elizaOS?.getAgents() || [];
+            logger.debug(`Active agents: ${agents.length}`);
+            agents.forEach((agent) => {
+              logger.debug(`- Agent ${agent.agentId}: ${agent.character.name}`);
             });
 
             // Resolve the promise now that the server is actually listening
@@ -1219,7 +1515,22 @@ export class AgentServer {
     limit: number = 50,
     beforeTimestamp?: Date
   ): Promise<CentralRootMessage[]> {
+    // TODO: Add afterTimestamp support when database layer is updated
     return (this.database as any).getMessagesForChannel(channelId, limit, beforeTimestamp);
+  }
+
+  async updateMessage(
+    messageId: UUID,
+    patch: {
+      content?: string;
+      rawMessage?: any;
+      sourceType?: string;
+      sourceId?: string;
+      metadata?: any;
+      inReplyToRootMessageId?: UUID;
+    }
+  ): Promise<CentralRootMessage | null> {
+    return (this.database as any).updateMessage(messageId, patch);
   }
 
   // Optional: Method to remove a participant
@@ -1295,12 +1606,13 @@ export class AgentServer {
 
       // Stop all agents first
       logger.debug('Stopping all agents...');
-      for (const [id, agent] of this.agents.entries()) {
+      const agents = this.elizaOS?.getAgents() || [];
+      for (const agent of agents) {
         try {
           await agent.stop();
-          logger.debug(`Stopped agent ${id}`);
+          logger.debug(`Stopped agent ${agent.agentId}`);
         } catch (error) {
-          logger.error({ error, agentId: id }, `Error stopping agent ${id}:`);
+          logger.error({ error, agentId: agent.agentId }, `Error stopping agent ${agent.agentId}:`);
         }
       }
 
@@ -1350,3 +1662,10 @@ export {
 
 // Export types
 export * from './types';
+
+// Export ElizaOS from core (re-export for convenience)
+export { ElizaOS } from '@elizaos/core';
+
+// Export managers for advanced usage
+export { PluginLoader } from './managers/PluginLoader';
+export { ConfigManager } from './managers/ConfigManager';

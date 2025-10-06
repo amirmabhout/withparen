@@ -1,4 +1,4 @@
-import type { IAgentRuntime, UUID } from '@elizaos/core';
+import type { IAgentRuntime, UUID, ElizaOS } from '@elizaos/core';
 import { logger, validateUuid } from '@elizaos/core';
 import cors from 'cors';
 import express from 'express';
@@ -34,7 +34,7 @@ import {
 
 export function setupSocketIO(
   server: http.Server,
-  agents: Map<UUID, IAgentRuntime>,
+  elizaOS: ElizaOS,
   serverInstance: AgentServer
 ): SocketIOServer {
   const io = new SocketIOServer(server, {
@@ -44,7 +44,7 @@ export function setupSocketIO(
     },
   });
 
-  const centralSocketRouter = new SocketIORouter(agents, serverInstance);
+  const centralSocketRouter = new SocketIORouter(elizaOS, serverInstance);
   centralSocketRouter.setupListeners(io);
 
   setupLogStreaming(io, centralSocketRouter);
@@ -75,7 +75,12 @@ function setupLogStreaming(io: SocketIOServer, router: SocketIORouter) {
       try {
         let logEntry;
         if (typeof data === 'string') {
-          logEntry = JSON.parse(data);
+          try {
+            logEntry = JSON.parse(data);
+          } catch (parseError) {
+            // If JSON parsing fails, treat as plain text log
+            logEntry = { message: data, level: 'info' };
+          }
         } else {
           logEntry = data;
         }
@@ -95,13 +100,17 @@ function setupLogStreaming(io: SocketIOServer, router: SocketIORouter) {
 }
 
 // Extracted function to handle plugin routes
-export function createPluginRouteHandler(agents: Map<UUID, IAgentRuntime>): express.RequestHandler {
+export function createPluginRouteHandler(elizaOS: ElizaOS): express.RequestHandler {
   return (req, res, next) => {
-    logger.debug('Handling plugin request in the plugin route handler', {
-      path: req.path,
-      method: req.method,
-      query: req.query,
-    });
+    logger.debug(
+      'Handling plugin request in the plugin route handler',
+      `path: ${req.path}, method: ${req.method}`,
+      {
+        path: req.path,
+        method: req.method,
+        query: req.query,
+      }
+    );
 
     // Skip standard agent API routes - these should be handled by agentRouter
     // Pattern: /agents/{uuid}/...
@@ -135,7 +144,7 @@ export function createPluginRouteHandler(agents: Map<UUID, IAgentRuntime>): expr
       res.setHeader('Content-Type', 'application/javascript');
     }
 
-    if (agents.size === 0) {
+    if (elizaOS.getAgents().length === 0) {
       logger.debug('No agents available, skipping plugin route handling.');
       return next();
     }
@@ -143,107 +152,119 @@ export function createPluginRouteHandler(agents: Map<UUID, IAgentRuntime>): expr
     let handled = false;
     const agentIdFromQuery = req.query.agentId as UUID | undefined;
     const reqPath = req.path; // Path to match against plugin routes (e.g., /hello2)
+    const baselessReqPath = reqPath.replace(/\/api\/agents\/[^\/]+\/plugins/, ''); // strip out base
+    logger.debug('Plugin Request Path', baselessReqPath);
+    // might need to ensure /
 
+    function findRouteInRuntime(runtime: IAgentRuntime) {
+      for (const route of runtime.routes) {
+        if (handled) break;
+
+        // Check if HTTP method matches
+        const methodMatches = req.method.toLowerCase() === route.type.toLowerCase();
+        if (!methodMatches) continue;
+
+        // moved to runtime::registerPlugin so we don't need to do this on each request
+        //const routePath = route.path.startsWith('/') ? route.path : `/${route.path}`;
+        const routePath = route.path;
+
+        // really non-standard but w/e
+        if (routePath.endsWith('/*')) {
+          const baseRoute = routePath.slice(0, -1); // take off *
+          if (baselessReqPath.startsWith(baseRoute)) {
+            logger.debug(
+              `Agent ${runtime.character.name} plugin wildcard route: [${route.type.toUpperCase()}] ${routePath} for request: ${reqPath}`
+            );
+            try {
+              if (route.handler) {
+                route.handler(req, res, runtime);
+                handled = true;
+              }
+            } catch (error) {
+              logger.error(
+                `Error handling plugin wildcard route for agent ${agentIdFromQuery}: ${routePath}`,
+                error instanceof Error ? error.message : String(error),
+                {
+                  path: reqPath,
+                  agent: agentIdFromQuery,
+                }
+              );
+              if (!res.headersSent) {
+                const status =
+                  (error instanceof Error && 'code' in error && error.code === 'ENOENT') ||
+                  (error instanceof Error && error.message?.includes('not found'))
+                    ? 404
+                    : 500;
+                res.status(status).json({
+                  error: error instanceof Error ? error.message : 'Error processing wildcard route',
+                });
+              }
+              handled = true;
+            }
+          }
+        } else {
+          logger.debug(
+            `Agent ${runtime.character.name} attempting plugin route match: [${route.type.toUpperCase()}] ${routePath} vs request path: ${baselessReqPath}`
+          );
+          let matcher: MatchFunction<object>;
+          try {
+            matcher = match(routePath, { decode: decodeURIComponent });
+          } catch (err) {
+            logger.error(
+              `Invalid plugin route path syntax for agent ${agentIdFromQuery}: "${routePath}"`,
+              err instanceof Error ? err.message : String(err)
+            );
+            continue;
+          }
+
+          const matched = matcher(baselessReqPath);
+
+          if (matched) {
+            logger.debug(
+              `Agent ${runtime.character.name} plugin route matched: [${route.type.toUpperCase()}] ${routePath} vs request path: ${reqPath}`
+            );
+            req.params = { ...(matched.params || {}) };
+            try {
+              if (route.handler) {
+                route.handler(req, res, runtime);
+                handled = true;
+              }
+            } catch (error) {
+              logger.error(
+                `Error handling plugin route for agent ${agentIdFromQuery}: ${routePath}`,
+                error instanceof Error ? error.message : String(error),
+                {
+                  path: reqPath,
+                  agent: agentIdFromQuery,
+                  params: req.params,
+                }
+              );
+              if (!res.headersSent) {
+                const status =
+                  (error instanceof Error && 'code' in error && error.code === 'ENOENT') ||
+                  (error instanceof Error && error.message?.includes('not found'))
+                    ? 404
+                    : 500;
+                res.status(status).json({
+                  error: error instanceof Error ? error.message : 'Error processing route',
+                });
+              }
+              handled = true;
+            }
+          }
+        }
+      } // End route loop
+      return handled;
+    }
+
+    // No support for agent name?
     if (agentIdFromQuery && validateUuid(agentIdFromQuery)) {
-      const runtime = agents.get(agentIdFromQuery);
+      const runtime = elizaOS.getAgent(agentIdFromQuery);
       if (runtime) {
         logger.debug(
           `Agent-scoped request for Agent ID: ${agentIdFromQuery} from query. Path: ${reqPath}`
         );
-        for (const route of runtime.routes) {
-          if (handled) break;
-
-          const methodMatches = req.method.toLowerCase() === route.type.toLowerCase();
-          if (!methodMatches) continue;
-
-          const routePath = route.path.startsWith('/') ? route.path : `/${route.path}`;
-
-          if (routePath.endsWith('/*')) {
-            const baseRoute = routePath.slice(0, -1);
-            if (reqPath.startsWith(baseRoute)) {
-              logger.debug(
-                `Agent ${agentIdFromQuery} plugin wildcard route: [${route.type.toUpperCase()}] ${routePath} for request: ${reqPath}`
-              );
-              try {
-                if (route.handler) {
-                  route.handler(req, res, runtime);
-                  handled = true;
-                }
-              } catch (error) {
-                logger.error(
-                  `Error handling plugin wildcard route for agent ${agentIdFromQuery}: ${routePath}`,
-                  {
-                    error,
-                    path: reqPath,
-                    agent: agentIdFromQuery,
-                  }
-                );
-                if (!res.headersSent) {
-                  const status =
-                    (error instanceof Error && 'code' in error && error.code === 'ENOENT') ||
-                    (error instanceof Error && error.message?.includes('not found'))
-                      ? 404
-                      : 500;
-                  res.status(status).json({
-                    error:
-                      error instanceof Error ? error.message : 'Error processing wildcard route',
-                  });
-                }
-                handled = true;
-              }
-            }
-          } else {
-            logger.debug(
-              `Agent ${agentIdFromQuery} attempting plugin route match: [${route.type.toUpperCase()}] ${routePath} vs request path: ${reqPath}`
-            );
-            let matcher: MatchFunction<object>;
-            try {
-              matcher = match(routePath, { decode: decodeURIComponent });
-            } catch (err) {
-              logger.error(
-                `Invalid plugin route path syntax for agent ${agentIdFromQuery}: "${routePath}"`,
-                err
-              );
-              continue;
-            }
-
-            const matched = matcher(reqPath);
-
-            if (matched) {
-              logger.debug(
-                `Agent ${agentIdFromQuery} plugin route matched: [${route.type.toUpperCase()}] ${routePath} vs request path: ${reqPath}`
-              );
-              req.params = { ...(matched.params || {}) };
-              try {
-                if (route.handler) {
-                  route.handler(req, res, runtime);
-                  handled = true;
-                }
-              } catch (error) {
-                logger.error(
-                  `Error handling plugin route for agent ${agentIdFromQuery}: ${routePath}`,
-                  {
-                    error,
-                    path: reqPath,
-                    agent: agentIdFromQuery,
-                    params: req.params,
-                  }
-                );
-                if (!res.headersSent) {
-                  const status =
-                    (error instanceof Error && 'code' in error && error.code === 'ENOENT') ||
-                    (error instanceof Error && error.message?.includes('not found'))
-                      ? 404
-                      : 500;
-                  res.status(status).json({
-                    error: error instanceof Error ? error.message : 'Error processing route',
-                  });
-                }
-                handled = true;
-              }
-            }
-          }
-        } // End route loop
+        handled = findRouteInRuntime(runtime);
       } else {
         logger.warn(
           `Agent ID ${agentIdFromQuery} provided in query, but agent runtime not found. Path: ${reqPath}.`
@@ -283,78 +304,13 @@ export function createPluginRouteHandler(agents: Map<UUID, IAgentRuntime>): expr
       // No agentId in query, or it was invalid. Try matching globally for any agent that might have this route.
       // This allows for non-agent-specific plugin routes if any plugin defines them.
       logger.debug(`No valid agentId in query. Trying global match for path: ${reqPath}`);
-      for (const [_, runtime] of agents) {
+
+      // check in all agents...
+      for (const runtime of elizaOS.getAgents()) {
         // Iterate over all agents
         if (handled) break; // If handled by a previous agent's route (e.g. specific match)
 
-        for (const route of runtime.routes) {
-          if (handled) break;
-
-          const methodMatches = req.method.toLowerCase() === route.type.toLowerCase();
-          if (!methodMatches) continue;
-
-          const routePath = route.path.startsWith('/') ? route.path : `/${route.path}`;
-
-          // Do not allow agent-specific routes (containing placeholders like :id) to be matched globally
-          if (routePath.includes(':')) {
-            continue;
-          }
-
-          if (routePath.endsWith('/*')) {
-            const baseRoute = routePath.slice(0, -1);
-            if (reqPath.startsWith(baseRoute)) {
-              logger.debug(
-                `Global plugin wildcard route: [${route.type.toUpperCase()}] ${routePath} (Agent: ${runtime.agentId}) for request: ${reqPath}`
-              );
-              try {
-                route?.handler?.(req, res, runtime);
-                handled = true;
-              } catch (error) {
-                logger.error(
-                  `Error handling global plugin wildcard route ${routePath} (Agent: ${runtime.agentId})`,
-                  { error, path: reqPath }
-                );
-                if (!res.headersSent) {
-                  const status =
-                    (error instanceof Error && 'code' in error && error.code === 'ENOENT') ||
-                    (error instanceof Error && error.message?.includes('not found'))
-                      ? 404
-                      : 500;
-                  res.status(status).json({
-                    error:
-                      error instanceof Error ? error.message : 'Error processing wildcard route',
-                  });
-                }
-                handled = true;
-              }
-            }
-          } else if (reqPath === routePath) {
-            // Exact match for global routes
-            logger.debug(
-              `Global plugin route matched: [${route.type.toUpperCase()}] ${routePath} (Agent: ${runtime.agentId}) for request: ${reqPath}`
-            );
-            try {
-              route?.handler?.(req, res, runtime);
-              handled = true;
-            } catch (error) {
-              logger.error(
-                `Error handling global plugin route ${routePath} (Agent: ${runtime.agentId})`,
-                { error, path: reqPath }
-              );
-              if (!res.headersSent) {
-                const status =
-                  (error instanceof Error && 'code' in error && error.code === 'ENOENT') ||
-                  (error instanceof Error && error.message?.includes('not found'))
-                    ? 404
-                    : 500;
-                res.status(status).json({
-                  error: error instanceof Error ? error.message : 'Error processing route',
-                });
-              }
-              handled = true;
-            }
-          }
-        } // End route loop for global matching
+        handled = findRouteInRuntime(runtime);
       } // End agent loop for global matching
     }
 
@@ -369,12 +325,12 @@ export function createPluginRouteHandler(agents: Map<UUID, IAgentRuntime>): expr
 
 /**
  * Creates an API router with various endpoints and middleware.
- * @param {Map<UUID, IAgentRuntime>} agents - Map of agents with UUID as key and IAgentRuntime as value.
+ * @param {ElizaOS} elizaOS - ElizaOS instance containing all agents and their runtimes.
  * @param {AgentServer} [server] - Optional AgentServer instance.
  * @returns {express.Router} The configured API router.
  */
 export function createApiRouter(
-  agents: Map<UUID, IAgentRuntime>,
+  elizaOS: ElizaOS,
   serverInstance: AgentServer // AgentServer is already serverInstance here
 ): express.Router {
   const router = express.Router();
@@ -418,19 +374,19 @@ export function createApiRouter(
 
   // Setup new domain-based routes
   // Mount agents router at /agents - handles agent creation, management, and interactions
-  router.use('/agents', agentsRouter(agents, serverInstance));
+  router.use('/agents', agentsRouter(elizaOS, serverInstance));
 
   // Mount messaging router at /messaging - handles messages, channels, and chat functionality
-  router.use('/messaging', messagingRouter(agents, serverInstance));
+  router.use('/messaging', messagingRouter(elizaOS, serverInstance));
 
   // Mount memory router at /memory - handles agent memory storage and retrieval
-  router.use('/memory', memoryRouter(agents, serverInstance));
+  router.use('/memory', memoryRouter(elizaOS, serverInstance));
 
   // Mount audio router at /audio - handles audio processing, transcription, and voice operations
-  router.use('/audio', audioRouter(agents));
+  router.use('/audio', audioRouter(elizaOS));
 
   // Mount runtime router at /server - handles server runtime operations and management
-  router.use('/server', runtimeRouter(agents, serverInstance));
+  router.use('/server', runtimeRouter(elizaOS, serverInstance));
 
   // Mount TEE router at /tee - handles Trusted Execution Environment operations
   router.use('/tee', teeRouter());
@@ -444,7 +400,7 @@ export function createApiRouter(
   // Use proper domain routes: /messaging, /system, /tee
 
   // Add the plugin routes middleware AFTER specific routers
-  router.use(createPluginRouteHandler(agents));
+  router.use(createPluginRouteHandler(elizaOS));
 
   return router;
 }

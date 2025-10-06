@@ -1,4 +1,4 @@
-import type { Agent, Character, IAgentRuntime, UUID } from '@elizaos/core';
+import type { Agent, Character, ElizaOS } from '@elizaos/core';
 import {
   validateUuid,
   logger,
@@ -15,7 +15,7 @@ import { sendError, sendSuccess } from '../shared/response-utils';
  * Agent CRUD operations
  */
 export function createAgentCrudRouter(
-  agents: Map<UUID, IAgentRuntime>,
+  elizaOS: ElizaOS,
   serverInstance: AgentServer
 ): express.Router {
   const router = express.Router();
@@ -28,7 +28,7 @@ export function createAgentCrudRouter(
         return sendError(res, 500, 'DB_ERROR', 'Database not available');
       }
       const allAgents = await db.getAgents();
-      const runtimes = Array.from(agents.keys());
+      const runtimes = elizaOS.getAgents().map((a) => a.agentId);
 
       // Return only minimal agent data
       const response = allAgents
@@ -49,7 +49,10 @@ export function createAgentCrudRouter(
 
       sendSuccess(res, { agents: response });
     } catch (error) {
-      logger.error('[AGENTS LIST] Error retrieving agents:', error);
+      logger.error(
+        '[AGENTS LIST] Error retrieving agents:',
+        error instanceof Error ? error.message : String(error)
+      );
       sendError(
         res,
         500,
@@ -76,7 +79,7 @@ export function createAgentCrudRouter(
         return sendError(res, 404, 'NOT_FOUND', 'Agent not found');
       }
 
-      const runtime = agents.get(agentId);
+      const runtime = elizaOS.getAgent(agentId);
       const response = {
         ...agent,
         status: runtime ? 'active' : 'inactive',
@@ -84,7 +87,10 @@ export function createAgentCrudRouter(
 
       sendSuccess(res, response);
     } catch (error) {
-      logger.error('[AGENT GET] Error retrieving agent:', error);
+      logger.error(
+        '[AGENT GET] Error retrieving agent:',
+        error instanceof Error ? error.message : String(error)
+      );
       sendError(
         res,
         500,
@@ -123,10 +129,13 @@ export function createAgentCrudRouter(
         throw new Error('Failed to create character configuration');
       }
 
-      if (character.settings?.secrets) {
+      if (character.settings?.secrets && typeof character.settings.secrets === 'object') {
         logger.debug('[AGENT CREATE] Encrypting secrets');
         const salt = getSalt();
-        character.settings.secrets = encryptObjectValues(character.settings.secrets, salt);
+        character.settings.secrets = encryptObjectValues(
+          character.settings.secrets as Record<string, any>,
+          salt
+        );
       }
 
       const ensureAgentExists = async (character: Character) => {
@@ -154,7 +163,10 @@ export function createAgentCrudRouter(
       });
       logger.success(`[AGENT CREATE] Successfully created agent: ${character.name}`);
     } catch (error) {
-      logger.error('[AGENT CREATE] Error creating agent:', error);
+      logger.error(
+        '[AGENT CREATE] Error creating agent:',
+        error instanceof Error ? error.message : String(error)
+      );
       res.status(400).json({
         success: false,
         error: {
@@ -200,18 +212,27 @@ export function createAgentCrudRouter(
 
       const updatedAgent = await db.getAgent(agentId);
 
-      const isActive = !!agents.get(agentId);
-      if (isActive && updatedAgent) {
-        serverInstance?.unregisterAgent(agentId);
-        await serverInstance?.startAgent(updatedAgent);
+      // Check if agent is currently active
+      const activeRuntime = elizaOS.getAgent(agentId);
+      if (activeRuntime && updatedAgent) {
+        // Extract character properties from the Agent (Agent extends Character)
+        const { enabled, status, createdAt, updatedAt, ...characterData } = updatedAgent;
+
+        // Update the character on the active runtime instead of unregistering/restarting
+        // This preserves database connections and other resources
+        await elizaOS.updateAgent(agentId, characterData as Character);
+        logger.debug(`[AGENT UPDATE] Updated active agent ${agentId} without restart`);
       }
 
-      const runtime = agents.get(agentId);
+      const runtime = elizaOS.getAgent(agentId);
       const status = runtime ? 'active' : 'inactive';
 
       sendSuccess(res, { ...updatedAgent, status });
     } catch (error) {
-      logger.error('[AGENT UPDATE] Error updating agent:', error);
+      logger.error(
+        '[AGENT UPDATE] Error updating agent:',
+        error instanceof Error ? error.message : String(error)
+      );
       sendError(
         res,
         500,
@@ -246,7 +267,10 @@ export function createAgentCrudRouter(
 
       logger.debug(`[AGENT DELETE] Agent found: ${agent.name} (${agentId})`);
     } catch (checkError) {
-      logger.error(`[AGENT DELETE] Error checking if agent exists: ${agentId}`, checkError);
+      logger.error(
+        `[AGENT DELETE] Error checking if agent exists: ${agentId}`,
+        checkError instanceof Error ? checkError.message : String(checkError)
+      );
     }
 
     const timeoutId = setTimeout(() => {
@@ -267,14 +291,17 @@ export function createAgentCrudRouter(
 
     while (retryCount <= MAX_RETRIES) {
       try {
-        const runtime = agents.get(agentId);
+        const runtime = elizaOS.getAgent(agentId);
         if (runtime) {
           logger.debug(`[AGENT DELETE] Agent ${agentId} is running, unregistering from server`);
           try {
-            serverInstance?.unregisterAgent(agentId);
+            await serverInstance?.unregisterAgent(agentId);
             logger.debug(`[AGENT DELETE] Agent ${agentId} unregistered successfully`);
           } catch (stopError) {
-            logger.error(`[AGENT DELETE] Error stopping agent ${agentId}:`, stopError);
+            logger.error(
+              `[AGENT DELETE] Error stopping agent ${agentId}:`,
+              stopError instanceof Error ? stopError.message : String(stopError)
+            );
           }
         } else {
           logger.debug(`[AGENT DELETE] Agent ${agentId} was not running, no need to unregister`);
@@ -300,7 +327,7 @@ export function createAgentCrudRouter(
 
         logger.error(
           `[AGENT DELETE] Error deleting agent ${agentId} (attempt ${retryCount}/${MAX_RETRIES + 1}):`,
-          error
+          error instanceof Error ? error.message : String(error)
         );
 
         if (retryCount > MAX_RETRIES) {

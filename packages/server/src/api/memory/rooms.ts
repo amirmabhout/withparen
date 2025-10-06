@@ -1,4 +1,4 @@
-import type { IAgentRuntime, Room, UUID } from '@elizaos/core';
+import type { ElizaOS, Room } from '@elizaos/core';
 import { validateUuid, logger, createUniqueUuid, ChannelType } from '@elizaos/core';
 import express from 'express';
 import { sendError, sendSuccess } from '../shared/response-utils';
@@ -13,7 +13,7 @@ interface CustomRequest extends express.Request {
 /**
  * Room management functionality for agents
  */
-export function createRoomManagementRouter(agents: Map<UUID, IAgentRuntime>): express.Router {
+export function createRoomManagementRouter(elizaOS: ElizaOS): express.Router {
   const router = express.Router();
 
   // Create a new room for an agent
@@ -23,7 +23,7 @@ export function createRoomManagementRouter(agents: Map<UUID, IAgentRuntime>): ex
       return sendError(res, 400, 'INVALID_ID', 'Invalid agent ID format');
     }
 
-    const runtime = agents.get(agentId);
+    const runtime = elizaOS.getAgent(agentId);
     if (!runtime) {
       return sendError(res, 404, 'NOT_FOUND', 'Agent not found');
     }
@@ -83,7 +83,10 @@ export function createRoomManagementRouter(agents: Map<UUID, IAgentRuntime>): ex
         201
       );
     } catch (error) {
-      logger.error(`[ROOM CREATE] Error creating room for agent ${agentId}:`, error);
+      logger.error(
+        `[ROOM CREATE] Error creating room for agent ${agentId}:`,
+        error instanceof Error ? error.message : String(error)
+      );
       sendError(
         res,
         500,
@@ -101,7 +104,7 @@ export function createRoomManagementRouter(agents: Map<UUID, IAgentRuntime>): ex
       return sendError(res, 400, 'INVALID_ID', 'Invalid agent ID format');
     }
 
-    const runtime = agents.get(agentId);
+    const runtime = elizaOS.getAgent(agentId);
     if (!runtime) {
       return sendError(res, 404, 'NOT_FOUND', 'Agent not found');
     }
@@ -124,7 +127,10 @@ export function createRoomManagementRouter(agents: Map<UUID, IAgentRuntime>): ex
 
       sendSuccess(res, { rooms: agentRooms });
     } catch (error) {
-      logger.error(`[ROOMS LIST] Error retrieving rooms for agent ${agentId}:`, error);
+      logger.error(
+        `[ROOMS LIST] Error retrieving rooms for agent ${agentId}:`,
+        error instanceof Error ? error.message : String(error)
+      );
       sendError(
         res,
         500,
@@ -145,7 +151,7 @@ export function createRoomManagementRouter(agents: Map<UUID, IAgentRuntime>): ex
     }
 
     // Get runtime
-    const runtime = agents.get(agentId);
+    const runtime = elizaOS.getAgent(agentId);
     if (!runtime) {
       return sendError(res, 404, 'NOT_FOUND', 'Agent not found');
     }
@@ -168,7 +174,10 @@ export function createRoomManagementRouter(agents: Map<UUID, IAgentRuntime>): ex
         ...(worldName && { worldName }),
       });
     } catch (error) {
-      logger.error(`[ROOM DETAILS] Error retrieving room ${roomId} for agent ${agentId}:`, error);
+      logger.error(
+        `[ROOM DETAILS] Error retrieving room ${roomId} for agent ${agentId}:`,
+        error instanceof Error ? error.message : String(error)
+      );
       sendError(
         res,
         500,

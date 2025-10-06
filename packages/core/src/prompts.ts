@@ -5,12 +5,21 @@ export const shouldRespondTemplate = `<task>Decide on behalf of {{agentName}} wh
 </providers>
 
 <instructions>Decide if {{agentName}} should respond to or interact with the conversation.
-If the message is directed at or relevant to {{agentName}}, respond with RESPOND action.
-If a user asks {{agentName}} to be quiet, respond with STOP action.
-If {{agentName}} should ignore the message, respond with IGNORE action.</instructions>
+
+IMPORTANT RULES FOR RESPONDING:
+- If YOUR name ({{agentName}}) is directly mentioned → RESPOND
+- If someone uses a DIFFERENT name (not {{agentName}}) → IGNORE (they're talking to someone else)
+- If you're actively participating in a conversation and the message continues that thread → RESPOND
+- If someone tells you to stop or be quiet → STOP
+- Otherwise → IGNORE
+
+The key distinction is:
+- "Talking TO {{agentName}}" (your name mentioned, replies to you, continuing your conversation) → RESPOND
+- "Talking ABOUT {{agentName}}" or to someone else → IGNORE
+</instructions>
 
 <output>
-Do NOT include any thinking, reasoning, or <think> sections in your response. 
+Do NOT include any thinking, reasoning, or <think> sections in your response.
 Go directly to the XML response format without any preamble or explanation.
 
 Respond using XML format like this:
@@ -28,11 +37,6 @@ export const messageHandlerTemplate = `<task>Generate dialog and actions for the
 <providers>
 {{providers}}
 </providers>
-
-These are the available valid actions:
-<actionNames>
-{{actionNames}}
-</actionNames>
 
 <instructions>
 Write a thought and plan for {{agentName}} and decide what actions to take. Also include the providers that {{agentName}} will use to have the right context for responding and acting, if any.
@@ -161,3 +165,88 @@ Respond using XML format like this:
 
 IMPORTANT: Your response must ONLY contain the <response></response> XML block above. Do not include any text, thinking, or reasoning before or after this XML block. Start your response immediately with <response> and end with </response>.
 </output>`;
+
+export const multiStepDecisionTemplate = `<task>
+Determine the next step the assistant should take in this conversation to help the user reach their goal.
+</task>
+
+{{recentMessages}}
+
+# Multi-Step Workflow
+
+In each step, decide:
+
+1. **Which providers (if any)** should be called to gather necessary data.
+2. **Which action (if any)** should be executed after providers return.
+3. Decide whether the task is complete. If so, set \`isFinish: true\`. Do not select the \`REPLY\` action; replies are handled separately after task completion.
+
+You can select **multiple providers** and at most **one action** per step.
+
+If the task is fully resolved and no further steps are needed, mark the step as \`isFinish: true\`.
+
+---
+
+{{actionsWithDescriptions}}
+
+{{providersWithDescriptions}}
+
+These are the actions or data provider calls that have already been used in this run. Use this to avoid redundancy and guide your next move.
+
+{{actionResults}}
+
+<keys>
+"thought" Clearly explain your reasoning for the selected providers and/or action, and how this step contributes to resolving the user's request.
+"action"  Name of the action to execute after providers return (can be null if no action is needed).
+"providers" List of provider names to call in this step (can be empty if none are needed).
+"isFinish" Set to true only if the task is fully complete.
+</keys>
+
+⚠️ IMPORTANT: Do **not** mark the task as \`isFinish: true\` immediately after calling an action like. Wait for the action to complete before deciding the task is finished.
+
+<output>
+<response>
+  <thought>Your thought here</thought>
+  <action>ACTION</action>
+  <providers>PROVIDER1,PROVIDER2</providers>
+  <isFinish>true | false</isFinish>
+</response>
+</output>`;
+
+export const multiStepSummaryTemplate = `<task>
+Summarize what the assistant has done so far and provide a final response to the user based on the completed steps.
+</task>
+
+# Context Information
+{{bio}}
+
+---
+
+{{system}}
+
+---
+
+{{messageDirections}}
+
+# Conversation Summary
+Below is the user’s original request and conversation so far:
+{{recentMessages}}
+
+# Execution Trace
+Here are the actions taken by the assistant to fulfill the request:
+{{actionResults}}
+
+# Assistant’s Last Reasoning Step
+{{recentMessage}}
+
+# Instructions
+
+ - Review the execution trace and last reasoning step carefully
+
+ - Your final output MUST be in this XML format:
+<output>
+<response>
+  <thought>Your thought here</thought>
+  <text>Your final message to the user</text>
+</response>
+</output>
+`;

@@ -2,7 +2,7 @@ import type { HandlerCallback } from './components';
 import type { Entity, Room, World } from './environment';
 import type { Memory } from './memory';
 import type { ModelTypeName } from './model';
-import type { Metadata, UUID } from './primitives';
+import type { Content, Metadata, UUID } from './primitives';
 import type { IAgentRuntime } from './runtime';
 
 /**
@@ -55,6 +55,11 @@ export enum EventType {
 
   // Model events
   MODEL_USED = 'MODEL_USED',
+
+  // Embedding events
+  EMBEDDING_GENERATION_REQUESTED = 'EMBEDDING_GENERATION_REQUESTED',
+  EMBEDDING_GENERATION_COMPLETED = 'EMBEDDING_GENERATION_COMPLETED',
+  EMBEDDING_GENERATION_FAILED = 'EMBEDDING_GENERATION_FAILED',
 }
 
 /**
@@ -105,7 +110,6 @@ export interface EntityPayload extends EventPayload {
 export interface MessagePayload extends EventPayload {
   message: Memory;
   callback?: HandlerCallback;
-  onComplete?: () => void;
 }
 
 /**
@@ -125,7 +129,6 @@ export interface InvokePayload extends EventPayload {
   userId: string;
   roomId: UUID;
   callback?: HandlerCallback;
-  source: string;
 }
 
 /**
@@ -147,11 +150,10 @@ export interface RunEventPayload extends EventPayload {
  * Action event payload type
  */
 export interface ActionEventPayload extends EventPayload {
-  actionId: UUID;
-  actionName: string;
-  startTime?: number;
-  completed?: boolean;
-  error?: Error;
+  roomId: UUID;
+  world: UUID;
+  content: Content;
+  messageId?: UUID;
 }
 
 /**
@@ -179,12 +181,18 @@ export interface ModelEventPayload extends EventPayload {
   };
 }
 
-export type MessageReceivedHandlerParams = {
-  runtime: IAgentRuntime;
-  message: Memory;
-  callback: HandlerCallback;
-  onComplete?: () => void;
-};
+/**
+ * Payload for embedding generation events
+ */
+export interface EmbeddingGenerationPayload extends EventPayload {
+  memory: Memory;
+  priority?: 'high' | 'normal' | 'low';
+  retryCount?: number;
+  maxRetries?: number;
+  embedding?: number[];
+  error?: any;
+  runId?: UUID;
+}
 
 /**
  * Maps event types to their corresponding payload types
@@ -211,6 +219,9 @@ export interface EventPayloadMap {
   [EventType.EVALUATOR_STARTED]: EvaluatorEventPayload;
   [EventType.EVALUATOR_COMPLETED]: EvaluatorEventPayload;
   [EventType.MODEL_USED]: ModelEventPayload;
+  [EventType.EMBEDDING_GENERATION_REQUESTED]: EmbeddingGenerationPayload;
+  [EventType.EMBEDDING_GENERATION_COMPLETED]: EmbeddingGenerationPayload;
+  [EventType.EMBEDDING_GENERATION_FAILED]: EmbeddingGenerationPayload;
 }
 
 /**
@@ -219,11 +230,3 @@ export interface EventPayloadMap {
 export type EventHandler<T extends keyof EventPayloadMap> = (
   payload: EventPayloadMap[T]
 ) => Promise<void>;
-
-/**
- * Defines a more specific type for event handlers, expecting an `Metadata`.
- * This aims to improve upon generic 'any' type handlers, providing a clearer contract
- * for functions that respond to events emitted within the agent runtime (see `emitEvent` in `AgentRuntime`).
- * Handlers can be synchronous or asynchronous.
- */
-export type TypedEventHandler = (data: Metadata) => Promise<void> | void;

@@ -24,7 +24,7 @@ interface GlobalSingletons {
   postgresConnectionManager?: PostgresConnectionManager;
 }
 
-const globalSymbols = global as unknown as Record<symbol, GlobalSingletons>;
+const globalSymbols = globalThis as unknown as Record<symbol, GlobalSingletons>;
 
 if (!globalSymbols[GLOBAL_SINGLETONS]) {
   globalSymbols[GLOBAL_SINGLETONS] = {};
@@ -83,28 +83,37 @@ export const plugin: Plugin = {
   name: '@elizaos/plugin-sql',
   description: 'A plugin for SQL database access with dynamic schema migrations',
   priority: 0,
-  schema,
+  schema: schema,
   init: async (_, runtime: IAgentRuntime) => {
     logger.info('plugin-sql init starting...');
 
-    // Check if a database adapter is already registered
-    try {
-      // Try to access the database adapter to see if one exists
-      const existingAdapter = (runtime as any).databaseAdapter;
-      if (existingAdapter) {
-        logger.info('Database adapter already registered, skipping creation');
-        return;
-      }
-    } catch (error) {
-      // No adapter exists, continue with creation
+    // Prefer direct check for existing adapter (avoid readiness heuristics)
+    const adapterRegistered =
+      typeof (runtime as any).hasDatabaseAdapter === 'function'
+        ? (runtime as any).hasDatabaseAdapter()
+        : (() => {
+            try {
+              const existing =
+                (runtime as any).getDatabaseAdapter?.() ??
+                (runtime as any).databaseAdapter ??
+                (runtime as any).adapter;
+              return Boolean(existing);
+            } catch {
+              return false;
+            }
+          })();
+
+    if (adapterRegistered) {
+      logger.info('Database adapter already registered, skipping creation');
+      return;
     }
+
+    logger.debug('No database adapter found, proceeding to register new adapter');
 
     // Get database configuration from runtime settings
     const postgresUrl = runtime.getSetting('POSTGRES_URL');
-    const dataDir =
-      runtime.getSetting('PGLITE_PATH') ||
-      runtime.getSetting('DATABASE_PATH') ||
-      './.eliza/.elizadb';
+    // Only support PGLITE_DATA_DIR going forward
+    const dataDir = runtime.getSetting('PGLITE_DATA_DIR') || undefined;
 
     const dbAdapter = createDatabaseAdapter(
       {

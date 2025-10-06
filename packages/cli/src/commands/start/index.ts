@@ -5,13 +5,13 @@ import { ensureElizaOSCli } from '@/src/utils/dependency-manager';
 import { detectDirectoryType } from '@/src/utils/directory-detection';
 import { getModuleLoader } from '@/src/utils/module-loader';
 import { validatePort } from '@/src/utils/port-validation';
-import { logger, type Character, type ProjectAgent } from '@elizaos/core';
+import { logger, type Character, type ProjectAgent, type IAgentRuntime } from '@elizaos/core';
 import { Command } from 'commander';
+import dotenv from 'dotenv';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { startAgents } from './actions/server-start';
 import { StartOptions } from './types';
-import { loadEnvConfig } from './utils/config-utils';
+import { UserEnvironment } from '@/src/utils/user-environment';
 
 export const start = new Command()
   .name('start')
@@ -25,7 +25,21 @@ export const start = new Command()
   .action(async (options: StartOptions & { character?: string[] }) => {
     try {
       // Load env config first before any character loading
-      await loadEnvConfig();
+      // Use monorepo-aware resolver so root .env is found when running via turbo
+      try {
+        const userEnv = UserEnvironment.getInstance();
+        const { envFilePath } = await userEnv.getPathInfo();
+        const candidateEnv = envFilePath || path.join(process.cwd(), '.env');
+        if (fs.existsSync(candidateEnv)) {
+          dotenv.config({ path: candidateEnv });
+        }
+      } catch {
+        // Fallback to CWD-based .env if resolution fails
+        const envPath = path.join(process.cwd(), '.env');
+        if (fs.existsSync(envPath)) {
+          dotenv.config({ path: envPath });
+        }
+      }
 
       // Auto-install @elizaos/cli as dev dependency using bun (for non-monorepo projects)
       await ensureElizaOSCli();
@@ -47,6 +61,11 @@ export const start = new Command()
         process.env.PATH = localBinPath;
       }
 
+      // Force Node runtime for PGlite when running the server via CLI
+      if (!process.env.PGLITE_WASM_MODE) {
+        process.env.PGLITE_WASM_MODE = 'node';
+      }
+
       // Build the project first (unless it's a monorepo)
       const cwd = process.cwd();
       const dirInfo = detectDirectoryType(cwd);
@@ -57,7 +76,7 @@ export const start = new Command()
           // Use buildProject function with proper UI feedback and error handling
           await buildProject(cwd, false);
         } catch (error) {
-          logger.error(`Build error: ${error instanceof Error ? error.message : String(error)}`);
+          logger.error('Build error:', error instanceof Error ? error.message : String(error));
           logger.warn(
             'Build failed, but continuing with start. Some features may not work correctly.'
           );
@@ -127,17 +146,97 @@ export const start = new Command()
         }
       }
 
-      await startAgents({ ...options, characters, projectAgents });
+      // Use AgentServer from server package
+      const moduleLoader = getModuleLoader();
+      const { AgentServer } = await moduleLoader.load('@elizaos/server');
+
+      const server = new AgentServer();
+
+      // Initialize server with database configuration
+      await server.initialize({
+        dataDir: process.env.PGLITE_DATA_DIR,
+        postgresUrl: process.env.POSTGRES_URL,
+      });
+
+      // Start HTTP server
+      await server.start(options.port || 3000);
+
+      // Handle project agents with their init functions
+      if (projectAgents && projectAgents.length > 0) {
+        // Phase 1: Start all agents first (collect runtimes)
+        const runtimes: IAgentRuntime[] = [];
+        const agentRuntimeMap = new Map<ProjectAgent, IAgentRuntime>();
+
+        for (const projectAgent of projectAgents) {
+          try {
+            // Validate and safely access the agent's plugins array
+            const agentPlugins = Array.isArray(projectAgent.plugins) ? projectAgent.plugins : [];
+
+            const [runtime] = await server.startAgents([projectAgent.character], agentPlugins);
+
+            if (runtime) {
+              runtimes.push(runtime);
+              agentRuntimeMap.set(projectAgent, runtime);
+              logger.info(
+                `Started agent: ${projectAgent.character.name || 'Unnamed'} (${runtime.agentId})`
+              );
+            } else {
+              logger.error(
+                `Failed to start agent: ${projectAgent.character.name || 'Unnamed'} - runtime is undefined`
+              );
+            }
+          } catch (error) {
+            logger.error(
+              {
+                error,
+                characterName: projectAgent.character.name || 'Unnamed',
+              },
+              'Failed to start project agent'
+            );
+            // Continue with other agents even if one fails
+          }
+        }
+
+        logger.info(`Started ${runtimes.length}/${projectAgents.length} project agents`);
+
+        // Phase 2: Run all init functions after all agents have started
+        // This ensures init functions can discover/communicate with all other agents
+        for (const projectAgent of projectAgents) {
+          const runtime = agentRuntimeMap.get(projectAgent);
+          if (runtime && typeof projectAgent.init === 'function') {
+            try {
+              logger.info(
+                `Running init function for agent: ${projectAgent.character.name || 'Unnamed'}`
+              );
+              await projectAgent.init(runtime);
+            } catch (error) {
+              logger.error(
+                {
+                  error,
+                  characterName: projectAgent.character.name || 'Unnamed',
+                  agentId: runtime.agentId,
+                },
+                'Agent init function failed'
+              );
+              // Continue with other init functions even if one fails
+            }
+          }
+        }
+
+        logger.info('All agent init functions completed');
+      }
+      // Handle standalone characters from CLI
+      else if (characters && characters.length > 0) {
+        // Batch start all characters
+        const runtimes = await server.startAgents(characters);
+        logger.info(`Started ${runtimes.length} agents`);
+      }
+      // If no characters or agents specified, server is ready but no agents started
     } catch (e: any) {
       handleError(e);
       process.exit(1);
     }
   });
 
-// Re-export for backward compatibility
-export * from './actions/agent-start';
-export * from './actions/server-start';
+// Export types only
 export * from './types';
-export * from './utils/config-utils';
-export * from './utils/dependency-resolver';
-export * from './utils/plugin-utils';

@@ -1,4 +1,4 @@
-import type { IAgentRuntime, UUID } from '@elizaos/core';
+import type { ElizaOS, IAgentRuntime } from '@elizaos/core';
 import { validateUuid, logger, createUniqueUuid } from '@elizaos/core';
 import express from 'express';
 import { sendError, sendSuccess } from '../shared/response-utils';
@@ -6,13 +6,13 @@ import { sendError, sendSuccess } from '../shared/response-utils';
 /**
  * Agent world management operations
  */
-export function createAgentWorldsRouter(agents: Map<UUID, IAgentRuntime>): express.Router {
+export function createAgentWorldsRouter(elizaOS: ElizaOS): express.Router {
   const router = express.Router();
 
   // Get all worlds
   router.get('/worlds', async (_req, res) => {
     try {
-      const runtime = Array.from(agents.values())[0];
+      const runtime = elizaOS.getAgents()[0];
 
       if (!runtime) {
         return sendError(res, 404, 'NOT_FOUND', 'No active agents found to get worlds');
@@ -20,7 +20,10 @@ export function createAgentWorldsRouter(agents: Map<UUID, IAgentRuntime>): expre
       const worlds = await runtime.getAllWorlds();
       sendSuccess(res, { worlds });
     } catch (error) {
-      logger.error('[WORLDS LIST] Error retrieving worlds:', error);
+      logger.error(
+        '[WORLDS LIST] Error retrieving worlds:',
+        error instanceof Error ? error.message : String(error)
+      );
       sendError(
         res,
         500,
@@ -58,7 +61,10 @@ export function createAgentWorldsRouter(agents: Map<UUID, IAgentRuntime>): expre
 
       sendSuccess(res, { world }, 201);
     } catch (error) {
-      logger.error('[WORLD CREATE] Error creating world:', error);
+      logger.error(
+        '[WORLD CREATE] Error creating world:',
+        error instanceof Error ? error.message : String(error)
+      );
       sendError(
         res,
         500,
@@ -76,7 +82,7 @@ export function createAgentWorldsRouter(agents: Map<UUID, IAgentRuntime>): expre
       return sendError(res, 400, 'INVALID_ID', 'Invalid agent ID format');
     }
 
-    const runtime = agents.get(agentId);
+    const runtime = elizaOS.getAgent(agentId);
     if (!runtime) {
       return sendError(res, 404, 'NOT_FOUND', 'Agent not found');
     }
@@ -93,7 +99,7 @@ export function createAgentWorldsRouter(agents: Map<UUID, IAgentRuntime>): expre
       return sendError(res, 400, 'INVALID_ID', 'Invalid agent ID or world ID format');
     }
 
-    const runtime = agents.get(agentId);
+    const runtime = elizaOS.getAgent(agentId);
     if (!runtime) {
       return sendError(res, 404, 'NOT_FOUND', 'Agent not found');
     }
@@ -122,7 +128,10 @@ export function createAgentWorldsRouter(agents: Map<UUID, IAgentRuntime>): expre
       const refreshedWorld = (await runtime.getAllWorlds()).find((w) => w.id === worldId);
       sendSuccess(res, { world: refreshedWorld });
     } catch (error) {
-      logger.error('[WORLD UPDATE] Error updating world:', error);
+      logger.error(
+        '[WORLD UPDATE] Error updating world:',
+        error instanceof Error ? error.message : String(error)
+      );
       sendError(
         res,
         500,

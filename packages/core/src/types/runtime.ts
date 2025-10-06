@@ -2,11 +2,12 @@ import type { Character } from './agent';
 import type { Action, Evaluator, Provider } from './components';
 import { HandlerCallback } from './components';
 import type { IDatabaseAdapter } from './database';
-import type { Entity, Room, World } from './environment';
-import { Memory } from './memory';
+import type { Entity, Room, World, ChannelType } from './environment';
+import type { Logger } from '../logger';
+import { Memory, MemoryMetadata } from './memory';
 import type { SendHandlerFunction, TargetInfo } from './messaging';
 import type { ModelParamsMap, ModelResultMap, ModelTypeName } from './model';
-import type { Plugin, Route } from './plugin';
+import type { Plugin, PluginEvents, Route } from './plugin';
 import type { Content, UUID } from './primitives';
 import type { Service, ServiceTypeName } from './service';
 import type { State } from './state';
@@ -27,10 +28,10 @@ export interface IAgentRuntime extends IDatabaseAdapter {
   evaluators: Evaluator[];
   plugins: Plugin[];
   services: Map<ServiceTypeName, Service[]>;
-  events: Map<string, ((params: any) => Promise<void>)[]>;
+  events: PluginEvents;
   fetch?: typeof fetch | null;
   routes: Route[];
-  logger: any;
+  logger: Logger;
 
   // Methods
   registerPlugin(plugin: Plugin): Promise<void>;
@@ -46,6 +47,8 @@ export interface IAgentRuntime extends IDatabaseAdapter {
   getAllServices(): Map<ServiceTypeName, Service[]>;
 
   registerService(service: typeof Service): Promise<void>;
+
+  getServiceLoadPromise(serviceType: ServiceTypeName): Promise<Service>;
 
   getRegisteredServiceTypes(): ServiceTypeName[];
 
@@ -104,7 +107,7 @@ export interface IAgentRuntime extends IDatabaseAdapter {
     source?: string;
     channelId?: string;
     serverId?: string;
-    type: any;
+    type?: ChannelType | string;
     worldId: UUID;
     userId?: UUID;
     metadata?: Record<string, any>;
@@ -125,7 +128,8 @@ export interface IAgentRuntime extends IDatabaseAdapter {
 
   useModel<T extends ModelTypeName, R = ModelResultMap[T]>(
     modelType: T,
-    params: Omit<ModelParamsMap[T], 'runtime'> | any
+    params: Omit<ModelParamsMap[T], 'runtime'> | any,
+    provider?: string
   ): Promise<R>;
 
   registerModel(
@@ -152,9 +156,20 @@ export interface IAgentRuntime extends IDatabaseAdapter {
 
   addEmbeddingToMemory(memory: Memory): Promise<Memory>;
 
+  /**
+   * Queue a memory for async embedding generation.
+   * This method is non-blocking and returns immediately.
+   * The embedding will be generated asynchronously via event handlers.
+   * @param memory The memory to generate embeddings for
+   * @param priority Priority level for the embedding generation
+   */
+  queueEmbeddingGeneration(memory: Memory, priority?: 'high' | 'normal' | 'low'): Promise<void>;
+
   getAllMemories(): Promise<Memory[]>;
 
   clearAllAgentMemories(): Promise<void>;
+
+  updateMemory(memory: Partial<Memory> & { id: UUID; metadata?: MemoryMetadata }): Promise<boolean>;
 
   // Run tracking methods
   createRunId(): UUID;

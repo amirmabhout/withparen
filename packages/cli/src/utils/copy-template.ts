@@ -118,23 +118,14 @@ export async function copyTemplate(
   const possibleTemplatePaths = [
     // 1. Direct path from source directory (for tests and development)
     path.resolve(__dirname, '../../templates', packageName),
-    // 2. Production: templates bundled with the CLI dist
-    path.resolve(
-      path.dirname(require.resolve('@elizaos/cli/package.json')),
-      'dist',
-      'templates',
-      packageName
-    ),
-    // 3. Development/Test: templates in the CLI package root
-    path.resolve(
-      path.dirname(require.resolve('@elizaos/cli/package.json')),
-      'templates',
-      packageName
-    ),
-    // 4. Fallback: relative to current module (for built dist)
-    path.resolve(__dirname, '..', 'templates', packageName),
-    // 5. Additional fallback: relative to dist directory
-    path.resolve(__dirname, '..', '..', 'templates', packageName),
+    // 2. Production: when running from dist, templates are at the same level
+    path.resolve(__dirname, '../templates', packageName),
+    // 3. Alternative production path (if utils is nested in dist)
+    path.resolve(__dirname, '../../templates', packageName),
+    // 4. Development: templates at package root
+    path.resolve(__dirname, '../../../templates', packageName),
+    // 5. Fallback for various directory structures
+    path.resolve(__dirname, 'templates', packageName),
   ];
 
   let templateDir: string | null = null;
@@ -166,15 +157,6 @@ export async function copyTemplate(
   const packageJsonPath = path.join(targetDir, 'package.json');
 
   try {
-    // Get the CLI package version for dependency updates
-    const cliPackageJsonPath = path.resolve(
-      path.dirname(require.resolve('@elizaos/cli/package.json')),
-      'package.json'
-    );
-
-    const cliPackageJson = JSON.parse(await fs.readFile(cliPackageJsonPath, 'utf8'));
-    const cliPackageVersion = cliPackageJson.version;
-
     const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf8'));
 
     // Remove private field from template package.json since templates should be usable by users
@@ -183,14 +165,26 @@ export async function copyTemplate(
       logger.debug('Removed private field from template package.json');
     }
 
-    // Only update dependency versions - leave everything else unchanged
+    // Normalize workspace references only; do not pin versions to CLI version
+    const normalizeElizaDep = (currentVersion: string): string => {
+      // Convert workspace:* or workspace:^ to public registry 'latest'
+      if (typeof currentVersion === 'string' && currentVersion.startsWith('workspace:')) {
+        return 'latest';
+      }
+      return currentVersion;
+    };
+
     if (packageJson.dependencies) {
       for (const depName of Object.keys(packageJson.dependencies)) {
         if (depName.startsWith('@elizaos/')) {
-          if (!isQuietMode()) {
-            logger.info(`Setting ${depName} to use version ${cliPackageVersion}`);
+          const before = packageJson.dependencies[depName];
+          const after = normalizeElizaDep(before);
+          if (after !== before) {
+            if (!isQuietMode()) {
+              logger.info(`Setting ${depName} to use version ${after}`);
+            }
+            packageJson.dependencies[depName] = after;
           }
-          packageJson.dependencies[depName] = 'latest';
         }
       }
     }
@@ -198,10 +192,14 @@ export async function copyTemplate(
     if (packageJson.devDependencies) {
       for (const depName of Object.keys(packageJson.devDependencies)) {
         if (depName.startsWith('@elizaos/')) {
-          if (!isQuietMode()) {
-            logger.info(`Setting dev dependency ${depName} to use version ${cliPackageVersion}`);
+          const before = packageJson.devDependencies[depName];
+          const after = normalizeElizaDep(before);
+          if (after !== before) {
+            if (!isQuietMode()) {
+              logger.info(`Setting dev dependency ${depName} to use version ${after}`);
+            }
+            packageJson.devDependencies[depName] = after;
           }
-          packageJson.devDependencies[depName] = 'latest';
         }
       }
     }

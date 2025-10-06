@@ -1,4 +1,4 @@
-import type { IAgentRuntime, Room, UUID } from '@elizaos/core';
+import type { ElizaOS, Room, UUID } from '@elizaos/core';
 import { validateUuid, logger, createUniqueUuid, ChannelType } from '@elizaos/core';
 import express from 'express';
 import type { AgentServer } from '../../index';
@@ -8,7 +8,7 @@ import { sendError, getRuntime } from '../shared';
  * Group and world memory management functionality
  */
 export function createGroupMemoryRouter(
-  agents: Map<UUID, IAgentRuntime>,
+  elizaOS: ElizaOS,
   serverInstance: AgentServer
 ): express.Router {
   const router = express.Router();
@@ -33,7 +33,7 @@ export function createGroupMemoryRouter(
 
     for (const agentId of agentIds) {
       try {
-        const runtime = getRuntime(agents, agentId as UUID);
+        const runtime = getRuntime(elizaOS, agentId as UUID);
         const roomId = createUniqueUuid(runtime, serverId as string);
         const roomName = name || `Chat ${new Date().toLocaleString()}`;
 
@@ -67,7 +67,10 @@ export function createGroupMemoryRouter(
           type: ChannelType.API,
         });
       } catch (error) {
-        logger.error(`[ROOM CREATE] Error creating room for agent ${agentId}:`, error);
+        logger.error(
+          `[ROOM CREATE] Error creating room for agent ${agentId}:`,
+          error instanceof Error ? error.message : String(error)
+        );
         errors.push({
           agentId,
           code:
@@ -114,7 +117,10 @@ export function createGroupMemoryRouter(
       await db.deleteRoomsByWorldId(worldId);
       res.status(204).send();
     } catch (error) {
-      logger.error('[GROUP DELETE] Error deleting group:', error);
+      logger.error(
+        '[GROUP DELETE] Error deleting group:',
+        error instanceof Error ? error.message : String(error)
+      );
       sendError(
         res,
         500,
@@ -145,7 +151,10 @@ export function createGroupMemoryRouter(
 
       res.status(204).send();
     } catch (error) {
-      logger.error('[GROUP MEMORIES DELETE] Error clearing memories:', error);
+      logger.error(
+        '[GROUP MEMORIES DELETE] Error clearing memories:',
+        error instanceof Error ? error.message : String(error)
+      );
       sendError(
         res,
         500,
