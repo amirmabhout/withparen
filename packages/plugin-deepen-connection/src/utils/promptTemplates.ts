@@ -3,10 +3,12 @@
  * Copied from @elizaos/core to allow for customization
  */
 
-export const connectionCreationNarrativeTemplate = `<task>Determine if the user is ready to provide connection details, or if we need to continue exploring their relationship narrative.</task>
+export const connectionCreationNarrativeTemplate = `<task>Determine if the user is ready to provide connection details, or if we need to continue exploring their relationship narrative (maximum 3 questions before setup).</task>
 
 <context>
 You are having a warm conversation with someone who wants to create a connection with someone special in their life through Deepen-Connection. You're currently in the process of understanding their relationship before collecting the practical details (names and secret).
+
+CRITICAL RULE: Maximum 3 questions before moving to names/secret. Keep it brief and watch for readiness signals.
 
 Recent conversation messages:
 {{recentMessages}}
@@ -15,20 +17,28 @@ Recent conversation messages:
 <instructions>
 Analyze the conversation to determine which phase we're in:
 
-**Phase: exploration** - User has just started, hasn't shared much about the relationship yet
-- Continue asking about what makes this relationship special
-- Explore what they hope to deepen
-- Example questions: "What makes your connection with them meaningful to you?", "What do you most appreciate about your time together?"
+**Phase: exploration** - First interaction about the relationship (Turn 1-2)
+- Ask ONE opening question about what makes this relationship special
+- Example: "What makes your connection with them meaningful to you?"
+- NEVER ask two questions in one message
+- Move to understanding or ready_for_details phase after their response
 
-**Phase: understanding** - User has shared some relationship context, but we haven't transitioned to practical details
-- Acknowledge what they've shared
-- Ask one more deepening question about the relationship
-- Example: "That's beautiful. What brought you two together in the first place?"
+**Phase: understanding** - User has shared initial context (Turn 2-3)
+- Acknowledge what they've shared warmly
+- Ask AT MOST ONE follow-up question if they seem engaged
+- Example: "That's beautiful. What drew you together in the first place?"
+- Skip this phase if user gives brief answers or seems ready to move on
+- Watch for signals: "can we skip", "let's create", brief responses like "she's nice"
 
-**Phase: ready_for_details** - User has shared meaningful context about the relationship and seems ready for practical setup
-- Recognize indicators: they've mentioned specific names, they're asking "what's next", they've given substantial relationship information
+**Phase: ready_for_details** - User has shared 1-2 responses OR shows readiness
+- Recognize indicators:
+  * They've answered 2 questions already (even if brief)
+  * They ask "what's next" or "can we skip"
+  * They give very brief answers like "she's kind" or "don't know"
+  * They've mentioned any specific names
 - Time to transition to gathering names and secret
-- Example transition: "I can hear how much this person means to you. Let's get you set up so you can start deepening this connection..."
+- Example transition: "Thank you for sharing. Let's get you set up - what's your first name?"
+- CRITICAL: Do NOT use any extracted names in your response yet
 
 Determine which phase we're in and generate an appropriate response.
 </instructions>
@@ -57,6 +67,8 @@ The user wants to create a new human connection. You need to extract key pieces 
 3. The shared secret word, phrase, or sentence they want to use
 4. Any insights about what they want to deepen in the relationship (optional)
 
+IMPORTANT: This extraction is ONLY for database purposes. Do NOT use the extracted names to personalize messages back to the user yet.
+
 Recent conversation messages (oldest to newest):
 {{recentMessages}}
 </context>
@@ -64,8 +76,8 @@ Recent conversation messages (oldest to newest):
 <instructions>
 Analyze the recent messages and extract the connection information. Look for:
 
-- **User's name**: Their first name, often mentioned when they introduce themselves
-- **Partner's name**: The first name of the person they want to connect with
+- **User's name**: Their first name, often mentioned when they introduce themselves or when Seren asks "What's your first name?"
+- **Partner's name**: The first name of the person they want to connect with, often mentioned when Seren asks about their partner's name
 - **Secret**: A word, phrase, or sentence that only they and their partner would know
 - **Relationship insight**: What they shared about wanting to deepen (appreciation, communication, quality time, etc.)
 
@@ -74,6 +86,7 @@ Be careful to:
 - Convert names to lowercase, first name only
 - Don't guess or infer if information isn't clearly stated
 - The secret should be something meaningful they explicitly provided
+- Extract for database storage only - responses will be generated separately
 </instructions>
 
 <output>
@@ -113,16 +126,30 @@ Current information:
 Generate a response based on the current state:
 
 **If phase is "gathering" (missing information):**
-- Acknowledge what they've shared so far
+- Acknowledge what they've shared so far (if anything)
 - Warmly ask for the next piece of missing information
 - Keep the tone encouraging and supportive
 - Don't overwhelm with multiple questions at once
+- CRITICAL: Do NOT address the user by their extracted name until they've explicitly confirmed it
+- Instead of "Amir, what's your partner's name?" say "Great! And what's their first name?"
+
+**Name Confirmation Rules:**
+- If username is provided but partnername is missing:
+  * Say: "Great! And what's their first name?" (NOT "Great, Amir! And what's...")
+- If partnername is provided but secret is missing:
+  * Say: "Perfect! Now, to make sure only you two can join..." (NOT "Perfect, Amir! Now...")
+- Only use their name AFTER the connection is fully created
 
 **If phase is "complete" (connection successfully created):**
+- NOW you can use their names naturally
 - Celebrate the connection creation
-- Mention that their partner can now join using the shared secret
-- Explain that they're on a waitlist (if applicable) and what happens next
-- Invite them to start exploring their relationship right away
+- Provide Telegram bot link: https://t.me/withseren_bot
+- Explain how their partner can join:
+  * Share the bot link with {{partnername}}
+  * Partner needs the secret "{{secret}}" to authenticate
+  * Partner should go to Telegram and start conversation with bot
+- Mention waitlist status warmly if applicable
+- Invite them to start exploring their relationship
 - Transition naturally into relationship exploration
 
 **If connectionExists is "true" (duplicate found):**
@@ -131,10 +158,11 @@ Generate a response based on the current state:
 - Offer to help them with authentication
 
 Keep responses:
-- Warm and personal
+- Warm and personal (but don't use extracted name prematurely)
 - Specific to their relationship context
 - Clear about next steps
 - Encouraging and supportive
+- Include Telegram bot link in success messages
 </instructions>
 
 <output>

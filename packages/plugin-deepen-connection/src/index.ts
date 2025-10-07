@@ -18,7 +18,6 @@ import {
   type Memory,
   // messageHandlerTemplate, // Now using local version
   type MessagePayload,
-  type MessageReceivedHandlerParams,
   ModelType,
   parseKeyValueXml,
   type Plugin,
@@ -31,6 +30,7 @@ import {
   type UUID,
   type WorldPayload,
   getLocalServerUrl,
+  type HandlerCallback,
 } from '@elizaos/core';
 import { v4 } from 'uuid';
 
@@ -49,6 +49,16 @@ import { WeeklyPlanningService } from './services/weeklyPlanning.ts';
 export * from './actions/index.ts';
 export * from './evaluators/index.ts';
 export * from './providers/index.ts';
+
+/**
+ * Type for message received handler parameters
+ */
+type MessageReceivedHandlerParams = {
+  runtime: IAgentRuntime;
+  message: Memory;
+  callback?: HandlerCallback;
+  onComplete?: () => void;
+};
 
 /**
  * Represents media data containing a buffer of data and the media type.
@@ -638,7 +648,7 @@ const messageReceivedHandler = async ({
             if (action === 'NONE' && responseContent.text) {
               // NONE action: callback the message and do nothing extra
               logger.debug('[deepen-connection] NONE action: sending callback with message');
-              await callback(responseContent);
+              if (callback) await callback(responseContent);
             } else if (action === 'IGNORE') {
               // IGNORE action: no callback, no action
               logger.debug('[deepen-connection] IGNORE action: no callback sent');
@@ -687,7 +697,7 @@ const messageReceivedHandler = async ({
           };
 
           // Call the callback directly with the ignore content
-          await callback(ignoreContent);
+          if (callback) await callback(ignoreContent);
 
           // Also save this ignore action/thought to memory
           const ignoreMemory = {
@@ -1435,16 +1445,15 @@ const events = {
   [EventType.ACTION_STARTED]: [
     async (payload: ActionEventPayload) => {
       logger.debug(
-        `[deepen-connection] Action started: ${payload.actionName} (${payload.actionId})`
+        `[deepen-connection] Action started in room ${payload.roomId}`
       );
     },
   ],
 
   [EventType.ACTION_COMPLETED]: [
     async (payload: ActionEventPayload) => {
-      const status = payload.error ? `failed: ${payload.error.message}` : 'completed';
       logger.debug(
-        `[deepen-connection] Action ${status}: ${payload.actionName} (${payload.actionId})`
+        `[deepen-connection] Action completed in room ${payload.roomId}`
       );
     },
   ],

@@ -299,7 +299,7 @@ export const createConnectionAction: Action = {
       const successPrompt = connectionResponseTemplate
         .replace('{{username}}', updates.username)
         .replace('{{partnername}}', updates.partnername)
-        .replace('{{secret}}', '***') // Don't echo back the secret
+        .replace('{{secret}}', updates.secret) // Include secret for instructions
         .replace('{{missingInfo}}', '')
         .replace('{{connectionExists}}', 'false')
         .replace('{{connectionCreated}}', 'true')
@@ -314,7 +314,17 @@ export const createConnectionAction: Action = {
       const parsedSuccess = parseKeyValueXml(successResponse);
       const successText =
         parsedSuccess?.message ||
-        `Beautiful! I've created your connection with ${updates.partnername}. Now ${updates.partnername} can join using your shared secret when they're ready. In the meantime, I'm here to help you explore and deepen your connection. Would you like to tell me more about what brought you two together?`;
+        `Perfect! Your connection with ${updates.partnername} is all set up.
+
+To invite ${updates.partnername} to join, share this Telegram bot link with them:
+https://t.me/withseren_bot
+
+They'll need to:
+1. Start a conversation with the bot on Telegram
+2. Choose "Join existing connection"
+3. Use the secret "${updates.secret}" to authenticate
+
+I'm excited for you both to start this journey of deepening your connection!`;
 
       if (callback) {
         await callback({
