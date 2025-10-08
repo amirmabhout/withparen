@@ -18,7 +18,6 @@ import {
   type Memory,
   // messageHandlerTemplate, // Now using local version
   type MessagePayload,
-  type MessageReceivedHandlerParams,
   ModelType,
   parseKeyValueXml,
   type Plugin,
@@ -340,7 +339,7 @@ const checkAutoTriggerConditions = async (
 /**
  * Handles incoming messages and generates responses based on the provided runtime and message information.
  *
- * @param {MessageReceivedHandlerParams} params - The parameters needed for message handling, including runtime, message, and callback.
+ * @param {MessagePayload} params - The parameters needed for message handling, including runtime, message, and callback.
  * @returns {Promise<void>} - A promise that resolves once the message handling and response generation is complete.
  */
 const messageReceivedHandler = async ({
@@ -348,7 +347,7 @@ const messageReceivedHandler = async ({
   message,
   callback,
   onComplete,
-}: MessageReceivedHandlerParams): Promise<void> => {
+}: MessagePayload): Promise<void> => {
   // Set up timeout monitoring
   const timeoutDuration = 60 * 60 * 1000; // 1 hour
   let timeoutId: NodeJS.Timeout | undefined = undefined;
@@ -659,7 +658,9 @@ const messageReceivedHandler = async ({
             } else if (action === 'NONE' && responseContent.text) {
               // NONE action: callback message only, no action execution
               logger.debug('[discover-connection] NONE action: sending callback with message');
-              await callback(responseContent);
+              if (callback) {
+                await callback(responseContent);
+              }
             } else if (action === 'IGNORE') {
               // IGNORE action: no callback, no action
               logger.debug('[discover-connection] IGNORE action: no callback sent');
@@ -711,7 +712,9 @@ const messageReceivedHandler = async ({
           };
 
           // Call the callback directly with the ignore content
-          await callback(ignoreContent);
+          if (callback) {
+            await callback(ignoreContent);
+          }
 
           // Also save this ignore action/thought to memory
           const ignoreMemory = {
@@ -1495,6 +1498,7 @@ const events = {
         message: payload.message,
         callback: payload.callback,
         onComplete: payload.onComplete,
+        source: payload.source,
       });
     },
   ],
@@ -1510,6 +1514,7 @@ const events = {
         message: payload.message,
         callback: payload.callback,
         onComplete: payload.onComplete,
+        source: payload.source,
       });
     },
   ],

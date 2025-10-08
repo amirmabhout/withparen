@@ -1,268 +1,113 @@
 /**
- * Custom prompt templates for the Deepen-Connection Web plugin
- * Copied from @elizaos/core to allow for customization
+ * Prompt templates for the Deepen-Connection plugin
+ * Contains templates for onboarding extraction, daily planning, relationship profiling, and weekly planning
  */
 
-export const connectionCreationNarrativeTemplate = `<task>Determine if the user is ready to provide connection details, or if we need to continue exploring their relationship narrative (maximum 3 questions before setup).</task>
+export const connectionExtractionTemplate = `<task>Extract connection information (userName, partnerName, secret) from recent conversation messages.</task>
 
 <context>
-You are having a warm conversation with someone who wants to create a connection with someone special in their life through Deepen-Connection. You're currently in the process of understanding their relationship before collecting the practical details (names and secret).
-
-CRITICAL RULE: Maximum 3 questions before moving to names/secret. Keep it brief and watch for readiness signals.
+The user is creating or joining a connection. Extract the three required pieces of information from their conversation:
+1. **userName**: The user's first name (lowercase)
+2. **partnerName**: Their partner's first name (lowercase)
+3. **secret**: The shared secret word/phrase they chose
 
 Recent conversation messages:
 {{recentMessages}}
 </context>
 
 <instructions>
-Analyze the conversation to determine which phase we're in:
+Analyze the messages and extract information. Look for:
 
-**Phase: exploration** - First interaction about the relationship (Turn 1-2)
-- Ask ONE opening question about what makes this relationship special
-- Example: "What makes your connection with them meaningful to you?"
-- NEVER ask two questions in one message
-- Move to understanding or ready_for_details phase after their response
+**User's name**:
+- When user says "I'm [name]", "My name is [name]", "[name]" in response to "What's your name?"
+- Convert to lowercase, first name only
 
-**Phase: understanding** - User has shared initial context (Turn 2-3)
-- Acknowledge what they've shared warmly
-- Ask AT MOST ONE follow-up question if they seem engaged
-- Example: "That's beautiful. What drew you together in the first place?"
-- Skip this phase if user gives brief answers or seems ready to move on
-- Watch for signals: "can we skip", "let's create", brief responses like "she's nice"
+**Partner's name**:
+- When user mentions "my partner [name]", "her/his name is [name]", partner responds with their name
+- Convert to lowercase, first name only
 
-**Phase: ready_for_details** - User has shared 1-2 responses OR shows readiness
-- Recognize indicators:
-  * They've answered 2 questions already (even if brief)
-  * They ask "what's next" or "can we skip"
-  * They give very brief answers like "she's kind" or "don't know"
-  * They've mentioned any specific names
-- Time to transition to gathering names and secret
-- Example transition: "Thank you for sharing. Let's get you set up - what's your first name?"
-- CRITICAL: Do NOT use any extracted names in your response yet
+**Secret**:
+- The secret word/phrase the user provides
+- Keep exactly as stated (preserve punctuation, will be normalized to lowercase for matching)
+- Can be a word, phrase, or full sentence describing a shared memory
 
-Determine which phase we're in and generate an appropriate response.
-</instructions>
+**Extraction confidence**:
+- high: Explicitly stated
+- medium: Can be inferred from context
+- low: Ambiguous or unclear
 
-<output>
-Do NOT include any thinking, reasoning, or explanations in your response.
-Go directly to the XML response format without any preamble.
-
-Respond using XML format like this:
-<response>
-    <phase>exploration, understanding, or ready_for_details</phase>
-    <thought>Brief internal note about what you observe in the conversation</thought>
-    <message>Your warm, engaging response that continues the narrative or transitions to details</message>
-</response>
-
-IMPORTANT: Only extract information that is clearly stated. Your response must ONLY contain the <response></response> XML block above.
-</output>`;
-
-export const connectionExtractionTemplate = `<task>Extract connection information from user messages for creating a new Deepen-Connection human connection.</task>
-
-<context>
-The user wants to create a new human connection. You need to extract key pieces of information from their recent messages.
-
-1. Their own first name (lowercase)
-2. The first name of their special person/partner (lowercase)
-3. The shared secret word, phrase, or sentence they want to use
-4. Any insights about what they want to deepen in the relationship (optional)
-
-IMPORTANT: This extraction is ONLY for database purposes. Do NOT use the extracted names to personalize messages back to the user yet.
-
-Recent conversation messages (oldest to newest):
-{{recentMessages}}
-</context>
-
-<instructions>
-Analyze the recent messages and extract the connection information. Look for:
-
-- **User's name**: Their first name, often mentioned when they introduce themselves or when Seren asks "What's your first name?"
-- **Partner's name**: The first name of the person they want to connect with, often mentioned when Seren asks about their partner's name
-- **Secret**: A word, phrase, or sentence that only they and their partner would know
-- **Relationship insight**: What they shared about wanting to deepen (appreciation, communication, quality time, etc.)
-
-Be careful to:
-- Only extract clear, explicit information
-- Convert names to lowercase, first name only
-- Don't guess or infer if information isn't clearly stated
-- The secret should be something meaningful they explicitly provided
-- Extract for database storage only - responses will be generated separately
-</instructions>
-
-<output>
-Do NOT include any thinking, reasoning, or explanations in your response.
-Go directly to the XML response format without any preamble.
-
-Respond using XML format like this:
-<response>
-    <username>extracted user first name in lowercase or leave empty if not found</username>
-    <partnername>extracted partner first name in lowercase or leave empty if not found</partnername>
-    <secret>extracted secret word/phrase exactly as stated or leave empty if not found</secret>
-    <relationshipInsight>what they want to deepen in the relationship or leave empty if not mentioned</relationshipInsight>
-    <confidence>high/medium/low based on clarity of extraction</confidence>
-    <missing>comma-separated list of missing information if any</missing>
-</response>
-
-IMPORTANT: Only extract information that is clearly stated. Do not guess or infer. Your response must ONLY contain the <response></response> XML block above.
-</output>`;
-
-export const connectionResponseTemplate = `<task>Generate a response for the connection creation process based on the current state of information.</task>
-
-<context>
-The user is creating a human connection through Deepen-Connection. Based on what information we have and what's missing, generate an appropriate response.
-
-Current information:
-- Username: {{username}}
-- Partner name: {{partnername}}
-- Secret: {{secret}}
-- Missing information: {{missingInfo}}
-- Connection exists: {{connectionExists}}
-- Connection created: {{connectionCreated}}
-- Current phase: {{phase}}
-- Relationship insight: {{relationshipInsight}}
-</context>
-
-<instructions>
-Generate a response based on the current state:
-
-**If phase is "gathering" (missing information):**
-- Acknowledge what they've shared so far (if anything)
-- Warmly ask for the next piece of missing information
-- Keep the tone encouraging and supportive
-- Don't overwhelm with multiple questions at once
-- CRITICAL: Do NOT address the user by their extracted name until they've explicitly confirmed it
-- Instead of "Amir, what's your partner's name?" say "Great! And what's their first name?"
-
-**Name Confirmation Rules:**
-- If username is provided but partnername is missing:
-  * Say: "Great! And what's their first name?" (NOT "Great, Amir! And what's...")
-- If partnername is provided but secret is missing:
-  * Say: "Perfect! Now, to make sure only you two can join..." (NOT "Perfect, Amir! Now...")
-- Only use their name AFTER the connection is fully created
-
-**If phase is "complete" (connection successfully created):**
-- NOW you can use their names naturally
-- Celebrate the connection creation
-- Provide Telegram bot link: https://t.me/withseren_bot
-- Explain how their partner can join:
-  * Share the bot link with {{partnername}}
-  * Partner needs the secret "{{secret}}" to authenticate
-  * Partner should go to Telegram and start conversation with bot
-- Mention waitlist status warmly if applicable
-- Invite them to start exploring their relationship
-- Transition naturally into relationship exploration
-
-**If connectionExists is "true" (duplicate found):**
-- Gently explain that a connection with those details already exists
-- Ask if they might be trying to join an existing connection instead
-- Offer to help them with authentication
-
-Keep responses:
-- Warm and personal (but don't use extracted name prematurely)
-- Specific to their relationship context
-- Clear about next steps
-- Encouraging and supportive
-- Include Telegram bot link in success messages
-</instructions>
-
-<output>
-Do NOT include any thinking, reasoning, or explanations in your response.
-Go directly to the XML response format without any preamble.
-
-Respond using XML format like this:
-<response>
-    <thought>Brief internal note about the current state</thought>
-    <message>Your warm, personalized response to the user</message>
-</response>
-
-IMPORTANT: Your response must ONLY contain the <response></response> XML block above.
-</output>`;
-
-export const authenticationExtractionTemplate = `<task>Extract authentication information from user messages for Deepen-Connection human connection verification.</task>
-
-<context>
-The user is trying to authenticate their connection to an existing human relationship. You need to extract three key pieces of information from their recent messages:
-1. Their own name (if not mentioned, take it from conversation history)
-2. The name of their connection/person/partner
-3. The shared secret word, phrase or sentence they chose together
-
-Recent conversation messages:
-{{recentMessages}}
-</context>
-
-<instructions>
-Analyze the recent messages carefully and extract the authentication information. Look for:
-
-1. **User's name**: Usually confirmed when Deepen-Connection asks "Do you confirm this is the same first name..." and user says "yes"
-2. **Partner's name**: When Deepen-Connection asks "What's the name of your connection?" - the user's response is the partner name
-3. **Secret**: When Deepen-Connection asks "What's the secret known between you two..." - the user's response is the secret
-
-Pay attention to the conversation flow:
-- Deepen-Connection asks for name confirmation → User confirms
-- Deepen-Connection asks "What's the name of your connection?" → User provides partner name  
-- Deepen-Connection asks "What's the secret..." → User provides secret
-
-IMPORTANT: Do not confuse the partner's name with the secret. They are different pieces of information.
-
-If any information is missing or unclear, indicate what's missing.
-</instructions>
-
-<output>
-Do NOT include any thinking, reasoning, or explanations in your response. 
-Go directly to the XML response format without any preamble.
-
-Respond using XML format like this:
-<response>
-    <userName>extracted user name or leave empty if not found</userName>
-    <partnerName>extracted partner name or leave empty if not found</partnerName>
-    <secret>extracted secret word/phrase or leave empty if not found</secret>
-    <confidence>high/medium/low based on clarity of extraction</confidence>
-    <missing>comma-separated list of missing information if any</missing>
-</response>
-
-IMPORTANT: Only extract information that is clearly stated. Do not guess or infer names or secrets. Your response must ONLY contain the <response></response> XML block above.
-</output>`;
-
-// A second-stage verifier that can flexibly compare a user's described secret
-// against candidate HumanConnection secrets and metadata using contextual
-// understanding rather than strict exact-string match.
-export const authenticationFlexibleVerificationTemplate = `<task>Decide which, if any, of the candidate connections match the user's described shared secret and partner names, allowing for paraphrase and contextual matches.</task>
-
-<context>
-You have already extracted three fields from the conversation:
-- userName: {{userName}}
-- partnerName: {{partnerName}}
-- userSecretText: {{userSecretText}}
-
-You are also given a list of candidate HumanConnection nodes from the database that match the two partner names in some flexible way. Each candidate includes: partners[], secret (may be a phrase/sentence), optional connectionId, and status.
-
-Candidates (JSON array):
-{{candidatesJson}}
-</context>
-
-<instructions>
-Your job is to select the single best-matching connection where the user's described secret is contextually equivalent to the candidate.secret, even if the exact wording differs. Consider synonyms, paraphrases, tense changes, small omissions/additions, and minor misspellings. If none are a reasonable match, choose "none".
-
-Rules:
-- Names have already been filtered; focus mainly on secret matching.
-- Prefer a candidate whose secret best captures the core meaning of userSecretText.
-- If multiple candidates are equally good, pick the one with status "active" over others; otherwise choose the first among equals.
-- If userSecretText is empty or uninformative, return "none".
+Only extract information that is clearly stated. Don't guess or infer if not clear.
 </instructions>
 
 <output>
 Respond ONLY with this XML structure:
-<response>
-  <match>connectionId if available, otherwise the literal string "partners+secret"</match>
-  <partners>comma-separated partners of the matched connection or empty if none</partners>
-  <secret>the candidate secret you matched against (empty if none)</secret>
-  <decision>"matched" or "none"</decision>
-  <reason>very brief justification (one short sentence)</reason>
-  <confidence>high|medium|low</confidence>
-  <raw>the exact JSON object of the matched candidate or empty</raw>
-}</response>
 
-Do not include any other text.
+<response>
+    <userName>extracted user name in lowercase or empty if not found</userName>
+    <partnerName>extracted partner name in lowercase or empty if not found</partnerName>
+    <secret>extracted secret exactly as stated or empty if not found</secret>
+    <confidence>high|medium|low</confidence>
+    <missing>comma-separated list of what's still needed (e.g., "userName,secret")</missing>
+</response>
+
+Do not include any other text, thinking, or explanation.
+</output>`;
+
+export const secretVerificationTemplate = `<task>Determine if a user's provided secret phrase semantically matches any of the candidate connection secrets.</task>
+
+<context>
+The user is attempting to join an existing HumanConnection. They have provided a secret phrase, and we have found one or more candidate connections that match the partner names. Now we need to verify if the user's secret matches any of the candidate connection secrets.
+
+**User's Secret Phrase:**
+{{userSecret}}
+
+**Candidate Connection Secrets:**
+{{candidateSecrets}}
+</context>
+
+<instructions>
+Analyze the user's secret phrase and determine if it semantically matches any of the numbered candidate secrets. Consider:
+
+1. **Exact Matches**: Direct word-for-word matches (already handled, unlikely to reach here)
+
+2. **Paraphrasing**: Different ways of expressing the same memory or event
+   - "swimming at the lake at night" vs "time we went swimming in the lake at night"
+   - "our first kiss" vs "when we kissed for the first time"
+
+3. **Key Event Matching**: Identifying the same memorable moment despite different wording
+   - "movie night with pizza" vs "watched movies and ate pizza together"
+   - "camping trip in the mountains" vs "when we went camping up in the hills"
+
+4. **Core Elements**: Match on essential components of shared memory
+   - Location references (lake, beach, restaurant name)
+   - Activity references (swimming, hiking, watching)
+   - Time markers (at night, in summer, on birthday)
+
+5. **Non-Matches**: Clearly different events or memories
+   - "beach vacation" does NOT match "skiing trip"
+   - "first date" does NOT match "graduation day"
+
+**Matching Criteria:**
+- A match requires shared core elements (location, activity, or time) that uniquely identify the same memory
+- Minor word differences don't prevent a match if the event is clearly the same
+- Generic phrases only match if they reference the same specific context
+
+**Decision Process:**
+- If user secret clearly matches ONE candidate: return that candidate number
+- If user secret could match MULTIPLE candidates: return the best/closest match
+- If user secret clearly matches NONE: return "no_match"
+</instructions>
+
+<output>
+Respond ONLY with this XML structure:
+
+<response>
+    <matchedCandidate>candidate number (1, 2, 3, etc.) or "no_match"</matchedCandidate>
+    <confidence>high|medium|low</confidence>
+    <reasoning>Brief explanation of why this candidate matches or why no match was found (1-2 sentences)</reasoning>
+</response>
+
+Do not include any other text, thinking, or explanation.
 </output>`;
 
 export const dailyPlanningTemplate = `<task>Generate research-based daily plans and check-in messages for two people in a relationship, using psychological frameworks and evidence-based interventions to create personalized connection experiences based on today's theme and their current context.</task>
@@ -583,11 +428,13 @@ Create personalized daily plans that feel natural and engaging while incorporati
    - Consider cultural context in intervention design
 
 2. **Check-In Message Design**:
+   - **LENGTH CONSTRAINT: 1-2 sentences maximum**
    - Reference something specific from last 24-48 hours
    - Use attachment-appropriate language (reassuring for anxious, autonomy-respecting for avoidant)
    - Create emotional safety through warm, non-judgmental tone
    - Match their personality style (structured for conscientious, flexible for open)
    - End with an engaging question that invites sharing
+   - **NO lengthy introductions or preambles** - get to the question quickly
 
 3. **Daily Plan Structure** (follows structured narrative format):
    
@@ -624,6 +471,9 @@ Create personalized daily plans that feel natural and engaging while incorporati
    - End gracefully when natural stopping point reached
 
 4. **Conversation Management**:
+   - **Response Length Constraint: 2-3 sentences maximum per agent message**
+   - **Brief Context Rule**: If explanation needed, limit to 1 sentence before asking question
+   - **No Multi-Paragraph Responses**: Keep each message tight and focused
    - **Focus Limitation**: Daily plans focus on ONE primary goal. Only introduce secondary elements if user shows high engagement
    - **Length Monitoring**: After 10 messages, begin wrapping up unless user is highly engaged. Conclude gracefully after 6-8 messages if disengagement detected
    - **Disengagement Signals**: Watch for one-word responses, mentions of being 'busy'/'tired', topic changes, delayed responses
@@ -664,9 +514,13 @@ Create personalized daily plans that feel natural and engaging while incorporati
    - Output optimal time as UTC hour (0-23) to avoid timezone confusion
 
 **Quality Markers:**
+- **Check-in messages are 1-2 sentences maximum**
+- **Agent responses are 2-3 sentences maximum during conversations**
+- **Brief context/explanation only when necessary (1 sentence)**
+- **No lengthy preambles, introductions, or multi-paragraph responses**
 - Follows "Important Task" headline format with clear single focus theme
 - Uses adaptive phase structure that moves forward based on user responses
-- Focuses on ONE primary goal per day (not multiple frameworks)  
+- Focuses on ONE primary goal per day (not multiple frameworks)
 - Includes conversation length management and natural stopping points
 - Avoids repetitive questioning loops (asking same thing in different ways)
 - Provides natural ending that celebrates progress and mentions future check-in
@@ -679,6 +533,8 @@ Create personalized daily plans that feel natural and engaging while incorporati
 - Feels warm, personal, and supportive
 
 **Anti-Pattern Examples (What NOT to do):**
+- ❌ VERBOSE: "Welcome! I'm so glad you're here. My purpose is to create a private space for you and [partner] to explore and deepen your connection, one conversation at a time. Today, I'd love to begin by reflecting on something foundational..." (4+ sentences)
+- ✅ CONCISE: "How important is it for you to feel truly heard by [partner]?" (1 sentence)
 - ❌ User: "I appreciate him" → Agent: "How does this make you feel?" → User: "Good" → Agent: "What does this tell you about your connection?"
 - ❌ Asking 3+ variations of the same appreciation/feeling question in one conversation
 - ❌ Pushing for deeper meaning when user gives simple, complete answers
@@ -751,7 +607,7 @@ Celebrate her willingness to try a new approach. Remind her that every pause bui
 
 Remember: This is about helping Sarah channel her natural sensitivity into actions that invite Michael closer rather than triggering his withdrawal.</person1Plan>
     
-    <person1CheckIn>Hi Sarah 💛 I've been thinking about what you shared yesterday about missing quality time with Michael. It sounds like the work stress is creating some distance between you two. How are you feeling about your connection today?</person1CheckIn>
+    <person1CheckIn>How are you feeling about your connection with Michael today?</person1CheckIn>
     
     <person2Plan># Important Task: Follow Daily Plan Narrative Below
 Building Connection Through Micro-Signals During Work Stress
@@ -799,7 +655,7 @@ Celebrate his willingness to experiment with proactive connection. Remind him th
 
 Remember: This is about helping Michael use his systematic nature to create the security Sarah needs while maintaining his work effectiveness.</person2Plan>
     
-    <person2CheckIn>Hey Michael - I know you've got that deadline pressure. Quick thought: Relationship uncertainty can actually drain focus like background apps on your phone. What if we found a 2-minute way to close those tabs so you can fully concentrate?</person2CheckIn>
+    <person2CheckIn>How's the deadline pressure affecting your connection with Sarah?</person2CheckIn>
     
     <person1CheckInTimeUTC>14</person1CheckInTimeUTC>
     <person2CheckInTimeUTC>10</person2CheckInTimeUTC>

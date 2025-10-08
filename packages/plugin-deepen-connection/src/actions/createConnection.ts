@@ -11,63 +11,21 @@ import {
   logger,
 } from '@elizaos/core';
 import { MemgraphService } from '../services/memgraph.js';
-import {
-  connectionCreationNarrativeTemplate,
-  connectionExtractionTemplate,
-  connectionResponseTemplate,
-} from '../utils/promptTemplates.js';
+import { connectionExtractionTemplate } from '../utils/promptTemplates.js';
+import { sendConnectionCreatedNotification } from '../utils/adminNotifications.js';
 
 /**
- * Action to create a new HumanConnection with waitlist status through narrative conversation
+ * Action to create a new HumanConnection - extracts data from conversation and creates connection
  */
 export const createConnectionAction: Action = {
   name: 'CREATE_CONNECTION',
-  description:
-    'Creates a new human connection through a narrative conversation about their relationship',
-  similes: [
-    'CREATE_HUMAN_CONNECTION',
-    'SETUP_CONNECTION',
-    'START_CONNECTION',
-    'NEW_CONNECTION',
-    'INVITE_PARTNER',
-    'CREATE_INVITE',
-  ],
+  description: 'Creates a new human connection, When you have userName + partnerName + secret for new connection call this action',
+  similes: ['CREATE_HUMAN_CONNECTION', 'SETUP_CONNECTION', 'START_CONNECTION', 'NEW_CONNECTION'],
   examples: [] as ActionExample[][],
-  validate: async (_runtime: IAgentRuntime, message: Memory) => {
-    const messageText = message.content?.text?.trim() || '';
-
-    // Only exclude completely empty messages
-    if (messageText.length === 0) {
-      return false;
-    }
-
-    // Check if the message indicates intent to create a connection
-    const createIntentKeywords = [
-      'create',
-      'new connection',
-      'invite',
-      'start',
-      'set up',
-      'begin',
-      'initiate',
-      'partner',
-      'relationship',
-      'deepen',
-    ];
-
-    const lowerText = messageText.toLowerCase();
-    const hasCreateIntent = createIntentKeywords.some((keyword) => lowerText.includes(keyword));
-
-    if (hasCreateIntent) {
-      logger.debug(
-        `[createConnection] Validation passed: Create intent detected for userId: ${message.entityId}`
-      );
-      return true;
-    }
-
-    // Also validate if we're in the middle of a connection creation flow
-    // This would be tracked through conversation state
-    return false;
+  validate: async (_runtime: IAgentRuntime, _message: Memory, _state?: State) => {
+    // Simple validation - let the action handler do the heavy lifting
+    // Action will be called when conversation flow reaches this point
+    return true;
   },
   handler: async (
     runtime: IAgentRuntime,
@@ -81,20 +39,19 @@ export const createConnectionAction: Action = {
     try {
       await memgraphService.connect();
 
-      // Get the user's entityId as userId
       const userId = message.entityId;
 
       // Check if user already has connections
       const hasConnections = await memgraphService.hasHumanConnections(userId);
       if (hasConnections) {
         const responseText =
-          "I see you already have an existing connection. If you'd like to create another connection or need help with your current one, please let me know how I can assist you.";
+          "I see you already have an existing connection. If you'd like to create another or need help with your current one, let me know.";
 
         if (callback) {
           await callback({
             text: responseText,
             thought: 'User already has connections',
-            actions: ['CREATE_CONNECTION'],
+            actions: ['NONE'],
           });
         }
 
@@ -105,67 +62,24 @@ export const createConnectionAction: Action = {
         };
       }
 
-      // Get recent messages for context (limit to last 30 for narrative understanding)
+      // Get recent messages for extraction
       const recentMessages = await runtime.getMemories({
-        tableName: 'messages',
         roomId: message.roomId,
-        count: 30,
+        tableName: 'messages',
+        count: 15,
         unique: false,
       });
 
-      // Sort chronologically and format with role + time for clarity
+      // Format messages for extraction
       const formattedMessages = recentMessages
-        .sort((a: any, b: any) => (a.createdAt || 0) - (b.createdAt || 0))
+        .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
         .map((msg: any) => {
-          const text = (msg.content?.text || '').trim();
-          if (!text) return '';
-          const isAgent = msg.entityId === runtime.agentId;
-          const sender = isAgent ? 'Seren' : 'User';
-          const time = msg.createdAt ? new Date(msg.createdAt).toISOString() : '';
-          return `${time} ${sender}: ${text}`.trim();
+          const role = msg.entityId === userId ? 'User' : 'Seren';
+          return `${role}: ${msg.content?.text || ''}`;
         })
-        .filter((line: string) => line.length > 0)
         .join('\n');
 
-      // First, engage with narrative to understand the relationship
-      const narrativePrompt = connectionCreationNarrativeTemplate.replace(
-        '{{recentMessages}}',
-        formattedMessages
-      );
-
-      const narrativeResponse = await runtime.useModel(ModelType.TEXT_SMALL, {
-        prompt: narrativePrompt,
-        temperature: 0.7,
-      });
-
-      const parsedNarrative = parseKeyValueXml(narrativeResponse);
-      const narrativePhase = parsedNarrative?.phase || 'exploration';
-
-      // If we're still in exploration phase, continue the narrative
-      if (narrativePhase === 'exploration' || narrativePhase === 'understanding') {
-        const narrativeText =
-          parsedNarrative?.message ||
-          "I'd love to hear more about this special person in your life. What makes your connection with them meaningful to you?";
-
-        if (callback) {
-          await callback({
-            text: narrativeText,
-            thought: parsedNarrative?.thought || 'Exploring relationship narrative',
-            actions: ['CREATE_CONNECTION'],
-          });
-        }
-
-        return {
-          text: narrativeText,
-          success: true,
-          values: {
-            phase: narrativePhase,
-            readyForDetails: false,
-          },
-        };
-      }
-
-      // If we're ready to collect details, extract connection info
+      // Extract connection information from conversation
       const extractionPrompt = connectionExtractionTemplate.replace(
         '{{recentMessages}}',
         formattedMessages
@@ -176,161 +90,95 @@ export const createConnectionAction: Action = {
         temperature: 0.1,
       });
 
-      let extractedInfo;
-      try {
-        extractedInfo = parseKeyValueXml(extractionResponse);
-        if (!extractedInfo) {
-          throw new Error('Failed to parse XML response');
-        }
-        logger.debug('[createConnection] Successfully extracted connection info:', extractedInfo);
-      } catch (e) {
-        logger.error(`[createConnection] Failed to extract connection information: ${e}`);
+      const extracted = parseKeyValueXml(extractionResponse);
 
-        // Continue narrative if extraction fails
-        const continueText =
-          "Let's take this step by step. First, what's your first name? Just your first name is perfect.";
+      if (!extracted) {
+        logger.error('[createConnection] Failed to parse extraction response');
+        const fallbackText =
+          "I'm having trouble understanding the information. Let's start fresh - what's your first name?";
 
         if (callback) {
           await callback({
-            text: continueText,
-            thought: 'Need to gather basic information',
-            actions: ['CREATE_CONNECTION'],
+            text: fallbackText,
+            thought: 'Failed to extract information',
+            actions: ['NONE'],
           });
         }
 
         return {
-          text: continueText,
-          success: true,
-          values: {
-            phase: 'gathering_details',
-            needsInfo: true,
-          },
+          text: fallbackText,
+          success: false,
+          error: new Error('Failed to parse extraction'),
         };
       }
 
-      // Generate a connection ID for this user
-      const connectionId = `${userId}_${Date.now()}`;
+      const userName = extracted.userName?.trim().toLowerCase() || '';
+      const partnerName = extracted.partnerName?.trim().toLowerCase() || '';
+      const secret = extracted.secret?.trim().toLowerCase() || '';
 
-      // Prepare connection details
-      const updates: any = {};
-      if (extractedInfo.username && extractedInfo.username.trim()) {
-        updates.username = extractedInfo.username.trim().toLowerCase();
-      }
-      if (extractedInfo.partnername && extractedInfo.partnername.trim()) {
-        updates.partnername = extractedInfo.partnername.trim().toLowerCase();
-      }
-      if (extractedInfo.secret && extractedInfo.secret.trim()) {
-        updates.secret = extractedInfo.secret.trim();
-      }
-      if (extractedInfo.relationshipInsight) {
-        updates.relationshipInsight = extractedInfo.relationshipInsight;
-      }
+      logger.debug(
+        `[createConnection] Extracted - userName: "${userName}", partnerName: "${partnerName}", secret: "${!!secret}"`
+      );
 
-      // Check if we have minimum required information
-      const hasMinimumInfo = updates.username && updates.partnername && updates.secret;
+      // Validate we have all required information
+      if (!userName || !partnerName || !secret) {
+        const missing = extracted.missing || 'some information';
+        const errorText = `I still need ${missing}. Can you provide that?`;
 
-      if (!hasMinimumInfo) {
-        // Determine what's missing and continue conversation
-        const missingItems: string[] = [];
-        if (!updates.username) missingItems.push('your first name');
-        if (!updates.partnername) missingItems.push("your partner's first name");
-        if (!updates.secret) missingItems.push('a special word or phrase that only you two would know');
-
-        const gatheringPrompt = connectionResponseTemplate
-          .replace('{{username}}', updates.username || '')
-          .replace('{{partnername}}', updates.partnername || '')
-          .replace('{{secret}}', updates.secret || '')
-          .replace('{{missingInfo}}', missingItems.join(', '))
-          .replace('{{connectionExists}}', 'false')
-          .replace('{{connectionCreated}}', 'false')
-          .replace('{{phase}}', 'gathering');
-
-        const gatheringResponse = await runtime.useModel(ModelType.TEXT_SMALL, {
-          prompt: gatheringPrompt,
-          temperature: 0.5,
-        });
-
-        const parsedGathering = parseKeyValueXml(gatheringResponse);
-        const gatheringText =
-          parsedGathering?.message || `To set things up, I still need ${missingItems[0]}. Could you share that with me?`;
+        logger.info(`[createConnection] Missing data: ${missing}`);
 
         if (callback) {
           await callback({
-            text: gatheringText,
-            thought: parsedGathering?.thought || 'Gathering missing information',
-            actions: ['CREATE_CONNECTION'],
+            text: errorText,
+            thought: `Missing: ${missing}`,
+            actions: ['NONE'],
           });
         }
 
         return {
-          text: gatheringText,
-          success: true,
-          values: {
-            phase: 'gathering_details',
-            missingInfo: missingItems,
-            partialInfo: updates,
-          },
+          text: errorText,
+          success: false,
+          error: new Error(`Missing required information: ${missing}`),
         };
       }
 
       // Create the HumanConnection
+      const connectionId = `${userId}_${Date.now()}`;
       const connection = await memgraphService.createHumanConnectionWithWaitlist(
         connectionId,
-        updates.username,
-        updates.partnername,
-        updates.secret
+        userName,
+        partnerName,
+        secret
       );
-      logger.info(`[createConnection] Created new HumanConnection: ${JSON.stringify(connection)}`);
+      logger.info(`[createConnection] Created HumanConnection: ${JSON.stringify(connection)}`);
 
-      // Ensure Person node exists and link to HumanConnection
-      try {
-        // Create or update Person node
-        await memgraphService.ensurePerson(userId, message.roomId, updates.username);
-        logger.debug(`[createConnection] Ensured Person node for userId: ${userId}`);
+      // Create Person node and link to HumanConnection
+      await memgraphService.ensurePerson(userId, message.roomId, userName);
+      await memgraphService.linkPersonToHumanConnection(userId, connection);
+      logger.info(`[createConnection] Linked Person ${userId} to HumanConnection ${connectionId}`);
 
-        // Link Person to HumanConnection
-        await memgraphService.linkPersonToHumanConnection(userId, connection);
-        logger.debug('[createConnection] Linked Person to HumanConnection via PARTICIPATES_IN');
-      } catch (linkError) {
-        logger.warn(`[createConnection] Failed to link Person to HumanConnection: ${linkError}`);
-      }
+      // Send admin notification for connection creation (non-blocking)
+      sendConnectionCreatedNotification(connection, userId, userName).catch((error) =>
+        logger.error(
+          `[createConnection] Admin notification failed: ${error instanceof Error ? error.message : String(error)}`
+        )
+      );
 
-      // Generate success response with next steps
-      const successPrompt = connectionResponseTemplate
-        .replace('{{username}}', updates.username)
-        .replace('{{partnername}}', updates.partnername)
-        .replace('{{secret}}', updates.secret) // Include secret for instructions
-        .replace('{{missingInfo}}', '')
-        .replace('{{connectionExists}}', 'false')
-        .replace('{{connectionCreated}}', 'true')
-        .replace('{{phase}}', 'complete')
-        .replace('{{relationshipInsight}}', updates.relationshipInsight || '');
+      // Success response
+      const successText = `Beautiful! Your invite for ${partnerName} is ready.
 
-      const successResponse = await runtime.useModel(ModelType.TEXT_SMALL, {
-        prompt: successPrompt,
-        temperature: 0.5,
-      });
-
-      const parsedSuccess = parseKeyValueXml(successResponse);
-      const successText =
-        parsedSuccess?.message ||
-        `Perfect! Your connection with ${updates.partnername} is all set up.
-
-To invite ${updates.partnername} to join, share this Telegram bot link with them:
+Now, invite ${partnerName} to join you here:
 https://t.me/withseren_bot
 
-They'll need to:
-1. Start a conversation with the bot on Telegram
-2. Choose "Join existing connection"
-3. Use the secret "${updates.secret}" to authenticate
+When they start chatting with me, they should mention they are invited and I'll ask them for the secret memory"${secret}" to verify it's really them.
 
-I'm excited for you both to start this journey of deepening your connection!`;
+Once ${partnerName} joins, we'll begin our journey together. I'll have separate, private conversations with each of you to help deepen what you already share.`;
 
       if (callback) {
         await callback({
           text: successText,
-          thought: parsedSuccess?.thought || 'Connection successfully created',
-          actions: ['CREATE_CONNECTION'],
+          thought: 'Connection successfully created',
+          actions: ['NONE'],
         });
       }
 
@@ -339,27 +187,24 @@ I'm excited for you both to start this journey of deepening your connection!`;
         success: true,
         values: {
           connectionCreated: true,
-          username: updates.username,
-          partnername: updates.partnername,
-          hasSecret: true,
+          userName,
+          partnerName,
           status: connection?.status || 'waitlist',
-          phase: 'complete',
         },
-        data: {
-          connection,
-        },
+        data: { connection },
       };
     } catch (error) {
-      logger.error(`[createConnection] Error creating connection: ${error}`);
+      logger.error(
+        `[createConnection] Error: ${error instanceof Error ? error.message : String(error)}`
+      );
 
-      const errorText =
-        "I'm having a moment of difficulty creating your connection. Let's try again - could you tell me your first name?";
+      const errorText = 'I encountered an error creating your connection. Please try again.';
 
       if (callback) {
         await callback({
           text: errorText,
           thought: 'System error occurred',
-          actions: ['CREATE_CONNECTION'],
+          actions: ['NONE'],
         });
       }
 

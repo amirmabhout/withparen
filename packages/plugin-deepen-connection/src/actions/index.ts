@@ -1,15 +1,4 @@
-//export { generateImageAction } from './imageGeneration';
-//export { choiceAction } from './choice';
 export { createConnectionAction } from './createConnection';
+export { joinConnectionAction } from './joinConnection';
 export { dailyPlanningAction } from './dailyCheckin';
-//export { followRoomAction } from './followRoom';
-//export { ignoreAction } from './ignore';
-//export { muteRoomAction } from './muteRoom';
 export { noneAction } from './none';
-//export { replyAction } from './reply';
-//export { updateRoleAction } from './roles';
-//export { sendMessageAction } from './sendMessage';
-//export { updateSettingsAction } from './settings';
-//export { unfollowRoomAction } from './unfollowRoom';
-//export { unmuteRoomAction } from './unmuteRoom';
-//export { updateEntityAction } from './updateEntity';

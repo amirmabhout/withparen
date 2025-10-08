@@ -746,4 +746,30 @@ export class MemgraphService {
       return personNode.properties as PersonNode;
     });
   }
+
+  /**
+   * Count the number of Person nodes connected to a HumanConnection
+   */
+  async countConnectionParticipants(humanConnection: HumanConnectionNode): Promise<number> {
+    const byConnectionId = humanConnection.connectionId
+      ? `MATCH (hc:HumanConnection {connectionId: $connectionId})`
+      : `MATCH (hc:HumanConnection {secret: $secret, partners: $partners})`;
+
+    const query = `
+      ${byConnectionId}
+      MATCH (p:Person)-[:PARTICIPATES_IN]->(hc)
+      RETURN count(p) as participantCount
+    `;
+
+    const result = await this.runQuery(query, {
+      connectionId: humanConnection.connectionId || null,
+      secret: humanConnection.secret,
+      partners: humanConnection.partners,
+    });
+
+    if (result.records.length === 0) return 0;
+
+    const count = result.records[0].get('participantCount');
+    return count ? count.toNumber() : 0;
+  }
 }

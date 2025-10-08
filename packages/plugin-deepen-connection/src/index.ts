@@ -30,7 +30,6 @@ import {
   type UUID,
   type WorldPayload,
   getLocalServerUrl,
-  type HandlerCallback,
 } from '@elizaos/core';
 import { v4 } from 'uuid';
 
@@ -49,16 +48,6 @@ import { WeeklyPlanningService } from './services/weeklyPlanning.ts';
 export * from './actions/index.ts';
 export * from './evaluators/index.ts';
 export * from './providers/index.ts';
-
-/**
- * Type for message received handler parameters
- */
-type MessageReceivedHandlerParams = {
-  runtime: IAgentRuntime;
-  message: Memory;
-  callback?: HandlerCallback;
-  onComplete?: () => void;
-};
 
 /**
  * Represents media data containing a buffer of data and the media type.
@@ -323,7 +312,7 @@ export function shouldBypassShouldRespond(
 /**
  * Handles incoming messages and generates responses based on the provided runtime and message information.
  *
- * @param {MessageReceivedHandlerParams} params - The parameters needed for message handling, including runtime, message, and callback.
+ * @param {MessagePayload} params - The parameters needed for message handling, including runtime, message, and callback.
  * @returns {Promise<void>} - A promise that resolves once the message handling and response generation is complete.
  */
 const messageReceivedHandler = async ({
@@ -331,7 +320,7 @@ const messageReceivedHandler = async ({
   message,
   callback,
   onComplete,
-}: MessageReceivedHandlerParams): Promise<void> => {
+}: MessagePayload): Promise<void> => {
   // Set up timeout monitoring
   const timeoutDuration = 60 * 60 * 1000; // 1 hour
   let timeoutId: NodeJS.Timeout | undefined = undefined;
@@ -1320,6 +1309,7 @@ const events = {
         message: payload.message,
         callback: payload.callback,
         onComplete: payload.onComplete,
+        source: payload.source,
       });
     },
   ],
@@ -1335,6 +1325,7 @@ const events = {
         message: payload.message,
         callback: payload.callback,
         onComplete: payload.onComplete,
+        source: payload.source,
       });
     },
   ],
@@ -1483,6 +1474,7 @@ export const deepenConnectionPlugin: Plugin = {
   description: 'Agent deepen-connection with connection deepening functionality',
   actions: [
     actions.createConnectionAction,
+    actions.joinConnectionAction,
     actions.noneAction,
     actions.dailyPlanningAction,
     // ...(process.env.ALLOW_TEST_ACTIONS === 'true'

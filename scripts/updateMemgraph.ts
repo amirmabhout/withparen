@@ -1,547 +1,2063 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env bun
 
 /**
- * Unified Memgraph management script
+ * Memgraph Database Management CLI Tool
+ * 
+ * Provides command-line operations for managing Memgraph database:
+ * - Person node management (delete, list, view details)
+ * - Database cleanup (orphaned nodes, full reset)
+ * - Production-ready with proper error handling and logging
+ * 
  * Usage:
- *   npx tsx updateMemgraph.ts clear
- *   npx tsx updateMemgraph.ts addConnection "amir, bianca, popcorn, active"
+ *   bun scripts/updateMemgraph.ts deletePerson <id>
+ *   bun scripts/updateMemgraph.ts listPersons [--dry-run]
+ *   bun scripts/updateMemgraph.ts getPersonDetails <id>
+ *   bun scripts/updateMemgraph.ts deleteOrphans [--dry-run]
+ *   bun scripts/updateMemgraph.ts reset --confirm [--dry-run]
+ * 
+ * Environment:
+ *   MEMGRAPH_URL - Connection string (default: bolt://localhost:7687)
  */
 
-import neo4j from 'neo4j-driver';
-
-// Hardcoded Memgraph configuration
-const MEMGRAPH_HOST = '127.0.0.1';
-const MEMGRAPH_PORT = '7687';
-const MEMGRAPH_URI = `bolt://${MEMGRAPH_HOST}:${MEMGRAPH_PORT}`;
-
-class MemgraphManager {
-  private driver: any;
-  private session: any;
-
-  async connect() {
-    this.driver = neo4j.driver(MEMGRAPH_URI);
-    this.session = this.driver.session();
-    console.log(`Connected to Memgraph at ${MEMGRAPH_HOST}:${MEMGRAPH_PORT}`);
-  }
-
-  async disconnect() {
-    if (this.session) await this.session.close();
-    if (this.driver) await this.driver.close();
-    console.log('Disconnected from Memgraph');
-  }
-
-  async clear() {
-    console.log('🧹 Clearing all data from Memgraph...');
-
-    try {
-      const query = `MATCH (n) DETACH DELETE n`;
-      await this.session.run(query);
-      console.log('✅ All data cleared successfully');
-    } catch (error: any) {
-      console.error('❌ Error clearing data:', error.message);
-      throw error;
-    }
-  }
-
-  async addConnection(connectionString: string) {
-    console.log('➕ Adding HumanConnection...');
-
-    try {
-      // Parse the connection string "person1, person2, secret, status"
-      const parts = connectionString.split(',').map((part) => part.trim());
-
-      if (parts.length !== 4) {
-        throw new Error('Connection string must be in format: "person1, person2, secret, status"');
-      }
-
-      const [person1, person2, secret, status] = parts;
-
-      const query = `
-        CREATE (connection:HumanConnection {
-          partners: [$person1, $person2],
-          secret: $secret,
-          status: $status,
-          updatedAt: toString(datetime())
-        })
-        RETURN connection
-      `;
-
-      const result = await this.session.run(query, {
-        person1,
-        person2,
-        secret,
-        status,
-      });
-
-      if (result.records.length > 0) {
-        const connection = result.records[0].get('connection').properties;
-        console.log('✅ HumanConnection created successfully!');
-        console.log('Connection details:');
-        console.log(`  Partners: ${JSON.stringify(connection.partners)}`);
-        console.log(`  Secret: ${connection.secret}`);
-        console.log(`  Status: ${connection.status}`);
-        console.log(`  Updated At: ${connection.updatedAt}`);
-      }
-
-      // Verify the connection was created
-      const verifyQuery = `
-        MATCH (connection:HumanConnection {secret: $secret})
-        RETURN connection
-      `;
-
-      const verifyResult = await this.session.run(verifyQuery, { secret });
-
-      if (verifyResult.records.length > 0) {
-        console.log('✅ Verification successful! HumanConnection node exists.');
-      }
-    } catch (error: any) {
-      console.error('❌ Error adding connection:', error.message);
-      throw error;
-    }
-  }
-
-  async listConnections() {
-    console.log('📋 Listing all HumanConnections...');
-
-    try {
-      const query = `
-        MATCH (connection:HumanConnection)
-        RETURN connection
-        ORDER BY connection.updatedAt DESC
-      `;
-
-      const result = await this.session.run(query);
-
-      if (result.records.length === 0) {
-        console.log('No HumanConnection nodes found.');
-        return;
-      }
-
-      console.log(`\n✅ Found ${result.records.length} HumanConnection(s):\n`);
-
-      result.records.forEach((record, index) => {
-        const connection = record.get('connection').properties;
-
-        console.log(`${index + 1}. HumanConnection:`);
-        console.log(`   Partners: ${JSON.stringify(connection.partners)}`);
-        console.log(`   Secret: ${connection.secret}`);
-        console.log(`   Status: ${connection.status}`);
-        console.log(`   Updated At: ${connection.updatedAt}`);
-        console.log('');
-      });
-    } catch (error: any) {
-      console.error('❌ Error listing connections:', error.message);
-      throw error;
-    }
-  }
-
-  async getWaitlistConnections() {
-    console.log('⏳ Getting all HumanConnections in waitlist status...');
-
-    try {
-      const query = `
-        MATCH (connection:HumanConnection {status: "waitlist"})
-        RETURN connection
-        ORDER BY connection.updatedAt DESC
-      `;
-
-      const result = await this.session.run(query);
-
-      if (result.records.length === 0) {
-        console.log('No HumanConnection nodes with waitlist status found.');
-        return [];
-      }
-
-      const connections = result.records.map((record) => record.get('connection').properties);
-
-      console.log(`✅ Found ${connections.length} waitlist connection(s)`);
-      connections.forEach((connection, index) => {
-        console.log(`${index + 1}. ConnectionId: ${connection.connectionId}`);
-        console.log(`   Partners: ${JSON.stringify(connection.partners)}`);
-        console.log(`   Secret: ${connection.secret}`);
-        console.log(`   Status: ${connection.status}`);
-        console.log(`   Updated At: ${connection.updatedAt}`);
-        console.log('');
-      });
-
-      return connections;
-    } catch (error: any) {
-      console.error('❌ Error getting waitlist connections:', error.message);
-      throw error;
-    }
-  }
-
-  async activateConnection(connectionId: string) {
-    console.log(`🔄 Activating connection with ID: ${connectionId}...`);
-
-    try {
-      const query = `
-        MATCH (connection:HumanConnection {connectionId: $connectionId})
-        SET connection.status = "active", connection.updatedAt = toString(datetime())
-        RETURN connection
-      `;
-
-      const result = await this.session.run(query, { connectionId });
-
-      if (result.records.length === 0) {
-        console.log(`❌ No HumanConnection found with connectionId: ${connectionId}`);
-        return null;
-      }
-
-      const connection = result.records[0].get('connection').properties;
-      console.log('✅ Connection activated successfully!');
-      console.log(`   ConnectionId: ${connection.connectionId}`);
-      console.log(`   Partners: ${JSON.stringify(connection.partners)}`);
-      console.log(`   Status: ${connection.status}`);
-      console.log(`   Updated At: ${connection.updatedAt}`);
-
-      return connection;
-    } catch (error: any) {
-      console.error('❌ Error activating connection:', error.message);
-      throw error;
-    }
-  }
-
-  async getActiveConnections() {
-    console.log('✅ Getting all HumanConnections in active status...');
-
-    try {
-      const query = `
-        MATCH (connection:HumanConnection {status: "active"})
-        RETURN connection
-        ORDER BY connection.updatedAt DESC
-      `;
-
-      const result = await this.session.run(query);
-
-      if (result.records.length === 0) {
-        console.log('No HumanConnection nodes with active status found.');
-        return [];
-      }
-
-      const connections = result.records.map((record) => record.get('connection').properties);
-
-      console.log(`✅ Found ${connections.length} active connection(s)`);
-      connections.forEach((connection, index) => {
-        console.log(`${index + 1}. ConnectionId: ${connection.connectionId}`);
-        console.log(`   Partners: ${JSON.stringify(connection.partners)}`);
-        console.log(`   Secret: ${connection.secret}`);
-        console.log(`   Status: ${connection.status}`);
-        console.log(`   Updated At: ${connection.updatedAt}`);
-        console.log('');
-      });
-
-      return connections;
-    } catch (error: any) {
-      console.error('❌ Error getting active connections:', error.message);
-      throw error;
-    }
-  }
-
-  async deleteConnection(connectionId: string) {
-    console.log(
-      `🗑️ Deleting HumanConnection and all connected Person nodes for ID: ${connectionId}...`
-    );
-
-    try {
-      // First, get the connection details for logging
-      const getConnectionQuery = `
-        MATCH (connection:HumanConnection {connectionId: $connectionId})
-        OPTIONAL MATCH (person:Person)-[:PARTICIPATES_IN]->(connection)
-        RETURN connection, collect(person) as connectedPersons
-      `;
-
-      const getResult = await this.session.run(getConnectionQuery, { connectionId });
-
-      if (getResult.records.length === 0) {
-        console.log(`❌ No HumanConnection found with connectionId: ${connectionId}`);
-        return null;
-      }
-
-      const connection = getResult.records[0].get('connection').properties;
-      const connectedPersons = getResult.records[0].get('connectedPersons');
-
-      console.log('Found connection to delete:');
-      console.log(`   ConnectionId: ${connection.connectionId}`);
-      console.log(`   Partners: ${JSON.stringify(connection.partners)}`);
-      console.log(`   Secret: ${connection.secret}`);
-      console.log(`   Status: ${connection.status}`);
-      console.log(`   Connected Person nodes: ${connectedPersons.length}`);
-
-      // Delete the HumanConnection and all connected Person nodes
-      const deleteQuery = `
-        MATCH (connection:HumanConnection {connectionId: $connectionId})
-        OPTIONAL MATCH (person:Person)-[:PARTICIPATES_IN]->(connection)
-        DETACH DELETE connection, person
-        RETURN count(*) as deletedCount
-      `;
-
-      const deleteResult = await this.session.run(deleteQuery, { connectionId });
-
-      console.log('✅ Successfully deleted:');
-      console.log(`   - HumanConnection node (${connection.connectionId})`);
-      console.log(`   - ${connectedPersons.length} connected Person node(s)`);
-      console.log(`   - All relationships between them`);
-
-      return {
-        deletedConnection: connection,
-        deletedPersonsCount: connectedPersons.length,
-      };
-    } catch (error: any) {
-      console.error('❌ Error deleting connection:', error.message);
-      throw error;
-    }
-  }
-
-  async deletePerson(userId: string) {
-    console.log(`🗑️ Deleting Person node and all relationships for userId: ${userId}...`);
-
-    try {
-      // First, get the person details for logging
-      const getPersonQuery = `
-        MATCH (person:Person {userId: $userId})
-        OPTIONAL MATCH (person)-[r]-()
-        RETURN person, count(r) as relationshipCount
-      `;
-
-      const getResult = await this.session.run(getPersonQuery, { userId });
-
-      if (getResult.records.length === 0) {
-        console.log(`❌ No Person found with userId: ${userId}`);
-        return null;
-      }
-
-      const person = getResult.records[0].get('person').properties;
-      const relationshipCount = getResult.records[0].get('relationshipCount').toNumber();
-
-      console.log('Found person to delete:');
-      console.log(`   UserId: ${person.userId}`);
-      console.log(`   Name: ${person.name || 'N/A'}`);
-      console.log(`   Connected relationships: ${relationshipCount}`);
-
-      // Delete the Person node and all its relationships
-      const deleteQuery = `
-        MATCH (person:Person {userId: $userId})
-        DETACH DELETE person
-        RETURN count(*) as deletedCount
-      `;
-
-      const deleteResult = await this.session.run(deleteQuery, { userId });
-
-      console.log('✅ Successfully deleted:');
-      console.log(`   - Person node (${person.userId})`);
-      console.log(`   - ${relationshipCount} relationship(s)`);
-
-      return {
-        deletedPerson: person,
-        deletedRelationshipsCount: relationshipCount,
-      };
-    } catch (error: any) {
-      console.error('❌ Error deleting person:', error.message);
-      throw error;
-    }
-  }
-
-  async connectPerson(userId: string, connectionId: string) {
-    console.log(
-      `🔗 Creating PARTICIPATES_IN relationship from Person ${userId} to HumanConnection ${connectionId}...`
-    );
-
-    try {
-      // First, verify both nodes exist
-      const verifyQuery = `
-        MATCH (person:Person {userId: $userId})
-        MATCH (connection:HumanConnection {connectionId: $connectionId})
-        RETURN person, connection
-      `;
-
-      const verifyResult = await this.session.run(verifyQuery, { userId, connectionId });
-
-      if (verifyResult.records.length === 0) {
-        console.log(`❌ Either Person (${userId}) or HumanConnection (${connectionId}) not found`);
-        return null;
-      }
-
-      const person = verifyResult.records[0].get('person').properties;
-      const connection = verifyResult.records[0].get('connection').properties;
-
-      console.log('Found nodes to connect:');
-      console.log(`   Person: ${person.userId} (${person.name || 'N/A'})`);
-      console.log(`   HumanConnection: ${connection.connectionId} (${connection.secret})`);
-
-      // Check if relationship already exists
-      const existingRelQuery = `
-        MATCH (person:Person {userId: $userId})-[r:PARTICIPATES_IN]->(connection:HumanConnection {connectionId: $connectionId})
-        RETURN r
-      `;
-
-      const existingResult = await this.session.run(existingRelQuery, { userId, connectionId });
-
-      if (existingResult.records.length > 0) {
-        console.log('⚠️ PARTICIPATES_IN relationship already exists between these nodes');
-        return { person, connection, created: false };
-      }
-
-      // Create the PARTICIPATES_IN relationship
-      const createRelQuery = `
-        MATCH (person:Person {userId: $userId})
-        MATCH (connection:HumanConnection {connectionId: $connectionId})
-        CREATE (person)-[r:PARTICIPATES_IN {createdAt: toString(datetime())}]->(connection)
-        RETURN r
-      `;
-
-      const createResult = await this.session.run(createRelQuery, { userId, connectionId });
-
-      if (createResult.records.length > 0) {
-        const relationship = createResult.records[0].get('r').properties;
-        console.log('✅ PARTICIPATES_IN relationship created successfully!');
-        console.log(`   Created At: ${relationship.createdAt}`);
-
-        return { person, connection, relationship, created: true };
-      }
-    } catch (error: any) {
-      console.error('❌ Error connecting person:', error.message);
-      throw error;
-    }
+import neo4j, { Driver, Session, Record } from 'neo4j-driver';
+import type { UUID } from '@elizaos/core';
+import type {
+  PersonNode,
+  ContactPointNode,
+  PeacokDimensionNode,
+  PlaceNode,
+} from '../packages/plugin-discover-connection/src/utils/graphSchema.js';
+
+// ============================================================================
+// TYPES & INTERFACES
+// ============================================================================
+
+interface CLIOptions {
+  dryRun: boolean;
+  confirm: boolean;
+  verbose: boolean;
+  restartMemgraph?: boolean;
+}
+
+interface PersonDetails {
+  person: PersonNode;
+  contactPoints: ContactPointNode[];
+  dimensions: PeacokDimensionNode[];
+  relationships: {
+    hasContact: number;
+    hasDimension: number;
+    matchedWith: number;
+  };
+}
+
+interface OrphanSummary {
+  contactPoints: number;
+  peacokDimensions: number;
+}
+
+// ============================================================================
+// CONSOLE COLORS & FORMATTING
+// ============================================================================
+
+const colors = {
+  reset: '\x1b[0m',
+  bright: '\x1b[1m',
+  dim: '\x1b[2m',
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  magenta: '\x1b[35m',
+  cyan: '\x1b[36m',
+  white: '\x1b[37m',
+  gray: '\x1b[90m',
+} as const;
+
+function colorize(color: keyof typeof colors, text: string): string {
+  return `${colors[color]}${text}${colors.reset}`;
+}
+
+function log(message: string): void {
+  console.log(message);
+}
+
+function logSuccess(message: string): void {
+  console.log(colorize('green', `✓ ${message}`));
+}
+
+function logError(message: string): void {
+  console.error(colorize('red', `✗ ${message}`));
+}
+
+function logWarning(message: string): void {
+  console.warn(colorize('yellow', `⚠ ${message}`));
+}
+
+function logInfo(message: string): void {
+  console.log(colorize('blue', `ℹ ${message}`));
+}
+
+function logDebug(message: string, verbose: boolean = false): void {
+  if (verbose) {
+    console.log(colorize('gray', `  ${message}`));
   }
 }
 
-async function main() {
+// ============================================================================
+// HELPER FUNCTIONS FOR TEST DATA
+// ============================================================================
+
+/**
+ * Generate realistic embedding vector with controlled variations
+ * Based on real embedding from all-MiniLM-L6-v2 (768 dimensions)
+ * Matches the dimension size used in the actual Memgraph PersonaDimension nodes
+ */
+function generateRealisticEmbedding(seed: number = 0): number[] {
+  // Base embedding template (realistic values from actual embeddings)
+  const baseEmbedding = [
+    0.012661287, -0.010761488, -0.05165518, -0.05096045, 0.04850825, -0.017798888, 0.006944689, 0.0017611071,
+    -0.044006616, 0.015515016, -0.02433645, 0.045304347, 0.08083047, -0.02109052, -0.011847785, -0.06598949
+  ];
+
+  const embedding: number[] = [];
+
+  // Generate 768 dimensions with pseudo-random variations
+  for (let i = 0; i < 768; i++) {
+    // Use base pattern repeated and varied
+    const baseValue = baseEmbedding[i % baseEmbedding.length];
+
+    // Add seed-based variation for diversity between users
+    const variation = Math.sin(seed * 1000 + i) * 0.08; // +/- 0.08 variation
+
+    const value = baseValue + variation;
+
+    // Clamp to reasonable embedding range
+    embedding.push(Math.max(-0.15, Math.min(0.15, value)));
+  }
+
+  return embedding;
+}
+
+// ============================================================================
+// DATABASE CONNECTION
+// ============================================================================
+
+class MemgraphManager {
+  private driver: Driver | null = null;
+  private connectionUrl: string;
+
+  constructor() {
+    this.connectionUrl = process.env.MEMGRAPH_URL || 'bolt://localhost:7687';
+  }
+
+  async connect(): Promise<void> {
+    try {
+      logInfo(`Connecting to Memgraph at ${this.connectionUrl}...`);
+
+      this.driver = neo4j.driver(this.connectionUrl);
+
+      // Test connection
+      const session = this.driver.session();
+      await session.run('RETURN 1 as test');
+      await session.close();
+
+      logSuccess('Connected to Memgraph successfully');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logError(`Failed to connect to Memgraph: ${errorMessage}`);
+      throw error;
+    }
+  }
+
+  async disconnect(): Promise<void> {
+    if (this.driver) {
+      await this.driver.close();
+      this.driver = null;
+      logInfo('Disconnected from Memgraph');
+    }
+  }
+
+  private async withSession<T>(operation: (session: Session) => Promise<T>): Promise<T> {
+    if (!this.driver) {
+      throw new Error('Not connected to database');
+    }
+
+    const session = this.driver.session();
+    try {
+      return await operation(session);
+    } finally {
+      await session.close();
+    }
+  }
+
+  // ============================================================================
+  // PERSON MANAGEMENT
+  // ============================================================================
+
+  async deletePerson(id: string, options: CLIOptions): Promise<boolean> {
+    logInfo(`${options.dryRun ? 'DRY RUN: ' : ''}Deleting Person with ID: ${id}`);
+
+    return await this.withSession(async (session) => {
+      // First, check if person exists and get details
+      const findQuery = `
+        MATCH (p:Person)
+        WHERE p.entityid = $id OR p.id = $id
+        OPTIONAL MATCH (p)-[r1:HAS_CONTACT]->(cp:ContactPoint)
+        OPTIONAL MATCH (p)-[r2:HAS_DIMENSION]->(pd:PeacokDimension)
+        OPTIONAL MATCH (p)-[r3:MATCHED_WITH]-(m:Person)
+        OPTIONAL MATCH (p2:Person)-[r4:MATCHED_WITH]->(p)
+        RETURN p, 
+               count(DISTINCT r1) as contactRels,
+               count(DISTINCT r2) as dimensionRels,
+               count(DISTINCT r3) as matchedWithRels,
+               count(DISTINCT r4) as matchedByRels
+      `;
+
+      const findResult = await session.run(findQuery, { id });
+
+      if (findResult.records.length === 0) {
+        logError(`Person with ID '${id}' not found`);
+        return false;
+      }
+
+      const record = findResult.records[0];
+      const person = record.get('p');
+      const contactRels = record.get('contactRels').toNumber();
+      const dimensionRels = record.get('dimensionRels').toNumber();
+      const matchedWithRels = record.get('matchedWithRels').toNumber();
+      const matchedByRels = record.get('matchedByRels').toNumber();
+
+      logInfo(`Found Person: ${person.properties.name || 'Unnamed'} (${person.properties.entityid})`);
+      logInfo(`  - Contact relationships: ${contactRels}`);
+      logInfo(`  - Dimension relationships: ${dimensionRels}`);
+      logInfo(`  - Matched with: ${matchedWithRels}`);
+      logInfo(`  - Matched by: ${matchedByRels}`);
+
+      if (options.dryRun) {
+        logWarning('DRY RUN: Would delete this person and all relationships');
+        return true;
+      }
+
+      // Delete all relationships and the person
+      const deleteQuery = `
+        MATCH (p:Person)
+        WHERE p.entityid = $id OR p.id = $id
+        DETACH DELETE p
+        RETURN count(p) as deletedCount
+      `;
+
+      const deleteResult = await session.run(deleteQuery, { id });
+      const deletedCount = deleteResult.records[0].get('deletedCount').toNumber();
+
+      if (deletedCount > 0) {
+        logSuccess(`Deleted Person and all relationships: ${person.properties.name || 'Unnamed'}`);
+        return true;
+      } else {
+        logError('Failed to delete Person');
+        return false;
+      }
+    });
+  }
+
+  async listPersons(options: CLIOptions): Promise<void> {
+    logInfo(`${options.dryRun ? 'DRY RUN: ' : ''}Listing all Person nodes...`);
+
+    await this.withSession(async (session) => {
+      const query = `
+        MATCH (p:Person)
+        OPTIONAL MATCH (p)-[:HAS_CONTACT]->(cp:ContactPoint)
+        OPTIONAL MATCH (p)-[:HAS_DIMENSION]->(pd:PeacokDimension)
+        OPTIONAL MATCH (p)-[:MATCHED_WITH]-(m:Person)
+        RETURN p,
+               count(DISTINCT cp) as contactPoints,
+               count(DISTINCT pd) as dimensions,
+               count(DISTINCT m) as matches
+        ORDER BY p.createdAt DESC
+      `;
+
+      const result = await session.run(query);
+
+      if (result.records.length === 0) {
+        logWarning('No Person nodes found in database');
+        return;
+      }
+
+      log(colorize('bright', '\n=== PERSON NODES ==='));
+      log(colorize('gray', 'ID'.padEnd(40) + 'Name'.padEnd(20) + 'Agent'.padEnd(10) + 'Contacts'.padEnd(10) + 'Dimensions'.padEnd(12) + 'Matches'));
+      log(colorize('gray', '-'.repeat(100)));
+
+      for (const record of result.records) {
+        const person = record.get('p');
+        const contactPoints = record.get('contactPoints').toNumber();
+        const dimensions = record.get('dimensions').toNumber();
+        const matches = record.get('matches').toNumber();
+
+        const entityId = person.properties.entityid || person.properties.id || 'N/A';
+        const name = person.properties.name || 'Unnamed';
+        const agentId = person.properties.agentId ? person.properties.agentId.substring(0, 8) + '...' : 'N/A';
+
+        const line = [
+          entityId.substring(0, 38).padEnd(40),
+          name.substring(0, 18).padEnd(20),
+          agentId.padEnd(10),
+          contactPoints.toString().padEnd(10),
+          dimensions.toString().padEnd(12),
+          matches.toString()
+        ].join('');
+
+        log(line);
+
+        logDebug(`  Created: ${new Date(person.properties.createdAt).toISOString()}`, options.verbose);
+        logDebug(`  Updated: ${person.properties.updatedAt ? new Date(person.properties.updatedAt).toISOString() : 'Never'}`, options.verbose);
+      }
+
+      log(colorize('bright', `\nTotal: ${result.records.length} Person nodes`));
+    });
+  }
+
+  async getPersonDetails(id: string, options: CLIOptions): Promise<void> {
+    logInfo(`${options.dryRun ? 'DRY RUN: ' : ''}Getting details for Person: ${id}`);
+
+    const details = await this.withSession(async (session): Promise<PersonDetails | null> => {
+      // Get person and all relationships
+      const query = `
+        MATCH (p:Person)
+        WHERE p.entityid = $id OR p.id = $id
+        OPTIONAL MATCH (p)-[r1:HAS_CONTACT]->(cp:ContactPoint)
+        OPTIONAL MATCH (p)-[r2:HAS_DIMENSION]->(pd:PeacokDimension)
+        RETURN p,
+               collect(DISTINCT {contact: cp, relationship: r1}) as contactData,
+               collect(DISTINCT {dimension: pd, relationship: r2}) as dimensionData
+      `;
+
+      const result = await session.run(query, { id });
+
+      if (result.records.length === 0) {
+        return null;
+      }
+
+      const record = result.records[0];
+      const personNode = record.get('p');
+      const contactData = record.get('contactData');
+      const dimensionData = record.get('dimensionData');
+
+      // Parse person
+      const person: PersonNode = {
+        type: 'Person',
+        entityid: personNode.properties.entityid,
+        agentId: personNode.properties.agentId,
+        name: personNode.properties.name,
+        identifier: personNode.properties.identifier,
+        metadata: JSON.parse(personNode.properties.metadata || '{}'),
+        createdAt: personNode.properties.createdAt,
+        updatedAt: personNode.properties.updatedAt,
+      };
+
+      // Parse contact points
+      const contactPoints: ContactPointNode[] = contactData
+        .filter((item: any) => item.contact !== null)
+        .map((item: any) => ({
+          type: 'ContactPoint',
+          username: item.contact.properties.username,
+          name: item.contact.properties.name,
+          channelId: item.contact.properties.channelId,
+          platform: item.contact.properties.platform,
+          agentName: item.contact.properties.agentName,
+          agentUsername: item.contact.properties.agentUsername,
+          agentId: item.contact.properties.agentId,
+          createdAt: item.contact.properties.createdAt,
+          updatedAt: item.contact.properties.updatedAt,
+        }));
+
+      // Parse dimensions
+      const dimensions: PeacokDimensionNode[] = dimensionData
+        .filter((item: any) => item.dimension !== null)
+        .map((item: any) => ({
+          type: 'PeacokDimension',
+          dimensionType: item.dimension.properties.dimensionType,
+          name: item.dimension.properties.name,
+          value: item.dimension.properties.value,
+          confidence: item.dimension.properties.confidence,
+          category: item.dimension.properties.category,
+          weight: item.dimension.properties.weight,
+          isVectorizable: item.dimension.properties.isVectorizable,
+          metadata: JSON.parse(item.dimension.properties.metadata || '{}'),
+          createdAt: item.dimension.properties.createdAt,
+        }));
+
+      // Count relationship types
+      const matchCountQuery = `
+        MATCH (p:Person)
+        WHERE p.entityid = $id OR p.id = $id
+        OPTIONAL MATCH (p)-[:MATCHED_WITH]-(m:Person)
+        RETURN count(DISTINCT m) as matchCount
+      `;
+
+      const matchResult = await session.run(matchCountQuery, { id });
+      const matchCount = matchResult.records[0].get('matchCount').toNumber();
+
+      return {
+        person,
+        contactPoints,
+        dimensions,
+        relationships: {
+          hasContact: contactPoints.length,
+          hasDimension: dimensions.length,
+          matchedWith: matchCount,
+        }
+      };
+    });
+
+    if (!details) {
+      logError(`Person with ID '${id}' not found`);
+      return;
+    }
+
+    // Display detailed information
+    log(colorize('bright', '\n=== PERSON DETAILS ==='));
+
+    log(colorize('cyan', '• Basic Info:'));
+    log(`  Entity ID: ${details.person.entityid}`);
+    log(`  Agent ID: ${details.person.agentId}`);
+    log(`  Name: ${details.person.name || 'N/A'}`);
+    log(`  Identifier: ${details.person.identifier || 'N/A'}`);
+    log(`  Created: ${new Date(details.person.createdAt).toISOString()}`);
+    log(`  Updated: ${details.person.updatedAt ? new Date(details.person.updatedAt).toISOString() : 'Never'}`);
+
+    log(colorize('cyan', '\n• Metadata:'));
+    log(`  User Status: ${details.person.metadata.userStatus || 'N/A'}`);
+    log(`  Email: ${details.person.metadata.email || 'N/A'}`);
+
+    log(colorize('cyan', '\n• Relationships:'));
+    log(`  Contact Points: ${details.relationships.hasContact}`);
+    log(`  Dimensions: ${details.relationships.hasDimension}`);
+    log(`  Matches: ${details.relationships.matchedWith}`);
+
+    if (details.contactPoints.length > 0) {
+      log(colorize('cyan', '\n• Contact Points:'));
+      for (const cp of details.contactPoints) {
+        log(`  - ${cp.platform}: ${cp.channelId}`);
+        log(`    Name: ${cp.name || 'N/A'}, Username: ${cp.username || 'N/A'}`);
+        log(`    Agent: ${cp.agentName || 'N/A'} (${cp.agentUsername || 'N/A'})`);
+      }
+    }
+
+    if (details.dimensions.length > 0) {
+      log(colorize('cyan', '\n• Peacok Dimensions:'));
+      for (const dim of details.dimensions) {
+        log(`  - ${dim.category}/${dim.dimensionType}: ${dim.value}`);
+        log(`    Confidence: ${(dim.confidence * 100).toFixed(1)}%, Weight: ${dim.weight}`);
+        log(`    Vectorizable: ${dim.isVectorizable ? 'Yes' : 'No'}`);
+      }
+    }
+  }
+
+  async deleteContactPoint(agentId: string, options: CLIOptions): Promise<boolean> {
+    logInfo(`${options.dryRun ? 'DRY RUN: ' : ''}Deleting ContactPoint nodes with agentId: ${agentId}`);
+
+    return await this.withSession(async (session) => {
+      // First, check if contact points exist and get details
+      const findQuery = `
+        MATCH (cp:ContactPoint {agentId: $agentId})
+        OPTIONAL MATCH (p:Person)-[r:HAS_CONTACT]->(cp)
+        RETURN cp, count(r) as incomingRels
+      `;
+
+      const findResult = await session.run(findQuery, { agentId });
+
+      if (findResult.records.length === 0) {
+        logError(`No ContactPoint nodes found with agentId: ${agentId}`);
+        return false;
+      }
+
+      let totalContactPoints = 0;
+      let totalRelationships = 0;
+
+      logInfo(`Found ${findResult.records.length} ContactPoint nodes:`);
+      for (const record of findResult.records) {
+        const cp = record.get('cp');
+        const incomingRels = record.get('incomingRels').toNumber();
+
+        totalContactPoints++;
+        totalRelationships += incomingRels;
+
+        logInfo(`  - Platform: ${cp.properties.platform}, Channel: ${cp.properties.channelId}`);
+        logInfo(`    Name: ${cp.properties.name || 'N/A'}, Username: ${cp.properties.username || 'N/A'}`);
+        logInfo(`    Incoming relationships: ${incomingRels}`);
+      }
+
+      logInfo(`Total: ${totalContactPoints} ContactPoint nodes, ${totalRelationships} relationships`);
+
+      if (options.dryRun) {
+        logWarning('DRY RUN: Would delete these ContactPoint nodes and their relationships');
+        return true;
+      }
+
+      // Delete all ContactPoint nodes with the given agentId
+      const deleteQuery = `
+        MATCH (cp:ContactPoint {agentId: $agentId})
+        DETACH DELETE cp
+        RETURN count(cp) as deletedCount
+      `;
+
+      const deleteResult = await session.run(deleteQuery, { agentId });
+      const deletedCount = deleteResult.records[0].get('deletedCount').toNumber();
+
+      if (deletedCount > 0) {
+        logSuccess(`Deleted ${deletedCount} ContactPoint nodes with agentId: ${agentId}`);
+        return true;
+      } else {
+        logError('Failed to delete ContactPoint nodes');
+        return false;
+      }
+    });
+  }
+
+  // ============================================================================
+  // PLACE MANAGEMENT
+  // ============================================================================
+
+  async createPlace(placeData: Omit<PlaceNode, 'createdAt' | 'updatedAt'>, options: CLIOptions): Promise<boolean> {
+    logInfo(`${options.dryRun ? 'DRY RUN: ' : ''}Creating Place: ${placeData.name}`);
+
+    return await this.withSession(async (session) => {
+      // Check if place already exists by name
+      const findQuery = `
+        MATCH (p:Place {name: $name})
+        RETURN p
+      `;
+
+      const findResult = await session.run(findQuery, { name: placeData.name });
+
+      if (findResult.records.length > 0) {
+        logError(`Place with name '${placeData.name}' already exists`);
+        return false;
+      }
+
+      if (options.dryRun) {
+        logWarning(`DRY RUN: Would create Place: ${placeData.name}`);
+        logInfo(`  Description: ${placeData.description || 'N/A'}`);
+        logInfo(`  Address: ${placeData.address || 'N/A'}`);
+        logInfo(`  Class count: ${placeData.classTimetable.length}`);
+        return true;
+      }
+
+      // Create the place
+      const createQuery = `
+        CREATE (p:Place {
+          venueType: $venueType,
+          name: $name,
+          description: $description,
+          url: $url,
+          address: $address,
+          operatingHours: $operatingHours,
+          classTimetable: $classTimetable,
+          metadata: $metadata,
+          createdAt: $createdAt,
+          updatedAt: $updatedAt
+        })
+        RETURN p
+      `;
+
+      const now = Date.now();
+      const createResult = await session.run(createQuery, {
+        venueType: placeData.venueType,
+        name: placeData.name,
+        description: placeData.description || null,
+        url: placeData.url || null,
+        address: placeData.address || null,
+        operatingHours: JSON.stringify(placeData.operatingHours),
+        classTimetable: JSON.stringify(placeData.classTimetable),
+        metadata: JSON.stringify(placeData.metadata),
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      if (createResult.records.length > 0) {
+        logSuccess(`Created Place: ${placeData.name}`);
+        return true;
+      } else {
+        logError('Failed to create Place');
+        return false;
+      }
+    });
+  }
+
+  async listPlaces(options: CLIOptions): Promise<void> {
+    logInfo(`${options.dryRun ? 'DRY RUN: ' : ''}Listing all Place nodes...`);
+
+    await this.withSession(async (session) => {
+      const query = `
+        MATCH (p:Place)
+        RETURN p
+        ORDER BY p.createdAt DESC
+      `;
+
+      const result = await session.run(query);
+
+      if (result.records.length === 0) {
+        logWarning('No Place nodes found in database');
+        return;
+      }
+
+      log(colorize('bright', '\n=== PLACE NODES ==='));
+      log(colorize('gray', 'Name'.padEnd(25) + 'Address'.padEnd(30) + 'Classes'.padEnd(10) + 'Type'.padEnd(15) + 'Created'));
+      log(colorize('gray', '-'.repeat(90)));
+
+      for (const record of result.records) {
+        const place = record.get('p');
+        const name = place.properties.name || 'Unnamed';
+        const address = place.properties.address || 'N/A';
+        const classTimetable = JSON.parse(place.properties.classTimetable || '[]');
+        const venueType = place.properties.venueType || 'N/A';
+        const created = new Date(place.properties.createdAt).toLocaleDateString();
+
+        const line = [
+          name.substring(0, 23).padEnd(25),
+          address.substring(0, 28).padEnd(30),
+          classTimetable.length.toString().padEnd(10),
+          venueType.padEnd(15),
+          created
+        ].join('');
+
+        log(line);
+
+        logDebug(`  Description: ${place.properties.description || 'N/A'}`, options.verbose);
+        logDebug(`  URL: ${place.properties.url || 'N/A'}`, options.verbose);
+        const metadata = JSON.parse(place.properties.metadata || '{}');
+        logDebug(`  Membership required: ${metadata.membershipRequired ? 'Yes' : 'No'}`, options.verbose);
+      }
+
+      log(colorize('bright', `\nTotal: ${result.records.length} Place nodes`));
+    });
+  }
+
+  async getPlaceDetails(name: string, options: CLIOptions): Promise<void> {
+    logInfo(`${options.dryRun ? 'DRY RUN: ' : ''}Getting details for Place: ${name}`);
+
+    const placeDetails = await this.withSession(async (session): Promise<PlaceNode | null> => {
+      const query = `
+        MATCH (p:Place)
+        WHERE p.name = $name
+        RETURN p
+      `;
+
+      const result = await session.run(query, { name });
+
+      if (result.records.length === 0) {
+        return null;
+      }
+
+      const record = result.records[0];
+      const placeNode = record.get('p');
+
+      // Parse place data
+      const place: PlaceNode = {
+        type: 'Place',
+        venueType: placeNode.properties.venueType,
+        name: placeNode.properties.name,
+        description: placeNode.properties.description,
+        url: placeNode.properties.url,
+        address: placeNode.properties.address,
+        operatingHours: JSON.parse(placeNode.properties.operatingHours || '{}'),
+        classTimetable: JSON.parse(placeNode.properties.classTimetable || '[]'),
+        metadata: JSON.parse(placeNode.properties.metadata || '{}'),
+        createdAt: placeNode.properties.createdAt,
+        updatedAt: placeNode.properties.updatedAt,
+      };
+
+      return place;
+    });
+
+    if (!placeDetails) {
+      logError(`Place with name '${name}' not found`);
+      return;
+    }
+
+    // Display detailed information
+    log(colorize('bright', '\n=== PLACE DETAILS ==='));
+
+    log(colorize('cyan', '• Basic Info:'));
+    log(`  Name: ${placeDetails.name}`);
+    log(`  Description: ${placeDetails.description || 'N/A'}`);
+    log(`  Address: ${placeDetails.address || 'N/A'}`);
+    log(`  URL: ${placeDetails.url || 'N/A'}`);
+    log(`  Created: ${new Date(placeDetails.createdAt).toISOString()}`);
+    log(`  Updated: ${placeDetails.updatedAt ? new Date(placeDetails.updatedAt).toISOString() : 'Never'}`);
+
+    log(colorize('cyan', '\n• Operating Hours:'));
+    const operatingHours = placeDetails.operatingHours;
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    for (const day of days) {
+      const hours = operatingHours[day];
+      if (hours) {
+        if (hours.closed) {
+          log(`  ${day.charAt(0).toUpperCase() + day.slice(1)}: Closed`);
+        } else {
+          log(`  ${day.charAt(0).toUpperCase() + day.slice(1)}: ${hours.open || 'N/A'} - ${hours.close || 'N/A'}`);
+        }
+      }
+    }
+
+    log(colorize('cyan', '\n• Venue Info:'));
+    log(`  Venue Type: ${placeDetails.venueType}`);
+    log(`  Membership Required: ${placeDetails.metadata.membershipRequired ? 'Yes' : 'No'}`);
+    if (placeDetails.metadata.contactInfo) {
+      log(`  Phone: ${placeDetails.metadata.contactInfo.phone || 'N/A'}`);
+      log(`  Email: ${placeDetails.metadata.contactInfo.email || 'N/A'}`);
+    }
+
+    if (placeDetails.classTimetable.length > 0) {
+      log(colorize('cyan', '\n• Class Timetable:'));
+      for (const classInfo of placeDetails.classTimetable) {
+        log(`  - ${classInfo.name}`);
+        log(`    Description: ${classInfo.description || 'N/A'}`);
+        log(`    Instructor: ${classInfo.instructor || 'N/A'}`);
+        log(`    Capacity: ${classInfo.capacity || 'N/A'}`);
+        log(`    Booking Required: ${classInfo.bookingRequired ? 'Yes' : 'No'}`);
+        log(`    Schedule:`);
+        for (const schedule of classInfo.schedule) {
+          log(`      ${schedule.day}: ${schedule.startTime}-${schedule.endTime} ${schedule.recurring ? '(recurring)' : '(one-time)'}`);
+        }
+      }
+    }
+  }
+
+  async deletePlace(name: string, options: CLIOptions): Promise<boolean> {
+    logInfo(`${options.dryRun ? 'DRY RUN: ' : ''}Deleting Place with name: ${name}`);
+
+    return await this.withSession(async (session) => {
+      // First, check if place exists
+      const findQuery = `
+        MATCH (p:Place)
+        WHERE p.name = $name
+        RETURN p
+      `;
+
+      const findResult = await session.run(findQuery, { name });
+
+      if (findResult.records.length === 0) {
+        logError(`Place with name '${name}' not found`);
+        return false;
+      }
+
+      const record = findResult.records[0];
+      const place = record.get('p');
+
+      logInfo(`Found Place: ${place.properties.name}`);
+      logInfo(`  Address: ${place.properties.address || 'N/A'}`);
+      logInfo(`  Description: ${place.properties.description || 'N/A'}`);
+
+      if (options.dryRun) {
+        logWarning('DRY RUN: Would delete this place and all relationships');
+        return true;
+      }
+
+      // Delete the place and all relationships
+      const deleteQuery = `
+        MATCH (p:Place)
+        WHERE p.name = $name
+        DETACH DELETE p
+        RETURN count(p) as deletedCount
+      `;
+
+      const deleteResult = await session.run(deleteQuery, { name });
+      const deletedCount = deleteResult.records[0].get('deletedCount').toNumber();
+
+      if (deletedCount > 0) {
+        logSuccess(`Deleted Place: ${place.properties.name}`);
+        return true;
+      } else {
+        logError('Failed to delete Place');
+        return false;
+      }
+    });
+  }
+
+  // ============================================================================
+  // DATABASE CLEANUP
+  // ============================================================================
+
+  async deleteOrphans(options: CLIOptions): Promise<void> {
+    logInfo(`${options.dryRun ? 'DRY RUN: ' : ''}Finding and deleting orphaned nodes...`);
+
+    const summary = await this.withSession(async (session): Promise<OrphanSummary> => {
+      // Find orphaned ContactPoint nodes (no incoming HAS_CONTACT relationships)
+      const orphanContactQuery = `
+        MATCH (cp:ContactPoint)
+        WHERE NOT (cp)<-[:HAS_CONTACT]-(:Person)
+        RETURN count(cp) as orphanContactCount
+      `;
+
+      // Find orphaned PeacokDimension nodes (no incoming HAS_DIMENSION relationships)
+      const orphanDimensionQuery = `
+        MATCH (pd:PeacokDimension)
+        WHERE NOT (pd)<-[:HAS_DIMENSION]-(:Person)
+        RETURN count(pd) as orphanDimensionCount
+      `;
+
+      const contactResult = await session.run(orphanContactQuery);
+      const dimensionResult = await session.run(orphanDimensionQuery);
+
+      const orphanContactCount = contactResult.records[0].get('orphanContactCount').toNumber();
+      const orphanDimensionCount = dimensionResult.records[0].get('orphanDimensionCount').toNumber();
+
+      logInfo(`Found ${orphanContactCount} orphaned ContactPoint nodes`);
+      logInfo(`Found ${orphanDimensionCount} orphaned PeacokDimension nodes`);
+
+      if (options.dryRun) {
+        logWarning(`DRY RUN: Would delete ${orphanContactCount + orphanDimensionCount} orphaned nodes`);
+        return { contactPoints: orphanContactCount, peacokDimensions: orphanDimensionCount };
+      }
+
+      // Delete orphaned ContactPoints
+      if (orphanContactCount > 0) {
+        const deleteContactQuery = `
+          MATCH (cp:ContactPoint)
+          WHERE NOT (cp)<-[:HAS_CONTACT]-(:Person)
+          DELETE cp
+          RETURN count(cp) as deletedCount
+        `;
+
+        const deleteContactResult = await session.run(deleteContactQuery);
+        const deletedContactCount = deleteContactResult.records[0].get('deletedCount').toNumber();
+        logSuccess(`Deleted ${deletedContactCount} orphaned ContactPoint nodes`);
+      }
+
+      // Delete orphaned PeacokDimensions
+      if (orphanDimensionCount > 0) {
+        const deleteDimensionQuery = `
+          MATCH (pd:PeacokDimension)
+          WHERE NOT (pd)<-[:HAS_DIMENSION]-(:Person)
+          DELETE pd
+          RETURN count(pd) as deletedCount
+        `;
+
+        const deleteDimensionResult = await session.run(deleteDimensionQuery);
+        const deletedDimensionCount = deleteDimensionResult.records[0].get('deletedCount').toNumber();
+        logSuccess(`Deleted ${deletedDimensionCount} orphaned PeacokDimension nodes`);
+      }
+
+      return { contactPoints: orphanContactCount, peacokDimensions: orphanDimensionCount };
+    });
+
+    if (summary.contactPoints === 0 && summary.peacokDimensions === 0) {
+      logSuccess('No orphaned nodes found - database is clean');
+    } else {
+      logSuccess(`Cleanup complete: ${summary.contactPoints + summary.peacokDimensions} orphaned nodes processed`);
+    }
+  }
+
+  async resetDatabase(options: CLIOptions): Promise<void> {
+    if (!options.confirm) {
+      logError('Database reset requires --confirm flag for safety');
+      logWarning('This will permanently delete ALL data in the Memgraph database!');
+      logWarning('Use: bun scripts/updateMemgraph.ts reset --confirm');
+      return;
+    }
+
+    logWarning(`${options.dryRun ? 'DRY RUN: ' : ''}RESETTING ENTIRE DATABASE...`);
+
+    if (!options.dryRun) {
+      // Additional confirmation prompt in non-dry-run mode
+      logError('⚠️  DANGER: This will delete ALL data in the Memgraph database!');
+      logError('⚠️  This action cannot be undone!');
+
+      // In a real CLI tool, you'd want to use readline for interactive confirmation
+      // For this script, we rely on the --confirm flag
+    }
+
+    await this.withSession(async (session) => {
+      // Get database statistics first
+      const statsQuery = `
+        MATCH (n)
+        OPTIONAL MATCH ()-[r]-()
+        RETURN 
+          count(DISTINCT n) as nodeCount,
+          count(DISTINCT r) as relationshipCount,
+          labels(n) as labels
+      `;
+
+      const statsResult = await session.run(statsQuery);
+      const nodeCount = statsResult.records[0]?.get('nodeCount').toNumber() || 0;
+      const relationshipCount = statsResult.records[0]?.get('relationshipCount').toNumber() || 0;
+
+      logInfo(`Database contains: ${nodeCount} nodes, ${relationshipCount} relationships`);
+
+      if (options.dryRun) {
+        logWarning('DRY RUN: Would delete all nodes, relationships, indexes, and constraints');
+        return;
+      }
+
+      // Drop all indexes (regular + vector)
+      try {
+        const indexesResult = await session.run('SHOW INDEX INFO');
+        const indexes = indexesResult.records;
+
+        if (indexes.length > 0) {
+          logInfo(`Dropping ${indexes.length} indexes...`);
+          let droppedCount = 0;
+
+          for (const indexRecord of indexes) {
+            const indexType = indexRecord.get('index type');
+            const label = indexRecord.get('label');
+            const property = indexRecord.get('property');
+
+            try {
+              let dropQuery = '';
+
+              // Handle different index types
+              if (indexType === 'label') {
+                // Label-only index
+                dropQuery = `DROP INDEX ON :${label}`;
+              } else if (indexType === 'label+property') {
+                // Label+property index
+                dropQuery = `DROP INDEX ON :${label}(${property})`;
+              } else if (indexType === 'label+property_vector') {
+                // Vector index - use same DROP syntax as regular property indexes
+                dropQuery = `DROP INDEX ON :${label}(${property})`;
+              } else if (indexType === 'edge-type') {
+                // Edge type index
+                dropQuery = `DROP EDGE INDEX ON :${label}`;
+              } else if (indexType === 'edge-type+property') {
+                // Edge type+property index
+                dropQuery = `DROP EDGE INDEX ON :${label}(${property})`;
+              } else {
+                logWarning(`Unknown index type '${indexType}' for ${label}${property ? '.' + property : ''}, skipping`);
+                continue;
+              }
+
+              await session.run(dropQuery);
+              droppedCount++;
+              logDebug(`  Dropped ${indexType} index: ${label}${property ? '(' + property + ')' : ''}`, options.verbose);
+            } catch (error) {
+              logWarning(`Failed to drop index on ${label}${property ? '(' + property + ')' : ''}: ${error instanceof Error ? error.message : String(error)}`);
+            }
+          }
+
+          logSuccess(`Dropped ${droppedCount} indexes (including vector indexes)`);
+        }
+      } catch (error) {
+        logWarning(`Could not retrieve or drop indexes: ${error instanceof Error ? error.message : String(error)}`);
+      }
+
+      // Drop all constraints
+      try {
+        const constraintsResult = await session.run('SHOW CONSTRAINT INFO');
+        const constraints = constraintsResult.records;
+
+        if (constraints.length > 0) {
+          logInfo(`Dropping ${constraints.length} constraints...`);
+          let droppedCount = 0;
+
+          for (const constraintRecord of constraints) {
+            // Constraint info returns: constraint type, label, properties
+            const constraintType = constraintRecord.get('constraint type');
+            const label = constraintRecord.get('label');
+            const properties = constraintRecord.get('properties');
+
+            try {
+              // Memgraph constraint drop syntax
+              const dropQuery = `DROP CONSTRAINT ON (n:${label}) ASSERT ${properties.map((p: string) => `n.${p}`).join(', ')} IS ${constraintType}`;
+              await session.run(dropQuery);
+              droppedCount++;
+              logDebug(`  Dropped ${constraintType} constraint on ${label}(${properties.join(', ')})`, options.verbose);
+            } catch (error) {
+              logWarning(`Failed to drop constraint on ${label}: ${error instanceof Error ? error.message : String(error)}`);
+            }
+          }
+
+          logSuccess(`Dropped ${droppedCount} of ${constraints.length} constraints`);
+        }
+      } catch (error) {
+        logWarning(`Could not retrieve or drop constraints: ${error instanceof Error ? error.message : String(error)}`);
+      }
+
+      // Delete everything
+      const deleteQuery = `
+        MATCH (n)
+        DETACH DELETE n
+        RETURN count(n) as deletedNodes
+      `;
+
+      const deleteResult = await session.run(deleteQuery);
+      const deletedNodes = deleteResult.records[0].get('deletedNodes').toNumber();
+
+      // Clear Memgraph storage to prevent indexes from being reloaded from disk
+      try {
+        logInfo('Clearing Memgraph storage snapshots...');
+        await session.run('STORAGE CLEAR');
+        logSuccess('Storage cleared successfully');
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (errorMessage.includes('Unknown query')) {
+          // Try alternative: FREE MEMORY
+          try {
+            await session.run('FREE MEMORY');
+            logSuccess('Memory freed successfully');
+          } catch (e2) {
+            logWarning('Could not clear storage - indexes may persist from disk');
+          }
+        } else {
+          logWarning(`Storage clear warning: ${errorMessage}`);
+        }
+      }
+
+      logSuccess(`Database reset complete: ${deletedNodes} nodes and all relationships deleted`);
+
+      // Verify database is empty
+      const verifyResult = await session.run('MATCH (n) RETURN count(n) as remaining');
+      const remaining = verifyResult.records[0].get('remaining').toNumber();
+
+      if (remaining === 0) {
+        logSuccess('Database is now empty and ready for fresh data');
+      } else {
+        logError(`Warning: ${remaining} nodes still remain in database`);
+      }
+
+      // Check if vector indexes still exist after drop
+      let vectorIndexCount = 0;
+      try {
+        const vectorCheck = await session.run('SHOW VECTOR INDEX INFO');
+        vectorIndexCount = vectorCheck.records.length;
+        if (vectorIndexCount > 0) {
+          logWarning(`\n⚠  ${vectorIndexCount} vector indexes persist due to Memgraph durability`);
+          logWarning('Vector indexes are stored on disk and reload automatically');
+
+          if (options.restartMemgraph) {
+            logInfo('\nRestarting Memgraph container...');
+          } else {
+            logInfo('\nTo fully remove vector indexes, add --restart-memgraph flag or run:');
+            logInfo('  docker restart memgraph');
+          }
+        }
+      } catch (e) {
+        // Ignore if vector index query fails
+      }
+
+      // Restart Memgraph if requested
+      if (options.restartMemgraph && vectorIndexCount > 0) {
+        await session.close();
+        await this.disconnect();
+
+        const { execSync } = await import('child_process');
+        try {
+          // Stop Memgraph first
+          logInfo('Stopping Memgraph container...');
+          execSync('docker stop memgraph', { stdio: 'pipe' });
+
+          // Delete ALL persistent data including RocksDB storage where vector indexes live
+          logInfo('Clearing all Memgraph persistent storage (snapshots, WAL, RocksDB)...');
+          try {
+            execSync('docker exec memgraph sh -c "rm -rf /var/lib/memgraph/snapshots/*"', { stdio: 'pipe' });
+            execSync('docker exec memgraph sh -c "rm -rf /var/lib/memgraph/wal/*"', { stdio: 'pipe' });
+            execSync('docker exec memgraph sh -c "rm -rf /var/lib/memgraph/rocksdb_*"', { stdio: 'pipe' });
+            logSuccess('Cleared all persistent storage files');
+          } catch (error) {
+            // Container is stopped, use sudo to access volumes directly
+            try {
+              execSync('sudo rm -rf /var/lib/docker/volumes/specialpedrito_mg_lib/_data/snapshots/*', { stdio: 'pipe' });
+              execSync('sudo rm -rf /var/lib/docker/volumes/specialpedrito_mg_lib/_data/wal/*', { stdio: 'pipe' });
+              execSync('sudo rm -rf /var/lib/docker/volumes/specialpedrito_mg_lib/_data/rocksdb_*', { stdio: 'pipe' });
+              execSync('sudo rm -rf /var/lib/docker/volumes/specialpedrito_mg_lib/_data/.system/*', { stdio: 'pipe' });
+              execSync('sudo rm -rf /var/lib/docker/volumes/specialpedrito_mg_lib/_data/databases/*', { stdio: 'pipe' });
+              logSuccess('Cleared persistent storage via Docker volumes');
+            } catch (e2) {
+              logWarning('Could not clear all storage files - vector indexes may persist');
+            }
+          }
+
+          // Start container fresh
+          logInfo('Starting Memgraph container...');
+          execSync('docker start memgraph', { stdio: 'inherit' });
+          logSuccess('Memgraph container restarted successfully');
+          logInfo('Waiting for Memgraph to be ready...');
+
+          // Wait and reconnect
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          await this.connect();
+
+          // Verify indexes are gone or empty
+          const newSession = this.driver!.session();
+          const finalCheck = await newSession.run('SHOW VECTOR INDEX INFO');
+          const regularCheck = await newSession.run('SHOW INDEX INFO');
+          await newSession.close();
+
+          if (finalCheck.records.length === 0) {
+            logSuccess('✓ All vector indexes successfully removed');
+          } else {
+            // Check if indexes are empty (count = 0)
+            const nonEmptyIndexes = regularCheck.records.filter(r => {
+              const count = r.get('count')?.toNumber() || 0;
+              return count > 0;
+            });
+
+            if (nonEmptyIndexes.length === 0) {
+              logSuccess(`✓ Database fully reset - ${finalCheck.records.length} empty vector index definitions remain`);
+              logInfo('(Empty index metadata will be populated on next data write)');
+            } else {
+              logWarning(`⚠  ${nonEmptyIndexes.length} indexes still contain data`);
+            }
+          }
+        } catch (error) {
+          logError(`Failed to restart Memgraph: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+    });
+  }
+
+  // ============================================================================
+  // DATABASE HEALTH CHECK & INDEX MANAGEMENT
+  // ============================================================================
+
+  /**
+   * Show all indexes in the database
+   */
+  /**
+   * Create vector indexes for PersonaDimension and DesiredDimension nodes
+   * Enables fast similarity search using cosine distance
+   *
+   * Note: This only creates 'profile' indexes as they are the primary indexes used for matchmaking.
+   * Other dimension-specific indexes (characteristic, vibe, etc.) are created lazily by the
+   * memgraph service when nodes with those dimension names are first created.
+   */
+  async ensureVectorIndexes(dimension: number = 768, options: CLIOptions): Promise<void> {
+    logInfo(`${options.dryRun ? 'DRY RUN: ' : ''}Creating 'profile' vector indexes with dimension ${dimension}...`);
+
+    await this.withSession(async (session) => {
+      const indexes = [
+        {
+          name: 'persona_profile_vector_index',
+          label: 'PersonaProfile',
+          property: 'embeddings',
+        },
+        {
+          name: 'desired_profile_vector_index',
+          label: 'DesiredProfile',
+          property: 'embeddings',
+        },
+      ];
+
+      let created = 0;
+      let skipped = 0;
+
+      for (const index of indexes) {
+        try {
+          if (options.dryRun) {
+            logInfo(`  Would create: ${index.name} on :${index.label}(${index.property})`);
+            logInfo(`    Config: dimension=${dimension}, capacity=10000, metric=cos`);
+            created++;
+            continue;
+          }
+
+          const query = `CREATE VECTOR INDEX ${index.name} ON :${index.label}(${index.property}) WITH CONFIG {
+            "dimension": ${dimension},
+            "capacity": 10000,
+            "metric": "cos"
+          }`;
+
+          logDebug(`  Executing: ${query}`, options.verbose);
+
+          await session.run(query);
+          logSuccess(`✓ Created vector index: ${index.name} (dimension: ${dimension})`);
+          logDebug(`  Label: ${index.label}, Property: ${index.property}, Metric: cos, Capacity: 10000`, options.verbose);
+          created++;
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+
+          // Log the actual error for debugging
+          logDebug(`  Error creating ${index.name}: ${errorMessage}`, options.verbose);
+
+          if (errorMessage.includes('already exists') || errorMessage.includes('Index already exists')) {
+            logWarning(`⚠ Vector index ${index.name} already exists (dimension: ${dimension})`);
+            skipped++;
+          } else {
+            logError(`✗ Failed to create vector index ${index.name}: ${errorMessage}`);
+          }
+        }
+      }
+
+      // Summary
+      log(colorize('bright', '\n=== VECTOR INDEX SUMMARY ==='));
+      if (created > 0) {
+        logSuccess(`Created: ${created} vector index(es)`);
+      }
+      if (skipped > 0) {
+        logWarning(`Skipped: ${skipped} index(es) (already exist)`);
+      }
+
+      if (!options.dryRun && (created > 0 || skipped > 0)) {
+        logInfo('\nUse "showIndexes" command to verify vector indexes');
+      }
+    });
+  }
+
+  async showIndexes(): Promise<void> {
+    logInfo('Retrieving all indexes from Memgraph...');
+
+    await this.withSession(async (session) => {
+      // Show regular indexes
+      try {
+        const indexesResult = await session.run('SHOW INDEX INFO');
+        const indexes = indexesResult.records;
+
+        if (indexes.length > 0) {
+          log(colorize('bright', '\n=== REGULAR INDEXES ==='));
+          log(colorize('gray', 'Type'.padEnd(25) + 'Label'.padEnd(25) + 'Property'.padEnd(20) + 'Count'));
+          log(colorize('gray', '-'.repeat(90)));
+
+          for (const record of indexes) {
+            const indexType = record.get('index type');
+            const label = record.get('label');
+            const propertyRaw = record.get('property');
+            // Handle both string and array property values
+            const property = propertyRaw
+              ? (Array.isArray(propertyRaw) ? propertyRaw.join(', ') : String(propertyRaw))
+              : 'N/A';
+            const count = record.get('count')?.toNumber() || 0;
+
+            const line = [
+              String(indexType).padEnd(25),
+              String(label).padEnd(25),
+              property.padEnd(20),
+              count.toString()
+            ].join('');
+
+            log(line);
+          }
+
+          log(colorize('bright', `\nTotal regular indexes: ${indexes.length}`));
+        } else {
+          logInfo('\nNo regular indexes found');
+        }
+      } catch (error) {
+        logError(`Failed to retrieve regular indexes: ${error instanceof Error ? error.message : String(error)}`);
+      }
+
+      // Show vector indexes
+      try {
+        const vectorIndexesResult = await session.run('SHOW VECTOR INDEX INFO');
+        const vectorIndexes = vectorIndexesResult.records;
+
+        if (vectorIndexes.length > 0) {
+          log(colorize('bright', '\n=== VECTOR INDEXES ==='));
+          log(colorize('gray', 'Index Name'.padEnd(30) + 'Label'.padEnd(25) + 'Property'.padEnd(20) + 'Dimension'.padEnd(12) + 'Metric'));
+          log(colorize('gray', '-'.repeat(95)));
+
+          for (const record of vectorIndexes) {
+            const indexName = record.get('index_name');
+            const label = record.get('label');
+            const property = record.get('property');
+            const dimension = record.get('dimension')?.toNumber() || 0;
+            const metric = record.get('metric') || 'N/A';
+
+            const line = [
+              indexName.padEnd(30),
+              label.padEnd(25),
+              property.padEnd(20),
+              dimension.toString().padEnd(12),
+              metric
+            ].join('');
+
+            log(line);
+          }
+
+          log(colorize('bright', `\nTotal vector indexes: ${vectorIndexes.length}`));
+        } else {
+          logInfo('\nNo vector indexes found');
+        }
+      } catch (error) {
+        logError(`Failed to retrieve vector indexes: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    });
+  }
+
+  /**
+   * Test vector search on available indexes
+   */
+  async testVectorSearch(options: CLIOptions): Promise<void> {
+    logInfo('Testing vector search on available indexes...');
+
+    await this.withSession(async (session) => {
+      // First, list available vector indexes
+      try {
+        const vectorIndexesResult = await session.run('SHOW VECTOR INDEX INFO');
+        const vectorIndexes = vectorIndexesResult.records;
+
+        if (vectorIndexes.length === 0) {
+          logWarning('No vector indexes found in database');
+          return;
+        }
+
+        log(colorize('bright', '\n=== AVAILABLE VECTOR INDEXES ==='));
+        for (const record of vectorIndexes) {
+          const indexName = record.get('index_name');
+          const label = record.get('label');
+          const dimension = record.get('dimension')?.toNumber() || 0;
+          logInfo(`  - ${indexName} (${label}, dimension: ${dimension})`);
+        }
+
+        // Generate a test embedding (768 dimensions)
+        const testEmbedding = generateRealisticEmbedding(0);
+        logInfo(`\nGenerated test embedding with ${testEmbedding.length} dimensions`);
+
+        // Test search on each vector index
+        for (const record of vectorIndexes) {
+          const indexName = record.get('index_name');
+          const label = record.get('label');
+
+          log(colorize('cyan', `\n• Testing search on: ${indexName}`));
+
+          try {
+            const searchQuery = `
+              CALL vector_search.search('${indexName}', 5, $testEmbedding)
+              YIELD node, similarity
+              RETURN node, similarity
+              LIMIT 5
+            `;
+
+            const result = await session.run(searchQuery, { testEmbedding });
+
+            if (result.records.length > 0) {
+              logSuccess(`  ✓ Search successful! Found ${result.records.length} results`);
+
+              for (let i = 0; i < result.records.length; i++) {
+                const node = result.records[i].get('node');
+                const similarity = result.records[i].get('similarity');
+                const name = node.properties.name || 'N/A';
+                const value = node.properties.value || 'N/A';
+                logInfo(`    [${i + 1}] ${name}: "${value.substring(0, 60)}..." (similarity: ${similarity.toFixed(4)})`);
+              }
+            } else {
+              logWarning(`  ⚠ Search returned 0 results (index may be empty)`);
+            }
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            logError(`  ✗ Search failed: ${errorMessage}`);
+          }
+        }
+
+        log(colorize('bright', '\n=== TEST COMPLETE ==='));
+      } catch (error) {
+        logError(`Failed to test vector search: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    });
+  }
+
+  async healthCheck(): Promise<boolean> {
+    try {
+      logInfo('Performing database health check...');
+
+      await this.withSession(async (session) => {
+        // Test basic connectivity
+        await session.run('RETURN 1 as test');
+        logSuccess('✓ Basic connectivity: OK');
+
+        // Check node counts by type
+        const nodeCountQuery = `
+          MATCH (n)
+          RETURN labels(n)[0] as nodeType, count(n) as count
+          ORDER BY nodeType
+        `;
+
+        const nodeResult = await session.run(nodeCountQuery);
+
+        log(colorize('cyan', '\n• Node counts by type:'));
+        for (const record of nodeResult.records) {
+          const nodeType = record.get('nodeType') || 'Unlabeled';
+          const count = record.get('count').toNumber();
+          log(`  ${nodeType}: ${count}`);
+        }
+
+        // Check relationship counts by type
+        const relCountQuery = `
+          MATCH ()-[r]->()
+          RETURN type(r) as relType, count(r) as count
+          ORDER BY relType
+        `;
+
+        const relResult = await session.run(relCountQuery);
+
+        log(colorize('cyan', '\n• Relationship counts by type:'));
+        if (relResult.records.length === 0) {
+          log('  No relationships found');
+        } else {
+          for (const record of relResult.records) {
+            const relType = record.get('relType');
+            const count = record.get('count').toNumber();
+            log(`  ${relType}: ${count}`);
+          }
+        }
+
+        // Check for orphaned nodes - using simpler Memgraph-compatible approach
+        const orphanQuery = `
+          MATCH (n)
+          WHERE NOT EXISTS {
+            MATCH (n)-[r]-()
+          }
+          RETURN labels(n)[0] as nodeType, count(n) as orphanCount
+          ORDER BY nodeType
+        `;
+
+        const orphanResult = await session.run(orphanQuery);
+
+        if (orphanResult.records.length > 0) {
+          log(colorize('yellow', '\n• Orphaned nodes (no relationships):'));
+          for (const record of orphanResult.records) {
+            const nodeType = record.get('nodeType') || 'Unlabeled';
+            const count = record.get('orphanCount').toNumber();
+            log(`  ${nodeType}: ${count}`);
+          }
+        } else {
+          logSuccess('\n✓ No orphaned nodes found');
+        }
+      });
+
+      logSuccess('\nHealth check completed successfully');
+      return true;
+    } catch (error) {
+      logError(`Health check failed: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+  }
+
+  // ============================================================================
+  // TEST DATA SEEDING
+  // ============================================================================
+
+  /**
+   * Remove all test users created by seedTestUsers
+   * Deletes Person, Account, and Dimension nodes for test users (channelIds 100000001-100000005)
+   */
+  async removeTestUsers(options: CLIOptions): Promise<void> {
+    logInfo(`${options.dryRun ? 'DRY RUN: ' : ''}Removing test users...`);
+
+    const testChannelIds = ['100000001', '100000002', '100000003', '100000004', '100000005'];
+
+    await this.withSession(async (session) => {
+      let removed = 0;
+      let notFound = 0;
+
+      for (const channelId of testChannelIds) {
+        try {
+          // Find Person associated with this Account channelId
+          const findQuery = `
+            MATCH (acc:Account {platform: 'telegram', identifier: $channelId})
+            OPTIONAL MATCH (p:Person)-[:HAS_ACCOUNT]->(acc)
+            RETURN p, acc, p.name as name
+          `;
+
+          const findResult = await session.run(findQuery, { channelId });
+
+          if (findResult.records.length === 0 || !findResult.records[0].get('p')) {
+            logWarning(`  Test user with channelId ${channelId} not found`);
+            notFound++;
+            continue;
+          }
+
+          const personName = findResult.records[0].get('name') || 'Unknown';
+
+          logInfo(`  Found test user: ${personName} (channelId: ${channelId})`);
+
+          if (options.dryRun) {
+            logWarning(`  Would delete: ${personName} and all related nodes/relationships`);
+            removed++;
+            continue;
+          }
+
+          // Delete Person and all connected nodes (Account, Dimensions, etc.)
+          const deleteQuery = `
+            MATCH (acc:Account {platform: 'telegram', identifier: $channelId})
+            MATCH (p:Person)-[:HAS_ACCOUNT]->(acc)
+            OPTIONAL MATCH (p)-[:HAS_DIMENSION]->(dim)
+            DETACH DELETE p, acc, dim
+            RETURN count(p) as deletedCount
+          `;
+
+          const deleteResult = await session.run(deleteQuery, { channelId });
+          const deletedCount = deleteResult.records[0].get('deletedCount').toNumber();
+
+          if (deletedCount > 0) {
+            logSuccess(`  ✓ Removed test user: ${personName}`);
+            removed++;
+          } else {
+            logError(`  ✗ Failed to remove test user: ${personName}`);
+          }
+        } catch (error) {
+          logError(`  ✗ Error removing user with channelId ${channelId}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+
+      // Summary
+      log(colorize('bright', '\n=== REMOVAL SUMMARY ==='));
+      if (removed > 0) {
+        logSuccess(`Removed: ${removed} test users`);
+      }
+      if (notFound > 0) {
+        logWarning(`Not found: ${notFound} test users`);
+      }
+
+      if (!options.dryRun && removed > 0) {
+        logInfo('\nTest users have been removed from the database');
+      }
+    });
+  }
+
+  /**
+   * Seed database with 5 sample test users for vector search and matchmaking testing
+   * Creates Person, Account, PersonaDimension, and DesiredDimension nodes with relationships
+   */
+  async seedTestUsers(options: CLIOptions): Promise<void> {
+    logInfo(`${options.dryRun ? 'DRY RUN: ' : ''}Seeding 5 test users for matchmaking...`);
+
+    // Reference IDs for existing nodes
+    const AGENT_ID = '85dd8272-625b-053b-9c7d-d49cd0bbdde8'; // Paren agent
+    const PLACE_NAME = 'Bantabaa Food Dealer';
+
+    // Test user profiles
+    const testUsers = [
+      {
+        name: 'Sarah Chen',
+        username: 'sarahchen',
+        channelId: '100000001',
+        personaText:
+          'Serial entrepreneur building AI startups in Berlin. Passionate about product-market fit, venture capital, and scaling technology companies. Analytical thinker who loves discussing business strategy and innovation. Prefers focused 1-on-1 conversations over large groups.',
+        desiredText:
+          'Looking for technical co-founders, angel investors, and experienced startup operators in the Berlin tech ecosystem. Interested in meeting people who can discuss product strategy, fundraising, and growth hacking. Values direct, high-signal conversations.',
+      },
+      {
+        name: 'Marcus Weber',
+        username: 'marcusweber',
+        channelId: '100000002',
+        personaText:
+          'PhD candidate studying ethics and social theory at Humboldt University. Loves deep philosophical debates about consciousness, morality, and societal structures. Thoughtful listener who enjoys exploring complex ideas. Values substantive intellectual exchanges in small group settings.',
+        desiredText:
+          'Seeking intellectually curious individuals for thoughtful dinner conversations about philosophy, society, and human nature. Interested in connecting with academics, writers, and deep thinkers. Prefers serious, thought-provoking discussions over casual small talk.',
+      },
+      {
+        name: 'Nina Kowalski',
+        username: 'ninakowalski',
+        channelId: '100000003',
+        personaText:
+          'Climate activist and sustainability project manager. Works on community organizing and environmental policy initiatives in Berlin. Energetic changemaker passionate about social impact and systems thinking. Enjoys collaborative brainstorming in groups of 2-4 people.',
+        desiredText:
+          'Wants to connect with fellow changemakers, social entrepreneurs, and activists working on sustainability and community development. Looking for people to discuss environmental justice, regenerative systems, and grassroots organizing. Values action-oriented collaborators.',
+      },
+      {
+        name: 'Leon Baptiste',
+        username: 'leonbaptiste',
+        channelId: '100000004',
+        personaText:
+          'Professional jazz saxophonist and music producer. Passionate about improvisation, creative collaboration, and musical experimentation. Free-spirited artist who thrives in spontaneous, creative environments. Enjoys connecting through shared artistic expression rather than structured conversation.',
+        desiredText:
+          'Looking for fellow musicians, artists, and creatives to jam with and collaborate on projects. Interested in people who appreciate improvisation, jazz, and experimental music. Seeks authentic connections through creative collaboration and artistic dialogue.',
+      },
+      {
+        name: 'Priya Sharma',
+        username: 'priyasharma',
+        channelId: '100000005',
+        personaText:
+          'ML engineer at a Berlin fintech company specializing in fraud detection algorithms. Enjoys technical discussions about machine learning systems, distributed computing, and software architecture. Detail-oriented problem solver who loves diving deep into technical challenges. Prefers knowledge-sharing in small technical groups.',
+        desiredText:
+          'Seeking other technologists, data scientists, and engineers for knowledge exchange about ML systems, algorithms, and technical architecture. Interested in people building interesting technical products. Values depth over breadth in technical discussions and collaborative problem-solving.',
+      },
+    ];
+
+    await this.withSession(async (session) => {
+      let created = 0;
+      let skipped = 0;
+
+      // First, ensure Agent node exists
+      try {
+        const agentCheckQuery = `
+          MATCH (agent:Agent {agentId: $agentId})
+          RETURN agent.agentId as agentId
+        `;
+        const agentCheck = await session.run(agentCheckQuery, { agentId: AGENT_ID });
+
+        if (agentCheck.records.length === 0) {
+          logInfo('\nCreating Agent node...');
+          const createAgentQuery = `
+            CREATE (agent:Agent {
+              agentId: $agentId,
+              name: 'Paren',
+              username: 'paren',
+              type: 'Agent',
+              createdAt: $timestamp,
+              updatedAt: $timestamp
+            })
+            RETURN agent.agentId as agentId
+          `;
+          await session.run(createAgentQuery, { agentId: AGENT_ID, timestamp: Date.now() });
+          logSuccess('✓ Agent node created');
+        } else {
+          logInfo('\nAgent node already exists');
+        }
+      } catch (error) {
+        logError(`Failed to ensure Agent node: ${error instanceof Error ? error.message : String(error)}`);
+        return;
+      }
+
+      for (let i = 0; i < testUsers.length; i++) {
+        const user = testUsers[i];
+        const userId = crypto.randomUUID() as UUID;
+        const timestamp = Date.now();
+
+        logInfo(`\n[${i + 1}/5] Creating test user: ${user.name}`);
+
+        // Check if user already exists (by channelId on Account node)
+        const checkQuery = `
+          MATCH (a:Account {platform: 'telegram', identifier: $channelId})
+          RETURN count(a) as exists
+        `;
+
+        const checkResult = await session.run(checkQuery, { channelId: user.channelId });
+        const exists = checkResult.records[0].get('exists').toNumber() > 0;
+
+        if (exists) {
+          logWarning(`  User with channelId ${user.channelId} already exists, skipping`);
+          skipped++;
+          continue;
+        }
+
+        if (options.dryRun) {
+          logInfo(`  Would create:`);
+          logInfo(`    - Person: ${userId}`);
+          logInfo(`    - Account (telegram): ${user.channelId}`);
+          logInfo(`    - PersonaDimension (profile): ${user.personaText.substring(0, 80)}...`);
+          logInfo(`    - DesiredDimension (profile): ${user.desiredText.substring(0, 80)}...`);
+          logInfo(`    - Relationships: HAS_ACCOUNT, MANAGED_BY, HAS_DIMENSION (x2), MANAGED_ON, ATTENDS`);
+          created++;
+          continue;
+        }
+
+        try {
+          // Generate embeddings for this user (as native arrays, not JSON strings)
+          const personaEmbedding = generateRealisticEmbedding(i * 100);
+          const desiredEmbedding = generateRealisticEmbedding(i * 100 + 50);
+
+          // Create all nodes and relationships in one transaction
+          const createQuery = `
+            // Create Person node
+            CREATE (p:Person {
+              entityid: $userId,
+              name: $name,
+              userStatus: 'active',
+              metadata: '{}',
+              type: 'Person',
+              createdAt: $timestamp,
+              updatedAt: $timestamp
+            })
+
+            // Create Account node (telegram platform)
+            CREATE (acc:Account {
+              platform: 'telegram',
+              identifier: $channelId,
+              channelId: $channelId,
+              username: $username,
+              displayName: $name,
+              type: 'Account',
+              createdAt: $timestamp,
+              updatedAt: $timestamp
+            })
+
+            // Create PersonaProfile node with embeddings array (using specific label)
+            CREATE (pd:PersonaProfile {
+              value: $personaText,
+              embeddings: $personaEmbedding
+            })
+
+            // Create DesiredProfile node with embeddings array (using specific label)
+            CREATE (dd:DesiredProfile {
+              value: $desiredText,
+              embeddings: $desiredEmbedding
+            })
+
+            // Get existing Agent and optional Place
+            WITH p, acc, pd, dd
+            MATCH (agent:Agent {agentId: $agentId})
+            OPTIONAL MATCH (place:Place {name: $placeName})
+
+            // Create relationships following new schema
+            CREATE (p)-[:HAS_ACCOUNT {status: 'active', isPrimary: true, createdAt: $timestamp, updatedAt: $timestamp}]->(acc)
+            CREATE (p)-[:MANAGED_BY {managementStartedAt: $timestamp, lastInteractionAt: $timestamp, createdAt: $timestamp, updatedAt: $timestamp}]->(agent)
+            CREATE (p)-[:HAS_DIMENSION {createdAt: $timestamp, evidence: 'Seeded test data'}]->(pd)
+            CREATE (p)-[:HAS_DIMENSION {createdAt: $timestamp, evidence: 'Seeded test data'}]->(dd)
+            CREATE (agent)-[:MANAGED_ON {active: true, createdAt: $timestamp, updatedAt: $timestamp}]->(acc)
+
+            // Create ATTENDS relationship if place exists
+            FOREACH (pl IN CASE WHEN place IS NOT NULL THEN [place] ELSE [] END |
+              CREATE (p)-[:ATTENDS {frequency: 'occasional', firstVisit: $timestamp, lastVisit: $timestamp, createdAt: $timestamp, updatedAt: $timestamp}]->(pl)
+            )
+
+            RETURN p.entityid as personId
+          `;
+
+          const result = await session.run(createQuery, {
+            userId,
+            name: user.name,
+            channelId: user.channelId,
+            username: user.username,
+            personaText: user.personaText,
+            desiredText: user.desiredText,
+            personaEmbedding: personaEmbedding, // Pass as native array
+            desiredEmbedding: desiredEmbedding, // Pass as native array
+            timestamp,
+            agentId: AGENT_ID,
+            placeName: PLACE_NAME,
+          });
+
+          if (result.records.length > 0) {
+            created++;
+            logSuccess(`  ✓ Created user: ${user.name} (${userId})`);
+          } else {
+            logError(`  ✗ Failed to create user: ${user.name}`);
+          }
+        } catch (error) {
+          logError(`  ✗ Error creating user ${user.name}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+
+      // Summary
+      log(colorize('bright', '\n=== SEED SUMMARY ==='));
+      logSuccess(`Created: ${created} users`);
+      if (skipped > 0) {
+        logWarning(`Skipped: ${skipped} users (already exist)`);
+      }
+
+      if (!options.dryRun && created > 0) {
+        logInfo('\nYou can now test vector search and matchmaking with these users!');
+        logInfo('Use: bun scripts/updateMemgraph.ts listPersons');
+      }
+    });
+  }
+}
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+function inferVenueType(name: string, description?: string): 'restaurant' | 'gym' | 'community space' | 'coworking space' | 'fitness studio' | 'yoga studio' {
+  const text = `${name} ${description || ''}`.toLowerCase();
+
+  if (text.includes('yoga')) {
+    return 'yoga studio';
+  }
+  if (text.includes('fitness') || text.includes('studio')) {
+    return 'fitness studio';
+  }
+  if (text.includes('gym')) {
+    return 'gym';
+  }
+  if (text.includes('coworking') || text.includes('office') || text.includes('workspace')) {
+    return 'coworking space';
+  }
+  if (text.includes('community') || text.includes('meeting place')) {
+    return 'community space';
+  }
+  // Default to restaurant for food-related venues
+  return 'restaurant';
+}
+
+async function createPlaceFromFile(manager: MemgraphManager, filePath: string, options: CLIOptions): Promise<void> {
+  try {
+    logInfo(`Reading Place data from: ${filePath}`);
+
+    // Read and parse the JSON file - compatible with both Bun and Node
+    let fileContent: string;
+    if (typeof Bun !== 'undefined' && Bun.file) {
+      fileContent = await Bun.file(filePath).text();
+    } else {
+      // Fallback to Node.js fs for tsx/node execution
+      const fs = await import('fs');
+      fileContent = await fs.promises.readFile(filePath, 'utf-8');
+    }
+    const placeData = JSON.parse(fileContent);
+
+    // Validate required fields
+    if (!placeData.name) {
+      logError('Place data must include a "name" field');
+      return;
+    }
+
+    // Set defaults for required schema fields and infer venue type
+    const inferredVenueType = inferVenueType(placeData.name, placeData.description);
+
+    const placeNode: Omit<PlaceNode, 'createdAt' | 'updatedAt'> = {
+      type: 'Place',
+      venueType: placeData.venueType || placeData.metadata?.venueType || inferredVenueType,
+      name: placeData.name,
+      description: placeData.description,
+      url: placeData.url,
+      address: placeData.address,
+      operatingHours: placeData.operatingHours || {},
+      classTimetable: placeData.classTimetable || [],
+      metadata: placeData.metadata || {},
+    };
+
+    logInfo(`Parsed Place data: ${placeNode.name}`);
+    logInfo(`  Address: ${placeNode.address || 'N/A'}`);
+    logInfo(`  Operating hours: ${Object.keys(placeNode.operatingHours).length} days defined`);
+    logInfo(`  Classes: ${placeNode.classTimetable.length} classes scheduled`);
+
+    const success = await manager.createPlace(placeNode, options);
+
+    if (success) {
+      logSuccess(`Successfully created Place: ${placeNode.name}`);
+    } else {
+      logError(`Failed to create Place: ${placeNode.name}`);
+      process.exit(1);
+    }
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logError(`Failed to create Place from file: ${errorMessage}`);
+    process.exit(1);
+  }
+}
+
+// ============================================================================
+// CLI ARGUMENT PARSING
+// ============================================================================
+
+function parseArguments(): { command: string; args: string[]; options: CLIOptions } {
   const args = process.argv.slice(2);
 
   if (args.length === 0) {
-    console.log(`
-Usage:
-  npx tsx updateMemgraph.ts clear
-  npx tsx updateMemgraph.ts addConnection "person1, person2, secret, status"
-  npx tsx updateMemgraph.ts list
-  npx tsx updateMemgraph.ts waitlist
-  npx tsx updateMemgraph.ts activate "connectionId"
-  npx tsx updateMemgraph.ts active
-  npx tsx updateMemgraph.ts delete "connectionId"
-  npx tsx updateMemgraph.ts deletePerson "userId"
-  npx tsx updateMemgraph.ts connectPerson "userId, connectionId"
-
-Examples:
-  npx tsx updateMemgraph.ts clear
-  npx tsx updateMemgraph.ts addConnection "amir, bianca, popcorn, active"
-  npx tsx updateMemgraph.ts list
-  npx tsx updateMemgraph.ts waitlist
-  npx tsx updateMemgraph.ts activate "b2b7d02f-7d27-0c3f-8e86-dcb24b043601"
-  npx tsx updateMemgraph.ts active
-  npx tsx updateMemgraph.ts delete "b2b7d02f-7d27-0c3f-8e86-dcb24b043601"
-  npx tsx updateMemgraph.ts deletePerson "user123"
-  npx tsx updateMemgraph.ts connectPerson "user123, b2b7d02f-7d27-0c3f-8e86-dcb24b043601"
-    `);
+    showHelp();
     process.exit(1);
   }
 
   const command = args[0];
+  const commandArgs: string[] = [];
+  const options: CLIOptions = {
+    dryRun: false,
+    confirm: false,
+    verbose: false,
+    restartMemgraph: false,
+  };
+
+  for (let i = 1; i < args.length; i++) {
+    const arg = args[i];
+
+    if (arg === '--dry-run') {
+      options.dryRun = true;
+    } else if (arg === '--confirm') {
+      options.confirm = true;
+    } else if (arg === '--verbose' || arg === '-v') {
+      options.verbose = true;
+    } else if (arg === '--restart-memgraph') {
+      options.restartMemgraph = true;
+    } else if (arg.startsWith('--')) {
+      logError(`Unknown option: ${arg}`);
+      process.exit(1);
+    } else {
+      commandArgs.push(arg);
+    }
+  }
+
+  return { command, args: commandArgs, options };
+}
+
+function showHelp(): void {
+  log(colorize('bright', 'Memgraph Database Management CLI'));
+  log('');
+  log('Usage:');
+  log('  bun scripts/updateMemgraph.ts <command> [options]');
+  log('');
+  log('Commands:');
+  log(colorize('cyan', '  deletePerson <id>') + '        Delete a Person node by entityid or id');
+  log(colorize('cyan', '  deleteContactPoint <agentId>') + ' Delete ContactPoint nodes by agentId');
+  log(colorize('cyan', '  listPersons') + '              List all Person nodes with basic info');
+  log(colorize('cyan', '  getPersonDetails <id>') + '    Show detailed Person information');
+  log(colorize('cyan', '  createPlace <json-file>') + '  Create a Place node from JSON file');
+  log(colorize('cyan', '  listPlaces') + '               List all Place nodes with basic info');
+  log(colorize('cyan', '  getPlaceDetails <name>') + '   Show detailed Place information');
+  log(colorize('cyan', '  deletePlace <name>') + '       Delete a Place node by name');
+  log(colorize('cyan', '  deleteOrphans') + '            Remove orphaned ContactPoint and PeacokDimension nodes');
+  log(colorize('cyan', '  reset --confirm') + '          Clear entire database (requires confirmation)');
+  log(colorize('cyan', '  health') + '                   Perform database health check');
+  log(colorize('cyan', '  showIndexes') + '              Display all regular and vector indexes');
+  log(colorize('cyan', '  createVectorIndexes [dim]') + ' Create persona_profile and desired_profile vector indexes');
+  log(colorize('cyan', '  testVectorSearch') + '         Test vector search on all available indexes');
+  log(colorize('cyan', '  seedTestUsers') + '            Populate 5 sample users for testing vector search/matchmaking');
+  log(colorize('cyan', '  removeTestUsers') + '          Remove all test users created by seedTestUsers');
+  log('');
+  log('Options:');
+  log(colorize('yellow', '  --dry-run') + '               Preview changes without executing');
+  log(colorize('yellow', '  --confirm') + '               Required for destructive operations');
+  log(colorize('yellow', '  --verbose, -v') + '           Show detailed output');
+  log(colorize('yellow', '  --restart-memgraph') + '      Restart Memgraph after reset to clear persistent indexes');
+  log('');
+  log('Environment:');
+  log('  MEMGRAPH_URL                Connection string (default: bolt://localhost:7687)');
+  log('');
+  log('Examples:');
+  log('  bun scripts/updateMemgraph.ts listPersons --dry-run');
+  log('  bun scripts/updateMemgraph.ts deletePerson abc123-def456-789');
+  log('  bun scripts/updateMemgraph.ts deleteContactPoint 85dd8272-625b-053b-9c7d-d49cd0bbdde8');
+  log('  bun scripts/updateMemgraph.ts createPlace bantabaa-place.json --dry-run');
+  log('  bun scripts/updateMemgraph.ts listPlaces --verbose');
+  log('  bun scripts/updateMemgraph.ts getPlaceDetails "Fitness Studio Alpha"');
+  log('  bun scripts/updateMemgraph.ts deletePlace "Old Venue Name"');
+  log('  bun scripts/updateMemgraph.ts deleteOrphans --verbose');
+  log('  bun scripts/updateMemgraph.ts reset --confirm --dry-run');
+  log('  bun scripts/updateMemgraph.ts createVectorIndexes 768 --dry-run');
+  log('  bun scripts/updateMemgraph.ts testVectorSearch');
+  log('  bun scripts/updateMemgraph.ts seedTestUsers --dry-run');
+  log('  bun scripts/updateMemgraph.ts removeTestUsers --dry-run');
+}
+
+// ============================================================================
+// MAIN EXECUTION
+// ============================================================================
+
+async function main(): Promise<void> {
+  const { command, args, options } = parseArguments();
+
   const manager = new MemgraphManager();
 
   try {
     await manager.connect();
 
     switch (command) {
-      case 'clear':
-        await manager.clear();
-        break;
-
-      case 'addConnection':
-        if (args.length < 2) {
-          console.error('❌ Connection string required for addConnection command');
-          console.log(
-            'Example: npx tsx updateMemgraph.ts addConnection "amir, bianca, popcorn, active"'
-          );
-          process.exit(1);
-        }
-        await manager.addConnection(args[1]);
-        break;
-
-      case 'list':
-        await manager.listConnections();
-        break;
-
-      case 'waitlist':
-        await manager.getWaitlistConnections();
-        break;
-
-      case 'activate':
-        if (args.length < 2) {
-          console.error('❌ Connection ID required for activate command');
-          console.log(
-            'Example: npx tsx updateMemgraph.ts activate "b2b7d02f-7d27-0c3f-8e86-dcb24b043601"'
-          );
-          process.exit(1);
-        }
-        await manager.activateConnection(args[1]);
-        break;
-
-      case 'active':
-        await manager.getActiveConnections();
-        break;
-
-      case 'delete':
-        if (args.length < 2) {
-          console.error('❌ Connection ID required for delete command');
-          console.log(
-            'Example: npx tsx updateMemgraph.ts delete "b2b7d02f-7d27-0c3f-8e86-dcb24b043601"'
-          );
-          process.exit(1);
-        }
-        await manager.deleteConnection(args[1]);
-        break;
-
       case 'deletePerson':
-        if (args.length < 2) {
-          console.error('❌ User ID required for deletePerson command');
-          console.log('Example: npx tsx updateMemgraph.ts deletePerson "user123"');
+        if (args.length !== 1) {
+          logError('deletePerson requires exactly one ID argument');
           process.exit(1);
         }
-        await manager.deletePerson(args[1]);
+        await manager.deletePerson(args[0], options);
         break;
 
-      case 'connectPerson':
-        if (args.length < 2) {
-          console.error('❌ User ID and Connection ID required for connectPerson command');
-          console.log(
-            'Example: npx tsx updateMemgraph.ts connectPerson "user123, b2b7d02f-7d27-0c3f-8e86-dcb24b043601"'
-          );
+      case 'deleteContactPoint':
+        if (args.length !== 1) {
+          logError('deleteContactPoint requires exactly one agentId argument');
+          process.exit(1);
+        }
+        await manager.deleteContactPoint(args[0], options);
+        break;
+
+      case 'listPersons':
+        await manager.listPersons(options);
+        break;
+
+      case 'getPersonDetails':
+        if (args.length !== 1) {
+          logError('getPersonDetails requires exactly one ID argument');
+          process.exit(1);
+        }
+        await manager.getPersonDetails(args[0], options);
+        break;
+
+      case 'createPlace':
+        if (args.length !== 1) {
+          logError('createPlace requires exactly one JSON file path argument');
+          process.exit(1);
+        }
+        await createPlaceFromFile(manager, args[0], options);
+        break;
+
+      case 'listPlaces':
+        await manager.listPlaces(options);
+        break;
+
+      case 'getPlaceDetails':
+        if (args.length !== 1) {
+          logError('getPlaceDetails requires exactly one name argument');
+          process.exit(1);
+        }
+        await manager.getPlaceDetails(args[0], options);
+        break;
+
+      case 'deletePlace':
+        if (args.length !== 1) {
+          logError('deletePlace requires exactly one name argument');
+          process.exit(1);
+        }
+        await manager.deletePlace(args[0], options);
+        break;
+
+      case 'deleteOrphans':
+        await manager.deleteOrphans(options);
+        break;
+
+      case 'reset':
+        await manager.resetDatabase(options);
+        break;
+
+      case 'health':
+        const healthy = await manager.healthCheck();
+        process.exit(healthy ? 0 : 1);
+        break;
+
+      case 'showIndexes':
+        await manager.showIndexes();
+        break;
+
+      case 'createVectorIndexes':
+        // Parse optional dimension argument (default: 768)
+        const dimension = args.length > 0 ? parseInt(args[0], 10) : 768;
+
+        if (isNaN(dimension) || dimension <= 0) {
+          logError(`Invalid dimension: ${args[0]}. Must be a positive integer.`);
           process.exit(1);
         }
 
-        // Parse the connection string "userId, connectionId"
-        const parts = args[1].split(',').map((part) => part.trim());
+        await manager.ensureVectorIndexes(dimension, options);
+        break;
 
-        if (parts.length !== 2) {
-          console.error('❌ connectPerson requires format: "userId, connectionId"');
-          console.log(
-            'Example: npx tsx updateMemgraph.ts connectPerson "user123, b2b7d02f-7d27-0c3f-8e86-dcb24b043601"'
-          );
-          process.exit(1);
-        }
+      case 'testVectorSearch':
+        await manager.testVectorSearch(options);
+        break;
 
-        await manager.connectPerson(parts[0], parts[1]);
+      case 'seedTestUsers':
+        await manager.seedTestUsers(options);
+        break;
+
+      case 'removeTestUsers':
+        await manager.removeTestUsers(options);
+        break;
+
+      case 'help':
+      case '--help':
+      case '-h':
+        showHelp();
         break;
 
       default:
-        console.error(`❌ Unknown command: ${command}`);
-        console.log(
-          'Available commands: clear, addConnection, list, waitlist, activate, active, delete, deletePerson, connectPerson'
-        );
+        logError(`Unknown command: ${command}`);
+        showHelp();
         process.exit(1);
     }
 
-    console.log('\n🎉 Operation completed successfully!');
-  } catch (error: any) {
-    console.error('\n💥 Operation failed:', error.message);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logError(`Operation failed: ${errorMessage}`);
+
+    if (options.verbose && error instanceof Error) {
+      console.error(error.stack);
+    }
+
     process.exit(1);
   } finally {
     await manager.disconnect();
   }
 }
 
-// Run the script
+// Handle uncaught errors gracefully
+process.on('unhandledRejection', (reason, promise) => {
+  logError(`Unhandled Rejection at: ${promise}, reason: ${reason}`);
+  process.exit(1);
+});
+
+process.on('uncaughtException', (error) => {
+  logError(`Uncaught Exception: ${error instanceof Error ? error.message : String(error)}`);
+  process.exit(1);
+});
+
+// Run the CLI
 if (import.meta.url === `file://${process.argv[1]}`) {
   main();
 }
+
+export { MemgraphManager };
