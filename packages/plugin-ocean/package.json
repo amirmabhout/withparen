@@ -1,6 +1,6 @@
 {
   "name": "@elizaos/plugin-ocean",
-  "version": "1.0.0",
+  "version": "1.6.2-beta.0",
   "description": "Ocean Protocol integration for ElizaOS - publishes user memories as DataNFTs",
   "type": "module",
   "main": "dist/index.js",

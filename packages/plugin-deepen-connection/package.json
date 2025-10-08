@@ -1,6 +1,6 @@
 {
   "name": "@elizaos/plugin-deepen-connection",
-  "version": "1.3.1",
+  "version": "1.6.2-beta.0",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.js",
