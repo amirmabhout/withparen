@@ -185,3 +185,11 @@ tsconfig.tsbuildinfo
 test-data/
 standalone.ts
 /.claude
+
+
+# Packages
+
+packages/plugin-deepen-connection
+packages/plugin-discover-connection
+packages/agentseren
+packages/agentbantabawithparen
