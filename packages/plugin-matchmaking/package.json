@@ -1,5 +1,5 @@
 {
-  "name": "@elizaos/plugin-discover-connection",
+  "name": "@elizaos/plugin-matchmaking",
   "version": "1.0.0",
   "type": "module",
   "main": "dist/index.js",
