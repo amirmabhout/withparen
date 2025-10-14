@@ -60,6 +60,7 @@
         "@elizaos/plugin-bootstrap": "1.3.1",
         "@elizaos/plugin-discover-connection": "workspace:*",
         "@elizaos/plugin-google-genai": "1.0.2",
+        "@elizaos/plugin-jupiter": "^1.0.1",
         "@elizaos/plugin-solana": "workspace:*",
         "@elizaos/plugin-sql": "workspace:*",
         "@elizaos/plugin-telegram": "workspace:*",
@@ -795,6 +796,8 @@
     "@elizaos/plugin-dummy-services": ["@elizaos/plugin-dummy-services@workspace:packages/plugin-dummy-services"],
 
     "@elizaos/plugin-google-genai": ["@elizaos/plugin-google-genai@1.0.2", "", { "dependencies": { "@elizaos/core": "^1.0.0", "@google/genai": "^1.5.1", "undici": "^7.9.0" } }, "sha512-xAi4vRfpXAa8M7C6kLXkANYVhpB8g7sbW2kLKd0NTxTBRYeJi4Y5LcgpUZw4HkBdFJ9r/tr4yfKkqXlqiKL9AA=="],
+
+    "@elizaos/plugin-jupiter": ["@elizaos/plugin-jupiter@1.0.1", "", { "dependencies": { "@elizaos/core": "^1.0.0", "@elizaos/plugin-solana": "^1.0.0-beta.51" } }, "sha512-NKAK6kCgV3IsG3Avt8t56vOUV/1Uq/lyU2vh7MGxkBu7hAKL3/Ujc7sIYZ0TaEGRECUq2i4CE3oHlQTEB5fTgw=="],
 
     "@elizaos/plugin-matchmaking": ["@elizaos/plugin-matchmaking@workspace:packages/plugin-matchmaking"],
 
@@ -4347,6 +4350,8 @@
     "@elizaos/plugin-dummy-services/uuid": ["uuid@9.0.1", "", { "bin": { "uuid": "dist/bin/uuid" } }, "sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA=="],
 
     "@elizaos/plugin-google-genai/@elizaos/core": ["@elizaos/core@1.6.1", "", { "dependencies": { "adze": "^2.2.5", "crypto-browserify": "^3.12.0", "dotenv": "17.2.3", "glob": "11.0.3", "handlebars": "^4.7.8", "langchain": "^0.3.35", "pdfjs-dist": "^5.2.133", "unique-names-generator": "4.7.1", "uuid": "13.0.0", "zod": "4.1.11" } }, "sha512-B2jUDMUPwi42PIH0zyVS/xbSzl+YaXUplSF9Givl4MBy3i9X5aPJ/4L9/Srx1+VBUGCC6RoJfDbtTDsuvRjgmA=="],
+
+    "@elizaos/plugin-jupiter/@elizaos/core": ["@elizaos/core@1.6.1", "", { "dependencies": { "adze": "^2.2.5", "crypto-browserify": "^3.12.0", "dotenv": "17.2.3", "glob": "11.0.3", "handlebars": "^4.7.8", "langchain": "^0.3.35", "pdfjs-dist": "^5.2.133", "unique-names-generator": "4.7.1", "uuid": "13.0.0", "zod": "4.1.11" } }, "sha512-B2jUDMUPwi42PIH0zyVS/xbSzl+YaXUplSF9Givl4MBy3i9X5aPJ/4L9/Srx1+VBUGCC6RoJfDbtTDsuvRjgmA=="],
 
     "@elizaos/plugin-matchmaking/@types/bun": ["@types/bun@1.3.0", "", { "dependencies": { "bun-types": "1.3.0" } }, "sha512-+lAGCYjXjip2qY375xX/scJeVRmZ5cY0wyHYyCYxNcdEXrQ4AOe3gACgd4iQ8ksOslJtW4VNxBJ8llUwc3a6AA=="],
 

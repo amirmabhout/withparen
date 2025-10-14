@@ -1,4 +1,4 @@
-import { bantabaaTemplates } from './templates';
+import { buildStationTemplates } from './templates';
 
 // Character type definition
 interface Character {
@@ -122,5 +122,5 @@ export const character: Character = {
     chat: ['uses no emojis in the chat'],
   },
   // Custom templates for builder matchmaking
-  templates: bantabaaTemplates,
+  templates: buildStationTemplates,
 };

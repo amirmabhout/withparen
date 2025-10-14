@@ -17,7 +17,7 @@ import {
   onboardingContext,
 } from './providerTemplates';
 
-export const bantabaaTemplates = {
+export const buildStationTemplates = {
   // Prompt templates used by actions
   connectionDiscoveryTemplate,
   compatibilityAnalysisTemplate,

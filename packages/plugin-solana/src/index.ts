@@ -15,6 +15,9 @@ export const solanaPlugin: Plugin = {
   init: async (_, runtime: IAgentRuntime) => {
     console.log('solana init');
 
+    // DISABLED: TRADER_CHAIN service integration (not needed for basic Solana functionality)
+    // Uncomment below when you want to enable trader chain functionality
+    /*
     new Promise<void>(async (resolve) => {
       resolve();
       const asking = 'solana';
@@ -39,6 +42,7 @@ export const solanaPlugin: Plugin = {
 
       // console.log('solana init done');
     });
+    */
   },
 };
 export default solanaPlugin;

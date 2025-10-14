@@ -73,7 +73,7 @@ export class SolanaService extends Service {
   private exchangeRegistry: Record<number, any> = {};
   private subscriptions: Map<string, number> = new Map();
 
-  jupiterService: any;
+  jupiterService: any | null = null; // Disabled - only needed for swap functionality
 
   // always multiple these
   static readonly LAMPORTS2SOL = 1 / LAMPORTS_PER_SOL;
@@ -98,6 +98,9 @@ export class SolanaService extends Service {
     );
     this.connection = connection;
 
+    // DISABLED: Jupiter service integration (not needed for basic Solana functionality)
+    // Uncomment below when you want to enable swap functionality via Jupiter
+    /*
     const asking = 'Solana service'
     const serviceType = 'JUPITER_SERVICE'
 
@@ -114,6 +117,7 @@ export class SolanaService extends Service {
       }
     }
     getJup() // no wait
+    */
 
     // Initialize publicKey using getWalletKey
     getWalletKey(runtime, false)
@@ -139,16 +143,19 @@ export class SolanaService extends Service {
   }
 
   /**
-   * Registers a swap provider to execute swaps
+   * DISABLED: Registers a swap provider to execute swaps
+   * Uncomment this when you enable Jupiter swap functionality
    * @param {any} provider - The provider to register
    * @returns {Promise<number>} The ID assigned to the registered provider
    */
+  /*
   async registerExchange(provider: any) {
     const id = Object.values(this.exchangeRegistry).length + 1;
     logger.log('Registered', provider.name, 'as Solana provider #' + id);
     this.exchangeRegistry[id] = provider;
     return id;
   }
+  */
 
   /**
    * Fetches data from the provided URL with retry logic.
@@ -1109,12 +1116,15 @@ export class SolanaService extends Service {
   }
 
   /**
-   * Calculates the optimal buy amount and slippage based on market conditions
+   * DISABLED: Calculates the optimal buy amount and slippage based on market conditions
+   * This method requires Jupiter service integration
+   * Uncomment this when you enable Jupiter swap functionality
    * @param {string} inputMint - Input token mint address
    * @param {string} outputMint - Output token mint address
    * @param {number} availableAmount - Available amount to trade
    * @returns {Promise<{ amount: number; slippage: number }>} Optimal amount and slippage
    */
+  /*
   public async calculateOptimalBuyAmount(
     inputMint: string,
     outputMint: string,
@@ -1155,6 +1165,7 @@ export class SolanaService extends Service {
       throw error;
     }
   }
+  */
 
   public async calculateOptimalBuyAmount2(quote: any, availableAmount: number): Promise<{ amount: number; slippage: number }> {
     try {
@@ -1189,371 +1200,372 @@ export class SolanaService extends Service {
   }
 
   /**
-   * Executes buy/sell orders for multiple wallets
+   * DISABLED: Executes buy/sell orders for multiple wallets
+   * This method requires Jupiter service integration
+   * Uncomment this when you enable Jupiter swap functionality
    * @param {Array<{ keypair: any; amount: number }>} wallets - Array of buy information
    * @param {any} signal - Trading signal information
    * @returns {Promise<Array<{ success: boolean; outAmount?: number; fees?: any; swapResponse?: any }>>}
    */
-  public async executeSwap(wallets: Array<{ keypair: any; amount: number }>, signal: any) {
-    // do it in serial to avoid hitting rate limits
-    const swapResponses = {}
-    for(const wallet of wallets) {
-      const pubKey = wallet.keypair.publicKey.toString()
-      try {
-
-        // validate amount
-        const intAmount: number = parseInt(wallet.amount)
-        if (isNaN(intAmount) || intAmount <= 0) {
-          console.warn('solana::executeSwap - Amount in', wallet.amount, 'become', intAmount)
-          swapResponses[pubKey] = {
-            success: false,
-            error: 'bad amount'
-          };
-          continue
-        }
-
-        // FIXME: pass in balance to avoid this check
-
-        // balance check to protect quote rate limit
-        const balances = await this.getBalancesByAddrs([pubKey])
-        const bal = balances[pubKey]
-        //console.log('executeSwap -', wallet.keypair.publicKey, 'bal', bal)
-
-        // 0.000748928
-        // might need to be 0.004
-
-        const baseLamports = this.jupiterService.estimateLamportsNeeded({ inputMint: signal.sourceTokenCA, inAmount: intAmount })
-        const ourLamports = bal * 1e9
-        //console.log('baseLamports', baseLamports.toLocaleString(), 'weHave', ourLamports.toLocaleString())
-        // avoid wasting jupiter quote rate limit
-        if (baseLamports > ourLamports) {
-          console.log('executeSwap - wallet', wallet.keypair.publicKey, 'SOL is too low to swap', 'baseLamports', baseLamports.toLocaleString(), 'weHave', ourLamports.toLocaleString())
-          swapResponses[pubKey] = {
-            success: false,
-            error: 'not enough SOL'
-          };
-          continue
-        }
-
-        /*
-        if (bal < 0.001) {
-          console.log('executeSwap - wallet', wallet.keypair.publicKey, 'SOL is too low to do anything', bal)
-          swapResponses[pubKey] = {
-            success: false,
-            error: 'not enough SOL'
-          };
-          continue
-        }
-        */
-
-        console.log('signal.sourceTokenCA', signal.sourceTokenCA, 'signal.targetTokenCA', signal.targetTokenCA, 'wallet.amount', wallet.amount.toLocaleString())
-
-        // is this reusable if there's a bunch of wallets with the same amount
-
-        // Get initial quote to determine input mint and other parameters
-        const initialQuote = await this.jupiterService.getQuote({
-          inputMint: signal.sourceTokenCA,
-          outputMint: signal.targetTokenCA,
-          slippageBps: 200,
-          amount: intAmount, // in atomic units of the token
-        });
-        // no decimals
-        console.log('initialQuote', initialQuote)
-
-        const availableLamports = bal * 1e9
-        //console.log('availableLamports', availableLamports.toLocaleString())
-        if (initialQuote.totalLamportsNeeded > availableLamports) {
-          // we can't afford as is
-          console.log('executeSwap - wallet', wallet.keypair.publicKey, 'SOL is too low, has', availableLamports.toLocaleString(), 'needs', initialQuote.totalLamportsNeeded.toLocaleString())
-          // lets make sure
-          swapResponses[pubKey] = {
-            success: false,
-            error: 'not enough SOL'
-          };
-          continue
-        }
-
-        /*
-        const fees = {
-          lamports: initialQuote.otherAmountThreshold,
-          sol: initialQuote.otherAmountThreshold * SolanaService.LAMPORTS2SOL
-        }
-        */
-
-        // outAmount, minOutAmount, priceImpactPct
-        const impliedSlippageBps = ((initialQuote.outAmount - initialQuote.otherAmountThreshold) / initialQuote.outAmount) * 10_000;
-        console.log('impliedSlippageBps', impliedSlippageBps, 'jupSlip', initialQuote.slippageBps)
-
-        // Calculate optimal buy amount using the input mint from quote
-        // slippage is drived by price impact
-        const { amount, slippage } = await this.calculateOptimalBuyAmount2(initialQuote, wallet.amount)
-        /*
-        const { amount, slippage } = await this.calculateOptimalBuyAmount(
-          initialQuote.inputMint,
-          initialQuote.outputMint,
-          wallet.amount
-        );
-        */
-        // amount is in atomic units (input token)
-        //
-        console.log('adjusted amount', amount.toLocaleString(), 'price impact slippage', slippage)
-        // adjust amount in initialQuote
-        initialQuote.inAmount = "" + amount // in input atomic units
-        delete initialQuote.swapUsdValue // invalidate
-
-        /*
-        // Get final quote with optimized amount
-        const quoteResponse = await this.jupiterService.getQuote({
-          inputMint: initialQuote.inputMint,
-          outputMint: initialQuote.outputMint,
-          amount,
-          slippageBps: slippage,
-        });
-        console.log('quoteResponse', quoteResponse)
-        const fees = {
-          lamports: quoteResponse.otherAmountThreshold,
-          sol: quoteResponse.otherAmountThreshold * SolanaService.LAMPORTS2SOL
-        }
-        */
-
-        // why were we doing this?
-        // partially to understand but we have docs now: https://dev.jup.ag/docs/api/swap-api/swap
-        /*
-        const quoteResponse = {
-          inputMint: initialQuote.inputMint,
-          inAmount: initialQuote.inAmount,
-          outputMint: initialQuote.outputMint,
-          outAmount: initialQuote.outAmount,
-          otherAmountThreshold: initialQuote.otherAmountThreshold, // minimum amount after slippage
-          swapMode: initialQuote.swapMode,
-          slippageBps: initialQuote.slippageBps,
-          platformFee: initialQuote.platformFee,
-          priceImpactPct: initialQuote.priceImpactPct,
-          routePlan: initialQuote.routePlan,
-          contextSlot: initialQuote.contextSlot,
-          timeTaken: initialQuote.timeTaken,
-        }
-        */
-
-        // Execute the swap
-        let swapResponse
-        const executeSwap = async (impliedSlippageBps) => {
-          console.log('executingSwap', pubKey, signal.sourceTokenCA, signal.targetTokenCA, 'with', impliedSlippageBps + 'bps slippage')
-          // convert quote into instructions
-          swapResponse = await this.jupiterService.executeSwap({
-            quoteResponse: initialQuote,
-            userPublicKey: pubKey,
-            slippageBps: parseInt(impliedSlippageBps),
-          });
-          //console.log('swapResponse', swapResponse)
-          //console.log('keypair', wallet.keypair)
-
-          const secretKey = bs58.decode(wallet.keypair.privateKey);
-          const keypair = Keypair.fromSecretKey(secretKey);
-          //const signature = await this.executeSwap(keypair, swapResponse)
-          //console.log('keypair', keypair)
-
-          // Deserialize, sign, and send
-          const txBuffer = Buffer.from(swapResponse.swapTransaction, 'base64');
-          const transaction = VersionedTransaction.deserialize(txBuffer);
-          transaction.sign([keypair]);
-
-          // Getting recent blockhash too slow for Solana/Jupiter
-          /*
-          const { blockhash } = await this.connection.getLatestBlockhash('finalized');
-          console.log('blockhash', blockhash)
-          transaction.message.recentBlockhash = blockhash;
-          */
-
-          /*
-          // just verify the quote is matching up
-          const inner = transaction.meta.innerInstructions || [];
-          let totalReceived = 0;
-          inner.forEach(({ instructions }) => {
-            instructions.forEach((ix: any) => {
-              if (ix.program === 'spl-token' && ix.parsed.type === 'transfer') {
-                const info = ix.parsed.info;
-                if (info.destination === YOUR_TOKEN_ACCOUNT) {
-                  totalReceived += Number(info.amount) / (10 ** DECIMALS);
-                }
-              }
-            });
-          });
-          */
-
-          // Send and confirm
-          let txid = ''
-          try {
-            txid = await this.connection.sendRawTransaction(transaction.serialize());
-          } catch (err) {
-            if (err instanceof SendTransactionError) {
-              // getLogs expects param?
-              const logs = err.logs || await err.getLogs(this.connection);
-
-              let showLogs = true
-
-              if (logs) {
-                if (logs.some(l => l.includes('custom program error: 0x1771'))) {
-                  console.log('Swap failed: slippage tolerance exceeded.', parseInt(impliedSlippageBps));
-                  // handle slippage
-                  // 🎯 You could retry with higher slippage or log for the user
-
-                  // increment the slippage? and try again?
-                  if (signal.targetTokenCA === 'So11111111111111111111111111111111111111112') {
-                    // sell parameters
-                    if (impliedSlippageBps < 3000) {
-                      // let jupiter swap api rest
-                      await new Promise((resolve) => setTimeout(resolve, 1000));
-                      // double and try again
-                      return executeSwap(impliedSlippageBps * 2)
-                    }
-                    // just fail
-                  } else {
-                    // buy parameters
-                    // we don't need to pay more
-                    // but we can retry
-                    showLogs = false
-                  }
-                }
-
-                if (logs.some(l => l.includes('insufficient lamports'))) {
-                  console.log('Transaction failed: insufficient lamports in the account.');
-                  // optionally prompt user to top up SOL
-                }
-
-                if (logs.some(l => l.includes('Program X failed: custom program error'))) {
-                  console.log('Custom program failure detected.');
-                  // further custom program handling
-                }
-
-                if (showLogs) {
-                  console.log('logs', logs)
-                }
-              }
-
-            }
-            throw err;
-          }
-          console.log(pubKey, signal.sourceTokenCA, signal.targetTokenCA, 'txid', txid) // should probably always log this
-          // swapResponse is of value
-          return txid
-        }
-
-        const txid = await executeSwap(impliedSlippageBps)
-
-        // only adding this back to slow down quoting
-        await this.connection.confirmTransaction(txid, 'finalized');
-        //console.log('finalized')
-
-        // Get transaction details including fees
-        const txDetails = await this.connection.getTransaction(txid, {
-          commitment: 'confirmed',
-          maxSupportedTransactionVersion: 0
-        });
-        //console.log('txDetails', txDetails)
-
-        //const JUPITER_AGGREGATOR_V6 = new PublicKey("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4");
-        /*
-        const swapIxIndex = txDetails.transaction.message.instructions
-          .findIndex(ix => txDetails.transaction.message.accountKeys[ix.programIdIndex] === "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4");
-        */
-        /*
-        const swapIxIndex = txDetails.transaction.message.instructions.findIndex(ix =>
-          txDetails.transaction.message.accountKeys[ix.programIdIndex].equals(JUPITER_AGGREGATOR_V6)
-        );
-
-        const inner = txDetails.meta.innerInstructions?.find(i => i.index === swapIxIndex);
-        let totalReceivedRaw = 0;
-
-        inner?.instructions.forEach(ix => {
-          if (ix.program === 'spl-token' && ix.parsed.type === 'transfer') {
-            const info = ix.parsed.info;
-            if (info.destination === YOUR_TOKEN_ACCOUNT) {
-              totalReceivedRaw += Number(info.amount);
-            }
-          }
-        });
-        const decimals = DECIMALS; // fetch or store elsewhere
-        const totalReceived = totalReceivedRaw / (10 ** decimals);
-        console.log('Total tokens received:', totalReceived);
-        */
-        let outAmount = initialQuote.outAmount
-        console.log('going to report', initialQuote.outAmount)
-        //console.log('postTokenBalances', txDetails.meta.postTokenBalances)
-
-        if (txDetails.meta.preTokenBalances && txDetails.meta.postTokenBalances) {
-          // find only returns the first match
-          const inBal = txDetails.meta.preTokenBalances.find(tb => tb.owner === pubKey && tb.mint === signal.targetTokenCA)
-          const outBal = txDetails.meta.postTokenBalances.find(tb => tb.owner === pubKey && tb.mint === signal.targetTokenCA)
-          console.log('inBal', inBal?.uiTokenAmount?.uiAmount, 'outBal', outBal?.uiTokenAmount?.uiAmount)
-
-          // if selling to SOL, there won't be an account change
-
-          if (outBal?.uiTokenAmount.decimals) {
-            this.decimalsCache.set(signal.targetTokenCA, outBal.uiTokenAmount.decimals)
-          }
-
-          if (inBal && outBal) {
-            const lamDiff = outBal.uiTokenAmount.uiAmount - inBal.uiTokenAmount.uiAmount
-            const diff = Number(outBal.uiTokenAmount.amount) - Number(inBal.uiTokenAmount.amount)
-            // we definitely didn't swap for nothing
-            if (diff) {
-              outAmount = diff
-              console.log('changing report to', outAmount, '(', lamDiff, ')')
-            }
-          } else if (outBal) {
-            // just means we weren't already holding the token
-            const amt = Number(outBal.uiTokenAmount.amount)
-            // we definitely didn't swap for nothing
-            if (amt) {
-              outAmount = amt
-              console.log('changing report to', outAmount)
-            }
-          } else {
-            console.log('no balances? wallet', pubKey, 'token', signal.targetTokenCA)
-            //console.log('preTokenBalances', txDetails.meta.preTokenBalances, '=>', txDetails.meta.postTokenBalances)
-            console.log('wallet', txDetails.meta.preTokenBalances.find(tb => tb.owner === pubKey), '=>', txDetails.meta.postTokenBalances.find(tb => tb.owner === pubKey))
-          }
-        }
-
-        const fee = txDetails.meta.fee;
-        console.log(`Transaction fee: ${fee.toLocaleString()} lamports`);
-        const fees = {
-          /*
-          quote: {
-            lamports: initialQuote.platformFee.amount,
-            bps: initialQuote.platformFee.feeBps,
-          },
-          */
-          lamports: fee,
-          sol: fee * SolanaService.LAMPORTS2SOL
-        }
-
-        /*
-        // Calculate final amounts including fees
-        const fees = await this.jupiterService.estimateGasFees({
-          inputMint: initialQuote.inputMint,
-          outputMint: initialQuote.outputMint,
-          amount,
-        });
-        */
-
-        swapResponses[pubKey] = {
-          success: true,
-          outAmount,
-          outDecimal: await this.getDecimal(signal.targetTokenCA),
-          signature: txid,
-          fees,
-          swapResponse,
-        };
-      } catch (error) {
-        logger.error('Error in swap execution:', error);
-        swapResponses[pubKey] = { success: false };
-      }
-    }
-
-    return swapResponses;
-  }
+//  public async executeSwap(wallets: Array<{ keypair: any; amount: number }>, signal: any) {
+//    // do it in serial to avoid hitting rate limits
+//    const swapResponses = {}
+//    for(const wallet of wallets) {
+//      const pubKey = wallet.keypair.publicKey.toString()
+//      try {
+//
+//        // validate amount
+//        const intAmount: number = parseInt(wallet.amount)
+//        if (isNaN(intAmount) || intAmount <= 0) {
+//          console.warn('solana::executeSwap - Amount in', wallet.amount, 'become', intAmount)
+//          swapResponses[pubKey] = {
+//            success: false,
+//            error: 'bad amount'
+//          };
+//          continue
+//        }
+//
+//        // FIXME: pass in balance to avoid this check
+//
+//        // balance check to protect quote rate limit
+//        const balances = await this.getBalancesByAddrs([pubKey])
+//        const bal = balances[pubKey]
+//        //console.log('executeSwap -', wallet.keypair.publicKey, 'bal', bal)
+//
+//        // 0.000748928
+//        // might need to be 0.004
+//
+//        const baseLamports = this.jupiterService.estimateLamportsNeeded({ inputMint: signal.sourceTokenCA, inAmount: intAmount })
+//        const ourLamports = bal * 1e9
+//        //console.log('baseLamports', baseLamports.toLocaleString(), 'weHave', ourLamports.toLocaleString())
+//        // avoid wasting jupiter quote rate limit
+//        if (baseLamports > ourLamports) {
+//          console.log('executeSwap - wallet', wallet.keypair.publicKey, 'SOL is too low to swap', 'baseLamports', baseLamports.toLocaleString(), 'weHave', ourLamports.toLocaleString())
+//          swapResponses[pubKey] = {
+//            success: false,
+//            error: 'not enough SOL'
+//          };
+//          continue
+//        }
+//
+//        // Alternative balance check (disabled)
+//        // if (bal < 0.001) {
+//        //   console.log('executeSwap - wallet', wallet.keypair.publicKey, 'SOL is too low to do anything', bal)
+//        //   swapResponses[pubKey] = {
+//        //     success: false,
+//        //     error: 'not enough SOL'
+//        //   };
+//        //   continue
+//        // }
+//
+//        console.log('signal.sourceTokenCA', signal.sourceTokenCA, 'signal.targetTokenCA', signal.targetTokenCA, 'wallet.amount', wallet.amount.toLocaleString())
+//
+//        // is this reusable if there's a bunch of wallets with the same amount
+//
+//        // Get initial quote to determine input mint and other parameters
+//        const initialQuote = await this.jupiterService.getQuote({
+//          inputMint: signal.sourceTokenCA,
+//          outputMint: signal.targetTokenCA,
+//          slippageBps: 200,
+//          amount: intAmount, // in atomic units of the token
+//        });
+//        // no decimals
+//        console.log('initialQuote', initialQuote)
+//
+//        const availableLamports = bal * 1e9
+//        //console.log('availableLamports', availableLamports.toLocaleString())
+//        if (initialQuote.totalLamportsNeeded > availableLamports) {
+//          // we can't afford as is
+//          console.log('executeSwap - wallet', wallet.keypair.publicKey, 'SOL is too low, has', availableLamports.toLocaleString(), 'needs', initialQuote.totalLamportsNeeded.toLocaleString())
+//          // lets make sure
+//          swapResponses[pubKey] = {
+//            success: false,
+//            error: 'not enough SOL'
+//          };
+//          continue
+//        }
+//
+//        /*
+//        const fees = {
+//          lamports: initialQuote.otherAmountThreshold,
+//          sol: initialQuote.otherAmountThreshold * SolanaService.LAMPORTS2SOL
+//        }
+//        */
+//
+//        // outAmount, minOutAmount, priceImpactPct
+//        const impliedSlippageBps = ((initialQuote.outAmount - initialQuote.otherAmountThreshold) / initialQuote.outAmount) * 10_000;
+//        console.log('impliedSlippageBps', impliedSlippageBps, 'jupSlip', initialQuote.slippageBps)
+//
+//        // Calculate optimal buy amount using the input mint from quote
+//        // slippage is drived by price impact
+//        const { amount, slippage } = await this.calculateOptimalBuyAmount2(initialQuote, wallet.amount)
+//        /*
+//        const { amount, slippage } = await this.calculateOptimalBuyAmount(
+//          initialQuote.inputMint,
+//          initialQuote.outputMint,
+//          wallet.amount
+//        );
+//        */
+//        // amount is in atomic units (input token)
+//        //
+//        console.log('adjusted amount', amount.toLocaleString(), 'price impact slippage', slippage)
+//        // adjust amount in initialQuote
+//        initialQuote.inAmount = "" + amount // in input atomic units
+//        delete initialQuote.swapUsdValue // invalidate
+//
+//        /*
+//        // Get final quote with optimized amount
+//        const quoteResponse = await this.jupiterService.getQuote({
+//          inputMint: initialQuote.inputMint,
+//          outputMint: initialQuote.outputMint,
+//          amount,
+//          slippageBps: slippage,
+//        });
+//        console.log('quoteResponse', quoteResponse)
+//        const fees = {
+//          lamports: quoteResponse.otherAmountThreshold,
+//          sol: quoteResponse.otherAmountThreshold * SolanaService.LAMPORTS2SOL
+//        }
+//        */
+//
+//        // why were we doing this?
+//        // partially to understand but we have docs now: https://dev.jup.ag/docs/api/swap-api/swap
+//        /*
+//        const quoteResponse = {
+//          inputMint: initialQuote.inputMint,
+//          inAmount: initialQuote.inAmount,
+//          outputMint: initialQuote.outputMint,
+//          outAmount: initialQuote.outAmount,
+//          otherAmountThreshold: initialQuote.otherAmountThreshold, // minimum amount after slippage
+//          swapMode: initialQuote.swapMode,
+//          slippageBps: initialQuote.slippageBps,
+//          platformFee: initialQuote.platformFee,
+//          priceImpactPct: initialQuote.priceImpactPct,
+//          routePlan: initialQuote.routePlan,
+//          contextSlot: initialQuote.contextSlot,
+//          timeTaken: initialQuote.timeTaken,
+//        }
+//        */
+//
+//        // Execute the swap
+//        let swapResponse
+//        const executeSwap = async (impliedSlippageBps) => {
+//          console.log('executingSwap', pubKey, signal.sourceTokenCA, signal.targetTokenCA, 'with', impliedSlippageBps + 'bps slippage')
+//          // convert quote into instructions
+//          swapResponse = await this.jupiterService.executeSwap({
+//            quoteResponse: initialQuote,
+//            userPublicKey: pubKey,
+//            slippageBps: parseInt(impliedSlippageBps),
+//          });
+//          //console.log('swapResponse', swapResponse)
+//          //console.log('keypair', wallet.keypair)
+//
+//          const secretKey = bs58.decode(wallet.keypair.privateKey);
+//          const keypair = Keypair.fromSecretKey(secretKey);
+//          //const signature = await this.executeSwap(keypair, swapResponse)
+//          //console.log('keypair', keypair)
+//
+//          // Deserialize, sign, and send
+//          const txBuffer = Buffer.from(swapResponse.swapTransaction, 'base64');
+//          const transaction = VersionedTransaction.deserialize(txBuffer);
+//          transaction.sign([keypair]);
+//
+//          // Getting recent blockhash too slow for Solana/Jupiter
+//          /*
+//          const { blockhash } = await this.connection.getLatestBlockhash('finalized');
+//          console.log('blockhash', blockhash)
+//          transaction.message.recentBlockhash = blockhash;
+//          */
+//
+//          /*
+//          // just verify the quote is matching up
+//          const inner = transaction.meta.innerInstructions || [];
+//          let totalReceived = 0;
+//          inner.forEach(({ instructions }) => {
+//            instructions.forEach((ix: any) => {
+//              if (ix.program === 'spl-token' && ix.parsed.type === 'transfer') {
+//                const info = ix.parsed.info;
+//                if (info.destination === YOUR_TOKEN_ACCOUNT) {
+//                  totalReceived += Number(info.amount) / (10 ** DECIMALS);
+//                }
+//              }
+//            });
+//          });
+//          */
+//
+//          // Send and confirm
+//          let txid = ''
+//          try {
+//            txid = await this.connection.sendRawTransaction(transaction.serialize());
+//          } catch (err) {
+//            if (err instanceof SendTransactionError) {
+//              // getLogs expects param?
+//              const logs = err.logs || await err.getLogs(this.connection);
+//
+//              let showLogs = true
+//
+//              if (logs) {
+//                if (logs.some(l => l.includes('custom program error: 0x1771'))) {
+//                  console.log('Swap failed: slippage tolerance exceeded.', parseInt(impliedSlippageBps));
+//                  // handle slippage
+//                  // 🎯 You could retry with higher slippage or log for the user
+//
+//                  // increment the slippage? and try again?
+//                  if (signal.targetTokenCA === 'So11111111111111111111111111111111111111112') {
+//                    // sell parameters
+//                    if (impliedSlippageBps < 3000) {
+//                      // let jupiter swap api rest
+//                      await new Promise((resolve) => setTimeout(resolve, 1000));
+//                      // double and try again
+//                      return executeSwap(impliedSlippageBps * 2)
+//                    }
+//                    // just fail
+//                  } else {
+//                    // buy parameters
+//                    // we don't need to pay more
+//                    // but we can retry
+//                    showLogs = false
+//                  }
+//                }
+//
+//                if (logs.some(l => l.includes('insufficient lamports'))) {
+//                  console.log('Transaction failed: insufficient lamports in the account.');
+//                  // optionally prompt user to top up SOL
+//                }
+//
+//                if (logs.some(l => l.includes('Program X failed: custom program error'))) {
+//                  console.log('Custom program failure detected.');
+//                  // further custom program handling
+//                }
+//
+//                if (showLogs) {
+//                  console.log('logs', logs)
+//                }
+//              }
+//
+//            }
+//            throw err;
+//          }
+//          console.log(pubKey, signal.sourceTokenCA, signal.targetTokenCA, 'txid', txid) // should probably always log this
+//          // swapResponse is of value
+//          return txid
+//        }
+//
+//        const txid = await executeSwap(impliedSlippageBps)
+//
+//        // only adding this back to slow down quoting
+//        await this.connection.confirmTransaction(txid, 'finalized');
+//        //console.log('finalized')
+//
+//        // Get transaction details including fees
+//        const txDetails = await this.connection.getTransaction(txid, {
+//          commitment: 'confirmed',
+//          maxSupportedTransactionVersion: 0
+//        });
+//        //console.log('txDetails', txDetails)
+//
+//        //const JUPITER_AGGREGATOR_V6 = new PublicKey("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4");
+//        /*
+//        const swapIxIndex = txDetails.transaction.message.instructions
+//          .findIndex(ix => txDetails.transaction.message.accountKeys[ix.programIdIndex] === "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4");
+//        */
+//        /*
+//        const swapIxIndex = txDetails.transaction.message.instructions.findIndex(ix =>
+//          txDetails.transaction.message.accountKeys[ix.programIdIndex].equals(JUPITER_AGGREGATOR_V6)
+//        );
+//
+//        const inner = txDetails.meta.innerInstructions?.find(i => i.index === swapIxIndex);
+//        let totalReceivedRaw = 0;
+//
+//        inner?.instructions.forEach(ix => {
+//          if (ix.program === 'spl-token' && ix.parsed.type === 'transfer') {
+//            const info = ix.parsed.info;
+//            if (info.destination === YOUR_TOKEN_ACCOUNT) {
+//              totalReceivedRaw += Number(info.amount);
+//            }
+//          }
+//        });
+//        const decimals = DECIMALS; // fetch or store elsewhere
+//        const totalReceived = totalReceivedRaw / (10 ** decimals);
+//        console.log('Total tokens received:', totalReceived);
+//        */
+//        let outAmount = initialQuote.outAmount
+//        console.log('going to report', initialQuote.outAmount)
+//        //console.log('postTokenBalances', txDetails.meta.postTokenBalances)
+//
+//        if (txDetails.meta.preTokenBalances && txDetails.meta.postTokenBalances) {
+//          // find only returns the first match
+//          const inBal = txDetails.meta.preTokenBalances.find(tb => tb.owner === pubKey && tb.mint === signal.targetTokenCA)
+//          const outBal = txDetails.meta.postTokenBalances.find(tb => tb.owner === pubKey && tb.mint === signal.targetTokenCA)
+//          console.log('inBal', inBal?.uiTokenAmount?.uiAmount, 'outBal', outBal?.uiTokenAmount?.uiAmount)
+//
+//          // if selling to SOL, there won't be an account change
+//
+//          if (outBal?.uiTokenAmount.decimals) {
+//            this.decimalsCache.set(signal.targetTokenCA, outBal.uiTokenAmount.decimals)
+//          }
+//
+//          if (inBal && outBal) {
+//            const lamDiff = outBal.uiTokenAmount.uiAmount - inBal.uiTokenAmount.uiAmount
+//            const diff = Number(outBal.uiTokenAmount.amount) - Number(inBal.uiTokenAmount.amount)
+//            // we definitely didn't swap for nothing
+//            if (diff) {
+//              outAmount = diff
+//              console.log('changing report to', outAmount, '(', lamDiff, ')')
+//            }
+//          } else if (outBal) {
+//            // just means we weren't already holding the token
+//            const amt = Number(outBal.uiTokenAmount.amount)
+//            // we definitely didn't swap for nothing
+//            if (amt) {
+//              outAmount = amt
+//              console.log('changing report to', outAmount)
+//            }
+//          } else {
+//            console.log('no balances? wallet', pubKey, 'token', signal.targetTokenCA)
+//            //console.log('preTokenBalances', txDetails.meta.preTokenBalances, '=>', txDetails.meta.postTokenBalances)
+//            console.log('wallet', txDetails.meta.preTokenBalances.find(tb => tb.owner === pubKey), '=>', txDetails.meta.postTokenBalances.find(tb => tb.owner === pubKey))
+//          }
+//        }
+//
+//        const fee = txDetails.meta.fee;
+//        console.log(`Transaction fee: ${fee.toLocaleString()} lamports`);
+//        const fees = {
+//          /*
+//          quote: {
+//            lamports: initialQuote.platformFee.amount,
+//            bps: initialQuote.platformFee.feeBps,
+//          },
+//          */
+//          lamports: fee,
+//          sol: fee * SolanaService.LAMPORTS2SOL
+//        }
+//
+//        /*
+//        // Calculate final amounts including fees
+//        const fees = await this.jupiterService.estimateGasFees({
+//          inputMint: initialQuote.inputMint,
+//          outputMint: initialQuote.outputMint,
+//          amount,
+//        });
+//        */
+//
+//        swapResponses[pubKey] = {
+//          success: true,
+//          outAmount,
+//          outDecimal: await this.getDecimal(signal.targetTokenCA),
+//          signature: txid,
+//          fees,
+//          swapResponse,
+//        };
+//      } catch (error) {
+//        logger.error('Error in swap execution:', error);
+//        swapResponses[pubKey] = { success: false };
+//      }
+//    }
+//
+//    return swapResponses;
+//  }
 
   /**
    * Starts the Solana service with the given agent runtime.
