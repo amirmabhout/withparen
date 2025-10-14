@@ -104,12 +104,12 @@ export class SolanaService extends Service {
     const getJup = async () => {
       this.jupiterService = this.runtime.getService(serviceType) as any;
       while (!this.jupiterService) {
-        runtime.logger.debug(asking, 'waiting for', serviceType, 'service...');
+        // runtime.logger.debug(asking, 'waiting for', serviceType, 'service...');
         this.jupiterService = this.runtime.getService(serviceType) as any;
         if (!this.jupiterService) {
           await new Promise((waitResolve) => setTimeout(waitResolve, 1000));
         } else {
-          runtime.logger.debug(asking, 'Acquired', serviceType, 'service...');
+          // runtime.logger.debug(asking, 'Acquired', serviceType, 'service...');
         }
       }
     }

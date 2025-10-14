@@ -18,7 +18,6 @@ import {
   type Memory,
   // messageHandlerTemplate, // Now using local version
   type MessagePayload,
-  type MessageReceivedHandlerParams,
   ModelType,
   parseKeyValueXml,
   type Plugin,
@@ -399,7 +398,7 @@ const checkAutoTriggerWalletJoin = async (
 /**
  * Handles incoming messages and generates responses based on the provided runtime and message information.
  *
- * @param {MessageReceivedHandlerParams} params - The parameters needed for message handling, including runtime, message, and callback.
+ * @param {MessagePayload} params - The parameters needed for message handling, including runtime, message, and callback.
  * @returns {Promise<void>} - A promise that resolves once the message handling and response generation is complete.
  */
 const messageReceivedHandler = async ({
@@ -407,7 +406,7 @@ const messageReceivedHandler = async ({
   message,
   callback,
   onComplete,
-}: MessageReceivedHandlerParams): Promise<void> => {
+}: MessagePayload & { callback: any; onComplete?: () => void }): Promise<void> => {
   // Set up timeout monitoring
   const timeoutDuration = 60 * 60 * 1000; // 1 hour
   let timeoutId: NodeJS.Timeout | undefined = undefined;
@@ -1400,6 +1399,7 @@ const events = {
       await messageReceivedHandler({
         runtime: payload.runtime,
         message: payload.message,
+        source: payload.source,
         callback: payload.callback,
         onComplete: payload.onComplete,
       });
@@ -1415,6 +1415,7 @@ const events = {
       await messageReceivedHandler({
         runtime: payload.runtime,
         message: payload.message,
+        source: payload.source,
         callback: payload.callback,
         onComplete: payload.onComplete,
       });
@@ -1527,16 +1528,15 @@ const events = {
   [EventType.ACTION_STARTED]: [
     async (payload: ActionEventPayload) => {
       logger.debug(
-        `[discover-connection] Action started: ${payload.actionName} (${payload.actionId})`
+        `[discover-connection] Action started in room ${payload.roomId}`
       );
     },
   ],
 
   [EventType.ACTION_COMPLETED]: [
     async (payload: ActionEventPayload) => {
-      const status = payload.error ? `failed: ${payload.error.message}` : 'completed';
       logger.debug(
-        `[discover-connection] Action ${status}: ${payload.actionName} (${payload.actionId})`
+        `[discover-connection] Action completed in room ${payload.roomId}`
       );
     },
   ],
@@ -1561,12 +1561,6 @@ const events = {
   CONTROL_MESSAGE: [controlMessageHandler],
 };
 
-// Development-only admin actions (only available when NODE_ENV=development|test)
-const isDev =
-  process.env.NODE_ENV === 'development' ||
-  process.env.NODE_ENV === 'test' ||
-  process.env.ALLOW_ADMIN_ACTIONS === 'true';
-
 const baseActions = [
   actions.findMatchAction,
   actions.joinGroupAction,
@@ -1577,18 +1571,14 @@ const baseActions = [
   actions.noneAction,
 ];
 
-const adminActions = isDev
-  ? [actions.loadCirclesUsersAction, actions.refreshCirclesUsersAction, actions.seedTestDataAction]
-  : [];
-
 export const discoverConnectionPlugin: Plugin = {
   name: 'discover-connection',
   description:
     'Discover-Connection - AI agent focused on connection discovery based on passions, challenges, and preferences',
-  actions: [...baseActions, ...adminActions],
+  actions: baseActions,
   // this is jank, these events are not valid
   events: events as any as PluginEvents,
-  evaluators: [evaluators.reflectionEvaluator, evaluators.circlesVerificationEvaluator],
+  evaluators: [evaluators.reflectionEvaluator],
   providers: [
     providers.userStatusProvider,
     providers.matchStateProvider,

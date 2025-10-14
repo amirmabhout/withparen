@@ -1,5 +1,5 @@
 /**
- * Custom templates for Bantabaa restaurant / Paren character
+ * Custom templates for Paren character
  * Export all templates for use in character configuration
  */
 
@@ -15,7 +15,6 @@ import {
 
 import {
   onboardingContext,
-  verificationContext,
 } from './providerTemplates';
 
 export const bantabaaTemplates = {
@@ -26,7 +25,6 @@ export const bantabaaTemplates = {
 
   // Provider templates for different user statuses
   onboardingContext,
-  verificationContext,
 
   // Additional templates can be added here as needed
   // Templates not provided here will use defaults from plugin-discover-connection

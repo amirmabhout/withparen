@@ -33,6 +33,7 @@
     "@elizaos/plugin-discover-connection": "workspace:*",
     "@elizaos/plugin-google-genai": "1.0.2",
     "@elizaos/plugin-sql": "workspace:*",
+    "@elizaos/plugin-solana": "workspace:*",
     "@elizaos/plugin-telegram": "workspace:*",
     "@tanstack/react-query": "^5.29.0",
     "clsx": "^2.1.1",

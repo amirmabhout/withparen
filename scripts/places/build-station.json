@@ -1,0 +1,81 @@
+{
+  "name": "Berlin Build Station",
+  "venueType": "coworking space",
+  "description": "A 10-day hackathon venue for Germany's best builders participating in the Solana Cypherpunk Hackathon. Organized by Superteam Germany, offering mentorship, workshops, support from Solana experts, networking opportunities, and a fully catered venue with WiFi and workstations. Features 18k in prizes exclusively for German builders.",
+  "url": "https://luma.com/buildstation?tk=WROhNF",
+  "address": "w3.hub, Möckernstraße 120, 10963 Berlin, Germany",
+  "operatingHours": {
+    "monday": {
+      "open": "10:00",
+      "close": "21:00",
+      "closed": false
+    },
+    "tuesday": {
+      "open": "10:00",
+      "close": "21:00",
+      "closed": false
+    },
+    "wednesday": {
+      "open": "10:00",
+      "close": "21:00",
+      "closed": false
+    },
+    "thursday": {
+      "open": "10:00",
+      "close": "21:00",
+      "closed": false
+    },
+    "friday": {
+      "open": "10:00",
+      "close": "21:00",
+      "closed": false
+    },
+    "saturday": {
+      "open": "10:00",
+      "close": "21:00",
+      "closed": false
+    },
+    "sunday": {
+      "open": "10:00",
+      "close": "21:00",
+      "closed": false
+    }
+  },
+  "classTimetable": [
+    {
+      "name": "Solana Cypherpunk Hackathon",
+      "description": "10-day intensive hackathon with mentorship, workshops, and support from Solana experts. Part of the Colosseum Cypherpunk Hackathon focused on top founders and builders in the Solana ecosystem.",
+      "instructor": "Superteam Germany & Solana Experts",
+      "capacity": null,
+      "bookingRequired": true,
+      "schedule": [
+        {
+          "day": "monday",
+          "startTime": "10:00",
+          "endTime": "21:00",
+          "recurring": false,
+          "dates": "2025-10-20 to 2025-10-30"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "membershipRequired": false,
+    "approvalRequired": true,
+    "contactInfo": {
+      "telegram": "Superteam Germany",
+      "website": "https://de.superteam.fun/",
+      "linktree": "https://linktr.ee/superteamhackathon"
+    },
+    "eventType": "hackathon",
+    "organizer": "Superteam Germany",
+    "sponsors": ["Börse Stuttgart", "Mansory", "Light Protocol"],
+    "prizes": "18k EUR for German builders",
+    "amenities": ["WiFi", "Workstations", "Catering", "Mentorship", "Workshops"],
+    "coordinates": {
+      "lat": 52.497989,
+      "lng": 13.380294
+    },
+    "limitedSpots": true
+  }
+}

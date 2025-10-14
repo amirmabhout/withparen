@@ -21,12 +21,12 @@ export const solanaPlugin: Plugin = {
       const serviceType = 'TRADER_CHAIN';
       let traderChainService = runtime.getService(serviceType) as any;
       while (!traderChainService) {
-        console.log(asking, 'waiting for', serviceType, 'service...');
+        // console.log(asking, 'waiting for', serviceType, 'service...');
         traderChainService = runtime.getService(serviceType) as any;
         if (!traderChainService) {
           await new Promise((waitResolve) => setTimeout(waitResolve, 1000));
         } else {
-          console.log(asking, 'Acquired', serviceType, 'service...');
+          // console.log(asking, 'Acquired', serviceType, 'service...');
         }
       }
 
@@ -37,7 +37,7 @@ export const solanaPlugin: Plugin = {
       };
       traderChainService.registerChain(me);
 
-      console.log('solana init done');
+      // console.log('solana init done');
     });
   },
 };
