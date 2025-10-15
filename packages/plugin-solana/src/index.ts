@@ -3,15 +3,22 @@ import { executeSwap } from './actions/swap';
 import transferToken from './actions/transfer';
 import { SOLANA_SERVICE_NAME } from './constants';
 import { walletProvider } from './providers/wallet';
+import { pdaWalletProvider } from './providers/pdaWalletProvider';
 import { SolanaService } from './service';
+import { PDAWalletService } from './services/pdaWalletService';
+
+// Export PDA functionality for other plugins to use
+export { PDAWalletService } from './services/pdaWalletService';
+export { pdaWalletProvider } from './providers/pdaWalletProvider';
+export { SolanaService } from './service';
 
 export const solanaPlugin: Plugin = {
   name: SOLANA_SERVICE_NAME,
-  description: 'Solana Plugin for Eliza',
-  actions: [transferToken, executeSwap],
+  description: 'Solana Plugin for Eliza with PDA wallet support',
+  actions: [],
   evaluators: [],
-  providers: [walletProvider],
-  services: [SolanaService],
+  providers: [pdaWalletProvider],
+  services: [SolanaService, PDAWalletService],
   init: async (_, runtime: IAgentRuntime) => {
     console.log('solana init');
 

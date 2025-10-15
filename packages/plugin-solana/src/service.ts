@@ -9,13 +9,15 @@ import {
   TransactionMessage,
   TransactionInstruction,
   SendTransactionError,
-  LAMPORTS_PER_SOL
+  LAMPORTS_PER_SOL,
+  AccountInfo
 } from '@solana/web3.js';
 import { MintLayout, getMint, TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID, unpackAccount, getAssociatedTokenAddressSync } from "@solana/spl-token";
 import BigNumber from 'bignumber.js';
 import { SOLANA_SERVICE_NAME, SOLANA_WALLET_DATA_CACHE_KEY } from './constants';
 import { getWalletKey, KeypairResult } from './keypairUtils';
 import type { Item, Prices, WalletPortfolio } from './types';
+import { PDAWalletService } from './services/pdaWalletService';
 import bs58 from 'bs58';
 import nacl from "tweetnacl";
 
@@ -72,6 +74,7 @@ export class SolanaService extends Service {
   private publicKey: PublicKey | null = null;
   private exchangeRegistry: Record<number, any> = {};
   private subscriptions: Map<string, number> = new Map();
+  private pdaWalletService: PDAWalletService | null = null;
 
   jupiterService: any | null = null; // Disabled - only needed for swap functionality
 
@@ -164,7 +167,7 @@ export class SolanaService extends Service {
    * @returns {Promise<unknown>} - A promise that resolves to the fetched data.
    */
   private async birdeyeFetchWithRetry(url: string, options: RequestInit = {}): Promise<unknown> {
-    let lastError: Error;
+    let lastError: Error = new Error('Failed to fetch after retries');
 
     for (let i = 0; i < PROVIDER_CONFIG.MAX_RETRIES; i++) {
       try {
@@ -173,7 +176,7 @@ export class SolanaService extends Service {
           headers: {
             Accept: 'application/json',
             'x-chain': 'solana',
-            'X-API-KEY': this.runtime.getSetting('BIRDEYE_API_KEY'),
+            'X-API-KEY': this.runtime.getSetting('BIRDEYE_API_KEY') || '',
             ...options.headers,
           },
         });
@@ -185,7 +188,7 @@ export class SolanaService extends Service {
 
         return await response.json();
       } catch (error) {
-        logger.error(`Attempt ${i + 1} failed:`, error);
+        logger.error(`Attempt ${i + 1} failed:`, error instanceof Error ? error.message : String(error));
         lastError = error as Error;
         if (i < PROVIDER_CONFIG.MAX_RETRIES - 1) {
           await new Promise((resolve) => setTimeout(resolve, PROVIDER_CONFIG.RETRY_DELAY * 2 ** i));
@@ -193,7 +196,7 @@ export class SolanaService extends Service {
       }
     }
 
-    if (lastError) throw lastError;
+    throw lastError;
   }
 
   async batchGetMultipleAccountsInfo(pubkeys: PublicKey[], label: string): Promise<(AccountInfo<Buffer> | null)[]> {
@@ -255,7 +258,7 @@ export class SolanaService extends Service {
       //logger.log(`Solana address validation: ${address}`, { isValid });
       return isValid;
     } catch (error) {
-      logger.error(`Address validation error: ${address}`, { error });
+      logger.error(`Address validation error: ${address}`, error instanceof Error ? error.message : String(error));
       return false;
     }
   }
@@ -427,7 +430,14 @@ export class SolanaService extends Service {
     // 2. Sum balances
     let circulating = 0;
     for (const acc of accounts) {
-      const info = acc.account.data.parsed.info;
+      const accountData = acc.account.data;
+      if (!accountData || typeof accountData === 'string' || Buffer.isBuffer(accountData)) {
+        continue;
+      }
+      const parsed = (accountData as { parsed?: { info?: any } }).parsed;
+      if (!parsed?.info) continue;
+
+      const info = parsed.info;
       const owner = info.owner;
 
       // Optional: exclude burn address or known treasury/mint holding
@@ -471,8 +481,9 @@ export class SolanaService extends Service {
         `${PROVIDER_CONFIG.BIRDEYE_API}/defi/price?address=${token}`
       );
 
-      if (response?.data?.value) {
-        const price = response.data.value.toString();
+      const responseData = response as any;
+      if (responseData?.data?.value) {
+        const price = responseData.data.value.toString();
         prices[token === SOL ? 'solana' : token === BTC ? 'bitcoin' : 'ethereum'].usd = price;
       }
     }
@@ -556,7 +567,7 @@ export class SolanaService extends Service {
     return symbol;
   }
 
-  public async getSupply(CAs) {
+  public async getSupply(CAs: string[]) {
     const mintKeys: PublicKey[] = CAs.map(ca => new PublicKey(ca));
     const mintInfos = await this.batchGetMultipleAccountsInfo(mintKeys, 'getSupply')
 
@@ -594,7 +605,7 @@ export class SolanaService extends Service {
     return out
   }
 
-  public async parseTokenAccounts(heldTokens) {
+  public async parseTokenAccounts(heldTokens: any[]) {
     // decimalsCache means we don't need all I think
     // stil need them for symbol
     const mintKeys: PublicKey[] = heldTokens.map(t => new PublicKey(t.account.data.parsed.info.mint));
@@ -604,7 +615,7 @@ export class SolanaService extends Service {
     const accountInfos = await this.batchGetMultipleAccountsInfo(metadataAddresses, 'parseTokenAccounts')
     //console.log('accountInfos', accountInfos) // works
 
-    const results = heldTokens.map((token, i) => {
+    const results = heldTokens.map((token: any, i: number) => {
       const metadataInfo = accountInfos[i];      // raw AccountInfo | null
       const mintKey      = mintKeys[i];
 
@@ -638,7 +649,7 @@ export class SolanaService extends Service {
     //console.log('results', results)
 
     // then convert to object
-    const out = Object.fromEntries(results.map(r => [r.mint, {
+    const out = Object.fromEntries(results.map((r: any) => [r.mint, {
       symbol: r.symbol,
       decimals: r.decimals,
       balanceUi: r.balanceUi,
@@ -694,7 +705,10 @@ export class SolanaService extends Service {
         // maybe we just get the pubkey here proper
         // or fall back to SOLANA_PUBLIC_KEY
         logger.log('solana::updateWalletData - no Public Key yet');
-        return {};
+        return {
+          totalUsd: '0',
+          items: []
+        };
       }
 
       //console.log('updateWalletData - force', force, 'last', this.lastUpdate, 'UPDATE_INTERVAL', this.UPDATE_INTERVAL)
@@ -715,8 +729,9 @@ export class SolanaService extends Service {
             );
             //console.log('walletData', walletData)
 
-            if (walletData?.success && walletData?.data) {
-              const data = walletData.data;
+            const walletDataResponse = walletData as any;
+            if (walletDataResponse?.success && walletDataResponse?.data) {
+              const data = walletDataResponse.data;
               const totalUsd = new BigNumber(data.totalUsd.toString());
               const prices = await this.fetchPrices();
               const solPriceInUSD = new BigNumber(prices.solana.usd);
@@ -750,10 +765,12 @@ export class SolanaService extends Service {
 
         // Fallback to basic token account info
         const accounts = await this.getTokenAccounts();
-        accounts.forEach((acc) => {
-          this.decimalsCache.set(acc.account.data.parsed.info.mint, acc.account.data.parsed.info.tokenAmount.decimals);
-        });
-        const items: Item[] = accounts.map((acc) => ({
+        if (accounts) {
+          accounts.forEach((acc: any) => {
+            this.decimalsCache.set(acc.account.data.parsed.info.mint, acc.account.data.parsed.info.tokenAmount.decimals);
+          });
+        }
+        const items: Item[] = (accounts || []).map((acc: any) => ({
           name: 'Unknown',
           address: acc.account.data.parsed.info.mint,
           symbol: 'Unknown',
@@ -769,13 +786,14 @@ export class SolanaService extends Service {
           totalUsd: '0',
           totalSol: '0',
           items,
+          lastUpdated: now,
         };
 
         await this.runtime.setCache<WalletPortfolio>(SOLANA_WALLET_DATA_CACHE_KEY, portfolio);
         this.lastUpdate = now;
         return portfolio;
       } catch (error) {
-        logger.error('Error updating wallet data:', error);
+        logger.error('Error updating wallet data:', error instanceof Error ? error.message : String(error));
         throw error;
       }
     }
@@ -834,8 +852,68 @@ export class SolanaService extends Service {
           privateKey,
         };
       } catch (error) {
-        logger.error('Error creating wallet:', error);
+        logger.error('Error creating wallet:', error instanceof Error ? error.message : String(error));
         throw new Error('Failed to create new wallet');
+      }
+    }
+
+    /**
+     * Creates or gets a PDA wallet for a user based on platform and user ID
+     * @param {string} platform - Platform name (e.g., 'telegram', 'discord')
+     * @param {string} userId - User's platform-specific ID
+     * @returns {Promise<string>} The PDA wallet address
+     */
+    public async createPDAWallet(platform: string, userId: string): Promise<string> {
+      try {
+        if (!this.pdaWalletService) {
+          this.pdaWalletService = new PDAWalletService(this.runtime);
+          logger.info('[SolanaService] Initialized PDAWalletService');
+        }
+
+        const walletAddress = await this.pdaWalletService.ensureUserWallet(platform, userId);
+        logger.info(`[SolanaService] PDA wallet for ${platform}:${userId}: ${walletAddress}`);
+        return walletAddress;
+      } catch (error) {
+        logger.error(`[SolanaService] Error creating PDA wallet: ${error}`);
+        throw error;
+      }
+    }
+
+    /**
+     * Gets the PDA wallet address for a user (doesn't create if not exists)
+     * @param {string} platform - Platform name (e.g., 'telegram', 'discord')
+     * @param {string} userId - User's platform-specific ID
+     * @returns {Promise<string | null>} The PDA wallet address or null if not exists
+     */
+    public async getPDAWalletAddress(platform: string, userId: string): Promise<string | null> {
+      try {
+        if (!this.pdaWalletService) {
+          this.pdaWalletService = new PDAWalletService(this.runtime);
+        }
+
+        return await this.pdaWalletService.getUserWalletAddress(platform, userId);
+      } catch (error) {
+        logger.error(`[SolanaService] Error getting PDA wallet address: ${error}`);
+        return null;
+      }
+    }
+
+    /**
+     * Gets the balance of a PDA wallet
+     * @param {string} platform - Platform name (e.g., 'telegram', 'discord')
+     * @param {string} userId - User's platform-specific ID
+     * @returns {Promise<number>} The wallet balance in SOL
+     */
+    public async getPDAWalletBalance(platform: string, userId: string): Promise<number> {
+      try {
+        if (!this.pdaWalletService) {
+          this.pdaWalletService = new PDAWalletService(this.runtime);
+        }
+
+        return await this.pdaWalletService.getWalletBalance(platform, userId);
+      } catch (error) {
+        logger.error(`[SolanaService] Error getting PDA wallet balance: ${error}`);
+        return 0;
       }
     }
 
@@ -847,16 +925,16 @@ export class SolanaService extends Service {
       const balance = Number(amountRaw) / (10 ** decimals);
       const symbol = await solanaService.getTokenSymbol(ca);
 */
-  public async getTokenAccountsByKeypair(walletAddress: PublicKey, options = {}) {
+  public async getTokenAccountsByKeypair(walletAddress: PublicKey, options: { ttl?: number } = {}) {
     //console.log('getTokenAccountsByKeypair', walletAddress.toString())
     //console.log('publicKey', this.publicKey, 'vs', walletAddress)
     const key = 'solana_' + walletAddress.toString() + '_tokens'
     //console.trace('whos checking jj')
     try {
       const now = Date.now()
-      let check = false
+      let check: { fetchedAt: number; data: any } | undefined = undefined
       if (options.ttl !== 0) {
-        check = await this.runtime.getCache<any>(key)
+        check = await this.runtime.getCache<{ fetchedAt: number; data: any }>(key)
         if (check) {
           // how old is this data, do we care
           const diff = now - check.fetchedAt
@@ -878,13 +956,13 @@ export class SolanaService extends Service {
         // should we compare haveTokens with the old data we have
         // and generate events?
       }
-      await this.runtime.setCache<any>(key, {
+      await this.runtime.setCache<{ fetchedAt: number; data: any }>(key, {
         fetchedAt: now,
         data: haveTokens
       })
       return haveTokens
     } catch (error) {
-      logger.error('Error fetching token accounts:', error);
+      logger.error('Error fetching token accounts:', error instanceof Error ? error.message : String(error));
       return [];
     }
   }
@@ -905,7 +983,7 @@ export class SolanaService extends Service {
   */
 
   // only get SOL balance
-  public async getBalancesByAddrs(walletAddressArr: string[]) {
+  public async getBalancesByAddrs(walletAddressArr: string[]): Promise<Record<string, number> | number> {
     try {
       //console.log('walletAddressArr', walletAddressArr)
       const publicKeyObjs = walletAddressArr.map(k => new PublicKey(k));
@@ -930,7 +1008,7 @@ export class SolanaService extends Service {
       }
       return out
     } catch (error) {
-      const msg = error.message || '';
+      const msg = (error instanceof Error ? error.message : String(error)) || '';
       if (msg.includes('429')) {
         this.runtime.logger.warn('RPC rate limit hit, pausing before retry');
         // FIXME: retry counter, exponential backoff
@@ -938,7 +1016,7 @@ export class SolanaService extends Service {
         return this.getBalancesByAddrs(walletAddressArr)
       }
       //this.runtime.logger.error('solSrv:getBalancesByAddrs - Error fetching wallet balances:', error);
-      this.runtime.logger.error('solSrv:getBalancesByAddrs - unexpected error:', error);
+      this.runtime.logger.error('solSrv:getBalancesByAddrs - unexpected error:', error instanceof Error ? error.message : String(error));
       return -1;
     }
   }
@@ -953,7 +1031,7 @@ export class SolanaService extends Service {
       this.getBalancesByAddrs([pubKey]),
       this.getTokenAccountsByKeypair(pubKeyObj),
     ]);
-    const solBal = balances[pubKey]
+    const solBal = typeof balances === 'object' ? balances[pubKey] : undefined
 
     balanceStr += 'Wallet Address: ' + pubKey + '\n'
     balanceStr += '  Token Address (Symbol)\n'
@@ -976,7 +1054,7 @@ export class SolanaService extends Service {
       this.getTokenAccountsByKeypair(pubKeyObj),
     ]);
     //console.log('balances', balances)
-    const solBal = balances[pubKey]
+    const solBal = typeof balances === 'object' ? balances[pubKey] : undefined
     balanceStr += 'Wallet Address: ' + pubKey + '\n'
     balanceStr += 'Current wallet contents in csv format:\n'
     balanceStr += 'Token Address,Symbol,Balance\n'
@@ -1030,7 +1108,7 @@ export class SolanaService extends Service {
    * @returns {Promise<number>} Subscription ID
    */
   // needs to take a handler...
-  public async subscribeToAccount(accountAddress: string, handler): Promise<number> {
+  public async subscribeToAccount(accountAddress: string, handler: (address: string, accountInfo: AccountInfo<Buffer>, context: any) => void): Promise<number> {
     try {
       if (!this.validateAddress(accountAddress)) {
         throw new Error('Invalid account address');
@@ -1082,7 +1160,7 @@ export class SolanaService extends Service {
       logger.log(`Subscribed to account ${accountAddress} with ID ${subscriptionId}`);
       return subscriptionId;
     } catch (error) {
-      logger.error('Error subscribing to account:', error);
+      logger.error('Error subscribing to account:', error instanceof Error ? error.message : String(error));
       throw error;
     }
   }
@@ -1100,7 +1178,7 @@ export class SolanaService extends Service {
         return false;
       }
 
-      const ws = this.connection.connection._rpcWebSocket;
+      const ws = (this.connection as any)._rpcWebSocket;
       const success = await ws.call('accountUnsubscribe', [subscriptionId]);
 
       if (success) {
@@ -1110,7 +1188,7 @@ export class SolanaService extends Service {
 
       return success;
     } catch (error) {
-      logger.error('Error unsubscribing from account:', error);
+      logger.error('Error unsubscribing from account:', error instanceof Error ? error.message : String(error));
       throw error;
     }
   }
@@ -1194,7 +1272,7 @@ export class SolanaService extends Service {
       //console.log('calculateOptimalBuyAmount - optimal slippage', slippage)
       return { amount: optimalAmount, slippage: recommendedSlippage };
     } catch (error) {
-      logger.error('calculateOptimalBuyAmount2 - Error calculating optimal buy amount:', error);
+      logger.error('calculateOptimalBuyAmount2 - Error calculating optimal buy amount:', error instanceof Error ? error.message : String(error));
       throw error;
     }
   }

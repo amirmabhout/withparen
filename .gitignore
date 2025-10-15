@@ -190,6 +190,14 @@ standalone.ts
 # Packages
 
 packages/plugin-deepen-connection
-packages/plugin-discover-connection
 packages/agentseren
 packages/agentbantabawithparen
+
+# Anchor/Solana specific
+anchor-programs/**/target/
+anchor-programs/**/*-keypair.json
+anchor/**/target/
+anchor/**/*-keypair.json
+**/programs/**/target/
+**/.anchor/
+**/test-ledger/

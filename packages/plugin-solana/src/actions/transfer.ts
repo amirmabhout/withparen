@@ -157,9 +157,9 @@ export default {
       prompt: transferPrompt,
     });
 
-    const content = parseJSONObjectFromText(result);
+    const content = parseJSONObjectFromText(result) as TransferContent | null;
 
-    if (!isTransferContent(content)) {
+    if (!content || !isTransferContent(content)) {
       if (callback) {
         callback({
           text: 'Need a valid recipient address and amount to transfer.',
@@ -171,8 +171,13 @@ export default {
 
     try {
       const { keypair: senderKeypair } = await getWalletKey(runtime, true);
+      if (!senderKeypair) {
+        throw new Error('Failed to get sender keypair');
+      }
+
+      const rpcUrl = runtime.getSetting('SOLANA_RPC_URL');
       const connection = new Connection(
-        runtime.getSetting('SOLANA_RPC_URL') || 'https://api.mainnet-beta.solana.com'
+        (typeof rpcUrl === 'string' ? rpcUrl : null) || 'https://api.mainnet-beta.solana.com'
       );
       const recipientPubkey = new PublicKey(content.recipient);
 
@@ -272,11 +277,12 @@ export default {
 
       return true;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error('Error during transfer:', error);
       if (callback) {
         callback({
-          text: `Transfer failed: ${error.message}`,
-          content: { error: error.message },
+          text: `Transfer failed: ${errorMessage}`,
+          content: { error: errorMessage },
         });
       }
       return false;
