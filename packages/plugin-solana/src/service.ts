@@ -69,7 +69,7 @@ export class SolanaService extends Service {
 
   private updateInterval: NodeJS.Timer | null = null;
   private lastUpdate = 0;
-  private readonly UPDATE_INTERVAL = 120000; // 2 minutes
+  private readonly UPDATE_INTERVAL = 600000; // 10 minutes
   private connection: Connection;
   private publicKey: PublicKey | null = null;
   private exchangeRegistry: Record<number, any> = {};
