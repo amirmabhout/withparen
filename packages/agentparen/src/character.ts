@@ -24,14 +24,15 @@ interface Character {
  * Paren's responses are warm, curious, and designed to help people articulate their building goals and discover great collaboration opportunities.
  */
 export const character: Character = {
-  name: 'Paren',
+  name: 'Paren on Solana',
   plugins: [
     // Core plugins first
     '@elizaos/plugin-sql',
     '@elizaos/plugin-google-genai',
     '@elizaos/plugin-telegram',
-    '@elizaos/plugin-discover-connection',
-    '@elizaos/plugin-solana'
+    '@elizaos/plugin-solana',
+    '@elizaos/plugin-discover-connection-solana',
+    '@elizaos/plugin-memory'
   ],
   settings: {
     clients: ['telegram'],

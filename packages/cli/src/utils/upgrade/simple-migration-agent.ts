@@ -1,4 +1,5 @@
-import { query } from '@anthropic-ai/claude-code';
+// NOTE: @anthropic-ai/claude-code removed from dependencies - upgrade feature disabled
+// import { query } from '@anthropic-ai/claude-code';
 import { createMigrationGuideLoader, MigrationGuideLoader } from './migration-guide-loader';
 import { logger } from '@elizaos/core';
 
@@ -296,6 +297,21 @@ export class SimpleMigrationAgent extends EventTarget {
     const startTime = Date.now();
     let messageCount = 0;
 
+    // Plugin upgrade feature disabled - @anthropic-ai/claude-code removed from dependencies
+    const error = new Error(
+      'Plugin upgrade feature is currently disabled. ' +
+      'The @anthropic-ai/claude-code dependency has been removed from this package.'
+    );
+    logger.error('Plugin upgrade feature disabled:', error.message);
+    return {
+      success: false,
+      repoPath: this.repoPath,
+      duration: Date.now() - startTime,
+      messageCount: 0,
+      error,
+    };
+
+    /* Commented out - requires @anthropic-ai/claude-code
     try {
       // Disable verbose telemetry to reduce noise
       process.env.CLAUDE_CODE_ENABLE_TELEMETRY = '0';
@@ -631,7 +647,9 @@ ABSOLUTE REQUIREMENT: The migration is NOT complete until bun run test shows zer
         messageCount,
         guidesUsed,
       };
-    } catch (error) {
+    } catch (error) { */
+      // End of commented out code
+      /* Original catch block for reference:
       console.log('\n❌ Migration failed');
       console.log(`────────────────────`);
 
@@ -681,7 +699,8 @@ ABSOLUTE REQUIREMENT: The migration is NOT complete until bun run test shows zer
         messageCount,
         error: error as Error,
       };
-    }
+    } */
+    // End of commented migrate method
   }
 
   abort(): void {

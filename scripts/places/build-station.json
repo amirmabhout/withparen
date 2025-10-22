@@ -4,6 +4,8 @@
   "description": "A 10-day hackathon venue for Germany's best builders participating in the Solana Cypherpunk Hackathon. Organized by Superteam Germany, offering mentorship, workshops, support from Solana experts, networking opportunities, and a fully catered venue with WiFi and workstations. Features 18k in prizes exclusively for German builders.",
   "url": "https://luma.com/buildstation?tk=WROhNF",
   "address": "w3.hub, Möckernstraße 120, 10963 Berlin, Germany",
+  "lat": 52.497989,
+  "lng": 13.380294,
   "operatingHours": {
     "monday": {
       "open": "10:00",
@@ -72,10 +74,6 @@
     "sponsors": ["Börse Stuttgart", "Mansory", "Light Protocol"],
     "prizes": "18k EUR for German builders",
     "amenities": ["WiFi", "Workstations", "Catering", "Mentorship", "Workshops"],
-    "coordinates": {
-      "lat": 52.497989,
-      "lng": 13.380294
-    },
     "limitedSpots": true
   }
 }

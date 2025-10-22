@@ -1,0 +1,63 @@
+# ZK Compression
+
+## ZK Compression
+
+- [Introduction](/readme.md)
+- [Quickstart](/quickstart.md): Create your first compressed token in minutes.
+- [Support](/support.md): Get expert help with ZK Compression, compressed tokens, compressed PDAs, local development and more. Discord community, Telegram, and Email support available.
+- [Event: 1000x Hackathon Sidetracks](/event-1000x-hackathon-sidetracks.md): Overview to Local Sidetracks to the Cypherpunk Hackathon. Available for participants in Portugal and Germany.
+- [Overview](/compressed-tokens/overview.md): Complete overview to compressed tokens core features, setup guide and cookbook.
+- [Guides](/compressed-tokens/guides.md): Overview of guides to compressed token operations and reference table with descriptions. Guides include full code examples, troubleshooting, and advanced configurations.
+- [How to Create and Register a Mint Account for Compression](/compressed-tokens/guides/how-to-create-and-register-a-mint-account-for-compression.md): Complete guide to create and register an SPL token mint account for compression with \`createMint()\`, troubleshooting and advanced configurations.
+- [How to Create Compressed Token Accounts](/compressed-tokens/guides/how-to-create-compressed-token-accounts.md): Short guide to compressed token account creation with ZK Compression on Solana and difference to regular token accounts.
+- [How to Mint Compressed Tokens](/compressed-tokens/guides/how-to-mint-compressed-tokens.md): Complete guide to mint compressed tokens with \`mintTo()\`, troubleshooting, and advanced configurations.
+- [How to Transfer Compressed Token](/compressed-tokens/guides/how-to-transfer-compressed-token.md): Complete guide to transfer compressed SPL tokens between compressed or regular accounts with \`transfer()\`, troubleshooting and advanced configurations.
+- [How to compress and decompress SPL Tokens](/compressed-tokens/guides/how-to-compress-and-decompress-spl-tokens.md): Complete guide to compress SPL tokens with \`compress()\` and decompress with \`decompress()\`, troubleshooting and advanced configurations. Best used for transfers.
+- [How to Compress complete SPL Token Accounts](/compressed-tokens/guides/how-to-compress-complete-spl-token-accounts.md): Complete guide to compress complete SPL Token Accounts with \`compressSplTokenAccount\`, troubleshooting and advanced configurations. Use for account migration and to reclaim rent afterwards.
+- [How to Merge Compressed Token Accounts](/compressed-tokens/guides/how-to-merge-compressed-token-accounts.md): Complete guide to merge multiple compressed token accounts into a single account with \`mergeTokenAccounts()\`, troubleshooting and advanced configurations.
+- [How to Create Compressed Token Pools for Mint Accounts](/compressed-tokens/guides/how-to-create-compressed-token-pools-for-mint-accounts.md): Complete guide to create and manage token pools for compressed tokens for SPL mints with \`createTokenPool()\`, troubleshooting and advanced configurations.
+- [How to approve and revoke delegate authority](/compressed-tokens/guides/how-to-approve-and-revoke-delegate-authority.md): Complete guide to manage delegate authority for compressed tokens with \`approve()\` and \`revoke()\`, troubleshooting and advanced configurations.
+- [Advanced Guides](/compressed-tokens/advanced-guides.md): Reference table mapping all advanced guides with descriptions. Guides for airdrop, using token-2022, and wallet support for compressed tokens.
+- [Create an Airdrop](/compressed-tokens/advanced-guides/create-an-airdrop.md): Complete guide to create an airdrop – with or without code. Access to cost calculation and best practices. ZK compression is the most efficient way to distribute SPL tokens.
+- [Use Token 2022 with Compression](/compressed-tokens/advanced-guides/use-token-2022-with-compression.md): Complete guide to mint, compress and transfer tokens with Token-2022 Metadata with ZK Compression.
+- [Add Wallet Support for Compressed Tokens](/compressed-tokens/advanced-guides/add-wallet-support-for-compressed-tokens.md): Complete guide to add Compressed Token Support to Your Wallet Application.
+- [Example Clients](/compressed-tokens/example-clients.md): Reference page to an example web and node.js client to interact with compressed tokens.
+- [Create a Program with Compressed PDAs](/compressed-pdas/create-a-program-with-compressed-pdas.md): Overview to compressed PDA core features and guide for program development.
+- [Program Examples](/compressed-pdas/program-examples.md): Program example repository for compressed accounts with tests.
+- [CLI Installation](/resources/cli-installation.md): Steps to set up your local environment for ZK Compression development. CLI to interact with compressed accounts and compressed tokens on Solana.
+- [Addresses & URLs](/resources/addresses-and-urls.md): Overview to all of ZK Compression's RPC URLs, Program IDs & Accounts and Lookup Tables.
+- [JSON RPC methods](/resources/json-rpc-methods.md): Overview of all available ZK compression JSON RPC endpoints on Solana, best practices, and error codes.
+- [getCompressedAccount](/resources/json-rpc-methods/getcompressedaccount.md): Retrieve compressed account information by address or hash. RPC method guide with use cases, tips and examples.
+- [getCompressedAccountsByOwner](/resources/json-rpc-methods/getcompressedaccountsbyowner.md): Retrieve all compressed accounts owned by a specific address. RPC method guide with use cases, tips and examples.
+- [getCompressedBalance](/resources/json-rpc-methods/getcompressedbalance.md): Retrieve the lamport balance for a specific compressed account by address or hash. Overview with RPC method guide.
+- [getCompressedBalanceByOwner](/resources/json-rpc-methods/getcompressedbalancebyowner.md): Query the total compressed token balance for a specific account owner. Overview with RPC method guide.
+- [getCompressedMintTokenHolders](/resources/json-rpc-methods/getcompressedminttokenholders.md): Retrieve owner balances for a given mint in descending order. Overview with RPC method guide.
+- [getCompressedTokenAccountBalance](/resources/json-rpc-methods/getcompressedtokenaccountbalance.md): Retrieve the balance for a given token account by address or hash. Overview with RPC method guide.
+- [getCompressedTokenAccountByDelegate](/resources/json-rpc-methods/getcompressedtokenaccountbydelegate.md): Retrieve compressed token accounts that are partially or fully delegated to a given delegate. Overview with RPC method guide.
+- [getCompressedTokenAccountsByOwner](/resources/json-rpc-methods/getcompressedtokenaccountsbyowner.md): Retrieve compressed token accounts owned by a specific address. RPC method guide with use cases, tips and examples.
+- [getCompressedTokenBalancesByOwner](/resources/json-rpc-methods/getcompressedtokenbalancesbyowner.md): Retrieves all token balances for compressed accounts owned by an address. Overview with RPC method guide.
+- [getCompressionSignaturesForAccount](/resources/json-rpc-methods/getcompressionsignaturesforaccount.md): Retrieve the signatures of the transactions that closed or opened a compressed account with the given hash. Overview with RPC method guide.
+- [getCompressionSignaturesForAddress](/resources/json-rpc-methods/getcompressionsignaturesforaddress.md): Retrieve the signatures of the transactions that closed or opened a compressed account with the given address. Overview with RPC method guide.
+- [getCompressionSignaturesForOwner](/resources/json-rpc-methods/getcompressionsignaturesforowner.md): Retrieve the signatures of the transactions that have modified an owner’s compressed accounts. Overview with RPC method guide.
+- [getCompressionSignaturesForTokenOwner](/resources/json-rpc-methods/getcompressionsignaturesfortokenowner.md): Retrieve the signatures of the transactions that have modified an owner’s compressed token accounts. Overview with RPC method guide.
+- [getIndexerHealth](/resources/json-rpc-methods/getindexerhealth.md): Retrieve an error if the indexer is stale by more than a configurable number of blocks. Otherwise, it returns ok. Overview with RPC method guide.
+- [getIndexerSlot](/resources/json-rpc-methods/getindexerslot.md): Retrieve the slot of the last block indexed by the indexer. Overview with RPC method guide.
+- [getLatestCompressionSignatures](/resources/json-rpc-methods/getlatestcompressionsignatures.md): Retrieve the signatures of the latest transactions that used the compression program. This is a paginated endpoint. Overview with RPC method guide.
+- [getLatestNonVotingSignatures](/resources/json-rpc-methods/getlatestnonvotingsignatures.md): Retrieve the signatures of the latest transactions that are not voting transactions. Overview with RPC method guide.
+- [getMultipleCompressedAccounts](/resources/json-rpc-methods/getmultiplecompressedaccounts.md): Retrieve multiple compressed accounts with the given addresses or hashes. Overview with RPC method guide.
+- [getMultipleNewAddressProofs](/resources/json-rpc-methods/getmultiplenewaddressproofs.md): Retrieve proofs that the new addresses are not taken already and can be created. Overview with RPC method guide.
+- [getTransactionWithCompressionInfo](/resources/json-rpc-methods/gettransactionwithcompressioninfo.md): Retrieve the transaction data for the transaction with the given signature along with parsed compression info. RPC method guide with use cases, tips and examples.
+- [getValidityProof](/resources/json-rpc-methods/getvalidityproof.md): Retrieve a single ZK Proof used by the compression program to verify that the given accounts are valid and the new addresses can be created. RPC method guide with use cases, tips and examples.
+- [SDKs](/resources/sdks.md): Overview to TypeScript and Rust SDKs for Client and Program Development.
+- [Client Development](/resources/sdks/client-development.md): Overview to Client side development. Quick access to TypeScript and Rust SDKs.
+- [Program Development](/resources/sdks/program-development.md): Overview to on-chain program development. Quick access to SDKs for Anchor, Pinocchio, or native Rust.
+- [Error Cheatsheet](/resources/error-cheatsheet.md): Complete error code reference for ZK Compression. Search error codes with hex values and messages.
+- [Debug 0x179b / 6043 / ProofVerificationFailed](/resources/error-cheatsheet/debug-0x179b-6043-proofverificationfailed.md): Common cause and debug steps for ProofVerificationFailed (0x179B / 6043)
+- [Core Concepts](/learn/core-concepts.md): Overview to ZK Compression's Core Concepts. Get a high-level system overview and learn about the compressed account model, lifecycle of a transaction, and considerations.
+- [Compressed Account Model](/learn/core-concepts/compressed-account-model.md): Overview to the Compressed Account Model, State Merkle trees, and Validity Proofs.
+- [Lifecycle of a Transaction](/learn/core-concepts/lifecycle-of-a-transaction.md): Overview to the lifecycle of a transaction that interacts with compressed accounts.
+- [Considerations](/learn/core-concepts/considerations.md): Overview to considerations of ZK Compression, namely larger transaction size, higher compute unit usage, and per-transaction state cost.
+- [Node Operators](/learn/node-operators.md): Set up ZK Compression infrastructure. Learn how to run Forester nodes, Photon indexers and Prover.
+- [Whitepaper](/references/whitepaper.md): Complete whitepaper introducing ZK Compression.
+- [Terminology](/references/terminology.md): Overview to terminology related to ZK Compression and Solana.
+- [Security](/references/security.md): Overview to Light Protocol's bug bounty program, third party security audits, and formal verification of circuits.

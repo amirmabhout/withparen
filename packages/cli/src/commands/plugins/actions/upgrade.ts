@@ -34,22 +34,11 @@ export async function upgradePlugin(pluginPath: string, opts: UpgradePluginOptio
       process.exit(1);
     }
 
-    // Test SDK import before proceeding (silent unless debug)
-    try {
-      await import('@anthropic-ai/claude-code');
-      if (opts.debug) {
-        console.log('✓ Claude Code SDK ready');
-      }
-    } catch (importError) {
-      console.log(chalk.red('✗ Claude Code SDK not available'));
-      console.log(
-        chalk.red(
-          `Error: ${importError instanceof Error ? importError.message : String(importError)}`
-        )
-      );
-      console.log('\nInstall the SDK: bun add @anthropic-ai/claude-code');
-      process.exit(1);
-    }
+    // Plugin upgrade feature disabled - @anthropic-ai/claude-code removed from dependencies
+    console.log(chalk.red('✗ Plugin upgrade feature is currently disabled'));
+    console.log(chalk.yellow('\nThe @anthropic-ai/claude-code dependency has been removed from this package.'));
+    console.log(chalk.yellow('This feature may be re-enabled in a future release.'));
+    process.exit(1);
 
     // Resolve plugin path - work directly in the plugin directory
     const workingDir = path.resolve(pluginPath);

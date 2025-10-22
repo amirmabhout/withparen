@@ -513,6 +513,415 @@ class MemgraphManager {
     });
   }
 
+  async deleteHumanConnection(connectionId: string, options: CLIOptions): Promise<boolean> {
+    logInfo(`${options.dryRun ? 'DRY RUN: ' : ''}Deleting HumanConnection with connectionId: ${connectionId}`);
+
+    return await this.withSession(async (session) => {
+      // First, check if connection exists and get details
+      const findQuery = `
+        MATCH (hc:HumanConnection {connectionId: $connectionId})
+        OPTIONAL MATCH (hc)-[r]-()
+        RETURN hc, count(DISTINCT r) as relationshipCount
+      `;
+
+      const findResult = await session.run(findQuery, { connectionId });
+
+      if (findResult.records.length === 0) {
+        logError(`HumanConnection with connectionId '${connectionId}' not found`);
+        return false;
+      }
+
+      const record = findResult.records[0];
+      const connection = record.get('hc');
+      const relationshipCount = record.get('relationshipCount').toNumber();
+
+      logInfo(`Found HumanConnection:`);
+      logInfo(`  Connection ID: ${connection.properties.connectionId}`);
+      logInfo(`  Status: ${connection.properties.status || 'N/A'}`);
+      logInfo(`  Created At: ${connection.properties.createdAt ? new Date(connection.properties.createdAt).toISOString() : 'N/A'}`);
+      logInfo(`  Total relationships: ${relationshipCount}`);
+
+      if (options.dryRun) {
+        logWarning('DRY RUN: Would delete this HumanConnection and all its relationships');
+        return true;
+      }
+
+      // Delete the HumanConnection and all relationships
+      const deleteQuery = `
+        MATCH (hc:HumanConnection {connectionId: $connectionId})
+        DETACH DELETE hc
+        RETURN count(hc) as deletedCount
+      `;
+
+      const deleteResult = await session.run(deleteQuery, { connectionId });
+      const deletedCount = deleteResult.records[0].get('deletedCount').toNumber();
+
+      if (deletedCount > 0) {
+        logSuccess(`Deleted HumanConnection: ${connectionId}`);
+        return true;
+      } else {
+        logError('Failed to delete HumanConnection');
+        return false;
+      }
+    });
+  }
+
+  async completeMatch(agentId: string, person1Id: string, person2Id: string, options: CLIOptions): Promise<boolean> {
+    logInfo(`${options.dryRun ? 'DRY RUN: ' : ''}Marking MATCHED_WITH relationship as completed`);
+    logInfo(`  Agent: ${agentId}`);
+    logInfo(`  Person 1: ${person1Id}`);
+    logInfo(`  Person 2: ${person2Id}`);
+
+    return await this.withSession(async (session) => {
+      // Find the MATCHED_WITH relationship
+      const findQuery = `
+        MATCH (p1:Person)-[r:MATCHED_WITH]-(p2:Person)
+        WHERE (p1.entityid = $person1Id OR p1.id = $person1Id)
+          AND (p2.entityid = $person2Id OR p2.id = $person2Id)
+          AND r.agentFacilitated = $agentId
+        RETURN p1, p2, r
+      `;
+
+      const findResult = await session.run(findQuery, { agentId, person1Id, person2Id });
+
+      if (findResult.records.length === 0) {
+        logError(`No MATCHED_WITH relationship found between persons ${person1Id} and ${person2Id} for agent ${agentId}`);
+        return false;
+      }
+
+      const record = findResult.records[0];
+      const p1 = record.get('p1');
+      const p2 = record.get('p2');
+      const rel = record.get('r');
+
+      logInfo(`\nFound match:`);
+      logInfo(`  ${p1.properties.name || 'Unnamed'} <-> ${p2.properties.name || 'Unnamed'}`);
+      logInfo(`  Current status: ${rel.properties.status}`);
+      logInfo(`  Proposed time: ${rel.properties.proposedTime || 'N/A'}`);
+      logInfo(`  Venue: ${rel.properties.venue || 'Not set'}`);
+
+      if (options.dryRun) {
+        logWarning('DRY RUN: Would mark this relationship as completed');
+        return true;
+      }
+
+      // Update the relationship to completed status
+      const updateQuery = `
+        MATCH (p1:Person)-[r:MATCHED_WITH]-(p2:Person)
+        WHERE (p1.entityid = $person1Id OR p1.id = $person1Id)
+          AND (p2.entityid = $person2Id OR p2.id = $person2Id)
+          AND r.agentFacilitated = $agentId
+        SET r.status = 'completed',
+            r.completedAt = $timestamp,
+            r.updatedAt = $timestamp
+        RETURN r
+      `;
+
+      const updateResult = await session.run(updateQuery, {
+        agentId,
+        person1Id,
+        person2Id,
+        timestamp: Date.now()
+      });
+
+      if (updateResult.records.length > 0) {
+        logSuccess(`✓ Marked MATCHED_WITH relationship as completed`);
+        logInfo(`  Status: ${rel.properties.status} → completed`);
+        return true;
+      } else {
+        logError('Failed to update MATCHED_WITH relationship');
+        return false;
+      }
+    });
+  }
+
+  async deleteUser(userId: string, options: CLIOptions): Promise<boolean> {
+    logInfo(`${options.dryRun ? 'DRY RUN: ' : ''}Deleting user with userId: ${userId}`);
+
+    return await this.withSession(async (session) => {
+      // First, check if user exists and get details
+      const findQuery = `
+        MATCH (n)
+        WHERE n.userId = $userId
+        OPTIONAL MATCH (n)-[r]-()
+        RETURN n, labels(n) as labels, count(DISTINCT r) as relationshipCount
+      `;
+
+      const findResult = await session.run(findQuery, { userId });
+
+      if (findResult.records.length === 0) {
+        logError(`User with userId '${userId}' not found`);
+        return false;
+      }
+
+      const record = findResult.records[0];
+      const node = record.get('n');
+      const labels = record.get('labels');
+      const relationshipCount = record.get('relationshipCount').toNumber();
+
+      logInfo(`Found user node:`);
+      logInfo(`  Node type: ${labels.join(', ')}`);
+      logInfo(`  User ID: ${node.properties.userId}`);
+      logInfo(`  Name: ${node.properties.name || 'N/A'}`);
+      logInfo(`  Room ID: ${node.properties.roomId || 'N/A'}`);
+      logInfo(`  Updated At: ${node.properties.updatedAt || 'N/A'}`);
+      logInfo(`  Total relationships: ${relationshipCount}`);
+
+      if (options.dryRun) {
+        logWarning('DRY RUN: Would delete this user node and all its relationships');
+        return true;
+      }
+
+      // Delete the user node and all relationships
+      const deleteQuery = `
+        MATCH (n)
+        WHERE n.userId = $userId
+        DETACH DELETE n
+        RETURN count(n) as deletedCount
+      `;
+
+      const deleteResult = await session.run(deleteQuery, { userId });
+      const deletedCount = deleteResult.records[0].get('deletedCount').toNumber();
+
+      if (deletedCount > 0) {
+        logSuccess(`Deleted user: ${node.properties.name || userId} (${deletedCount} node(s))`);
+        return true;
+      } else {
+        logError('Failed to delete user');
+        return false;
+      }
+    });
+  }
+
+  /**
+   * Delete all nodes created by a specific agent
+   * Includes: Person, Account, PersonaDimension, DesiredDimension, and VerificationData nodes
+   * Excludes: Agent and Place nodes (shared resources)
+   */
+  async deleteByAgent(agentId: string, options: CLIOptions): Promise<boolean> {
+    logInfo(`${options.dryRun ? 'DRY RUN: ' : ''}Deleting all nodes created by agent: ${agentId}`);
+
+    return await this.withSession(async (session) => {
+      // Count nodes by type
+      const countQuery = `
+        MATCH (n)
+        WHERE n.agentId = $agentId
+        WITH labels(n)[0] as nodeType, count(n) as count
+        RETURN nodeType, count
+        ORDER BY nodeType
+      `;
+
+      const countResult = await session.run(countQuery, { agentId });
+
+      if (countResult.records.length === 0) {
+        logWarning(`No nodes found with agentId: ${agentId}`);
+        return false;
+      }
+
+      // Display summary
+      log(colorize('bright', '\n=== NODES TO DELETE ==='));
+      let totalNodes = 0;
+      for (const record of countResult.records) {
+        const nodeType = record.get('nodeType');
+        const count = record.get('count').toNumber();
+        totalNodes += count;
+        log(`  ${nodeType}: ${count} nodes`);
+      }
+      log(colorize('bright', `\nTotal: ${totalNodes} nodes`));
+
+      if (options.dryRun) {
+        logWarning('\nDRY RUN: Would delete all these nodes and their relationships');
+        return true;
+      }
+
+      // Delete all nodes with this agentId (DETACH DELETE removes relationships too)
+      // Note: We don't delete Agent or Place nodes as they are shared resources
+      const deleteQuery = `
+        MATCH (n)
+        WHERE n.agentId = $agentId
+        DETACH DELETE n
+        RETURN count(n) as deletedCount
+      `;
+
+      const deleteResult = await session.run(deleteQuery, { agentId });
+      const deletedCount = deleteResult.records[0].get('deletedCount').toNumber();
+
+      if (deletedCount > 0) {
+        logSuccess(`\nDeleted ${deletedCount} nodes and their relationships`);
+        return true;
+      } else {
+        logError('\nFailed to delete nodes');
+        return false;
+      }
+    });
+  }
+
+  /**
+   * Delete all nodes and relationships created since a specific date
+   * @param timestamp Unix timestamp in milliseconds
+   * @param options CLI options including dryRun and confirm flags
+   */
+  async deleteSinceDate(timestamp: number, options: CLIOptions): Promise<boolean> {
+    const dateStr = new Date(timestamp).toISOString();
+    logInfo(`${options.dryRun ? 'DRY RUN: ' : ''}Finding data created since ${dateStr}...`);
+
+    return await this.withSession(async (session) => {
+      // Count nodes by type - ONLY numeric timestamps, exclude HumanConnection
+      const nodeCountQuery = `
+        MATCH (n)
+        WHERE toInteger(n.createdAt) IS NOT NULL
+          AND toInteger(n.createdAt) >= $timestamp
+          AND NOT 'HumanConnection' IN labels(n)
+        WITH labels(n)[0] as nodeType, count(n) as count
+        RETURN nodeType, count
+        ORDER BY nodeType
+      `;
+
+      const nodeCountResult = await session.run(nodeCountQuery, {
+        timestamp: neo4j.int(timestamp)
+      });
+
+      // Count relationships by type - ONLY numeric timestamps
+      const relCountQuery = `
+        MATCH ()-[r]->()
+        WHERE toInteger(r.createdAt) IS NOT NULL
+          AND toInteger(r.createdAt) >= $timestamp
+        WITH type(r) as relType, count(r) as count
+        RETURN relType, count
+        ORDER BY relType
+      `;
+
+      const relCountResult = await session.run(relCountQuery, {
+        timestamp: neo4j.int(timestamp)
+      });
+
+      // Display node summary
+      log(colorize('bright', '\n=== NODES CREATED SINCE ' + dateStr + ' ==='));
+      let totalNodes = 0;
+
+      if (nodeCountResult.records.length === 0) {
+        logInfo('  No nodes found');
+      } else {
+        log(colorize('gray', 'Node Type'.padEnd(30) + 'Count'));
+        log(colorize('gray', '-'.repeat(40)));
+        for (const record of nodeCountResult.records) {
+          const nodeType = record.get('nodeType') || 'Unlabeled';
+          const count = record.get('count').toNumber();
+          totalNodes += count;
+          log(`  ${nodeType.padEnd(28)} ${count}`);
+        }
+        log(colorize('bright', `\nTotal nodes: ${totalNodes}`));
+      }
+
+      // Display relationship summary
+      log(colorize('bright', '\n=== RELATIONSHIPS CREATED SINCE ' + dateStr + ' ==='));
+      let totalRels = 0;
+
+      if (relCountResult.records.length === 0) {
+        logInfo('  No relationships found');
+      } else {
+        log(colorize('gray', 'Relationship Type'.padEnd(30) + 'Count'));
+        log(colorize('gray', '-'.repeat(40)));
+        for (const record of relCountResult.records) {
+          const relType = record.get('relType');
+          const count = record.get('count').toNumber();
+          totalRels += count;
+          log(`  ${relType.padEnd(28)} ${count}`);
+        }
+        log(colorize('bright', `\nTotal relationships: ${totalRels}`));
+      }
+
+      // Sample data for verification
+      if (totalNodes > 0 && options.verbose) {
+        log(colorize('cyan', '\n• Sample Nodes (first 5):'));
+        const sampleQuery = `
+          MATCH (n)
+          WHERE toInteger(n.createdAt) IS NOT NULL
+            AND toInteger(n.createdAt) >= $timestamp
+            AND NOT 'HumanConnection' IN labels(n)
+          RETURN labels(n)[0] as type,
+                 n.name as name,
+                 n.entityid as entityid,
+                 n.createdAt as createdAt
+          ORDER BY n.createdAt DESC
+          LIMIT 5
+        `;
+        const sampleResult = await session.run(sampleQuery, {
+          timestamp: neo4j.int(timestamp)
+        });
+        for (const record of sampleResult.records) {
+          const type = record.get('type') || 'Unknown';
+          const name = record.get('name') || record.get('entityid') || 'N/A';
+          const createdAtRaw = record.get('createdAt');
+          const createdAt = new Date(createdAtRaw).toISOString();
+          log(`  - ${type}: ${name} (created: ${createdAt})`);
+        }
+      }
+
+      // Overall summary
+      log(colorize('bright', '\n=== DELETION SUMMARY ==='));
+      log(`  Total nodes to delete: ${totalNodes}`);
+      log(`  Total relationships to delete: ${totalRels}`);
+
+      if (totalNodes === 0 && totalRels === 0) {
+        logInfo('\nNo data found created since the specified date');
+        return false;
+      }
+
+      if (options.dryRun) {
+        logWarning('\nDRY RUN: Would delete all nodes and relationships listed above');
+        logInfo('To execute deletion, run without --dry-run and with --confirm flag');
+        return true;
+      }
+
+      if (!options.confirm) {
+        logError('\nDeletion requires --confirm flag for safety');
+        logWarning(`This will permanently delete ${totalNodes} nodes and ${totalRels} relationships!`);
+        logInfo('Run with --confirm to proceed');
+        return false;
+      }
+
+      // Execute deletion
+      logWarning(`\nDeleting ${totalNodes} nodes and ${totalRels} relationships...`);
+
+      // Delete nodes (DETACH DELETE also removes their relationships) - ONLY numeric timestamps, exclude HumanConnection
+      const deleteQuery = `
+        MATCH (n)
+        WHERE toInteger(n.createdAt) IS NOT NULL
+          AND toInteger(n.createdAt) >= $timestamp
+          AND NOT 'HumanConnection' IN labels(n)
+        DETACH DELETE n
+        RETURN count(n) as deletedCount
+      `;
+
+      const deleteResult = await session.run(deleteQuery, {
+        timestamp: neo4j.int(timestamp)
+      });
+      const deletedCount = deleteResult.records[0].get('deletedCount').toNumber();
+
+      if (deletedCount > 0) {
+        logSuccess(`\nDeleted ${deletedCount} nodes and all their relationships`);
+
+        // Verify deletion
+        const verifyResult = await session.run(nodeCountQuery, {
+          timestamp: neo4j.int(timestamp)
+        });
+        const remaining = verifyResult.records.reduce((sum, r) => sum + r.get('count').toNumber(), 0);
+
+        if (remaining === 0) {
+          logSuccess('Verification: All targeted data successfully deleted');
+        } else {
+          logWarning(`Warning: ${remaining} nodes still remain with createdAt >= ${dateStr}`);
+        }
+
+        return true;
+      } else {
+        logError('\nFailed to delete data');
+        return false;
+      }
+    });
+  }
+
   // ============================================================================
   // PLACE MANAGEMENT
   // ============================================================================
@@ -1868,6 +2277,11 @@ function showHelp(): void {
   log('Commands:');
   log(colorize('cyan', '  deletePerson <id>') + '        Delete a Person node by entityid or id');
   log(colorize('cyan', '  deleteContactPoint <agentId>') + ' Delete ContactPoint nodes by agentId');
+  log(colorize('cyan', '  deleteHumanConnection <id>') + ' Delete a HumanConnection node by connectionId');
+  log(colorize('cyan', '  deleteUser <userId>') + '      Delete a user node by userId');
+  log(colorize('cyan', '  completeMatch <agentId> <person1Id> <person2Id>') + ' Mark MATCHED_WITH relationship as completed');
+  log(colorize('cyan', '  deleteByAgent <agentId>') + '    Delete all nodes created by specific agent');
+  log(colorize('cyan', '  deleteSinceDate <YYYY-MM-DD>') + ' Delete all nodes/relationships created since date');
   log(colorize('cyan', '  listPersons') + '              List all Person nodes with basic info');
   log(colorize('cyan', '  getPersonDetails <id>') + '    Show detailed Person information');
   log(colorize('cyan', '  createPlace <json-file>') + '  Create a Place node from JSON file');
@@ -1896,6 +2310,12 @@ function showHelp(): void {
   log('  bun scripts/updateMemgraph.ts listPersons --dry-run');
   log('  bun scripts/updateMemgraph.ts deletePerson abc123-def456-789');
   log('  bun scripts/updateMemgraph.ts deleteContactPoint 85dd8272-625b-053b-9c7d-d49cd0bbdde8');
+  log('  bun scripts/updateMemgraph.ts deleteHumanConnection "7360b4fb-ba3b-0eb8-aaac-9f9040ab4dd1_1760690724296"');
+  log('  bun scripts/updateMemgraph.ts deleteUser "7360b4fb-ba3b-0eb8-aaac-9f9040ab4dd1"');
+  log('  bun scripts/updateMemgraph.ts completeMatch 85dd8272-625b-053b-9c7d-d49cd0bbdde8 77bb6613-9c78-0319-830c-dc3353e517d7 1bdf179d-cb47-038e-9c41-b15853bcd63a');
+  log('  bun scripts/updateMemgraph.ts deleteByAgent 85dd8272-625b-053b-9c7d-d49cd0bbdde8 --dry-run');
+  log('  bun scripts/updateMemgraph.ts deleteSinceDate 2025-10-17 --dry-run --verbose');
+  log('  bun scripts/updateMemgraph.ts deleteSinceDate 2025-10-17 --confirm');
   log('  bun scripts/updateMemgraph.ts createPlace bantabaa-place.json --dry-run');
   log('  bun scripts/updateMemgraph.ts listPlaces --verbose');
   log('  bun scripts/updateMemgraph.ts getPlaceDetails "Fitness Studio Alpha"');
@@ -1935,6 +2355,58 @@ async function main(): Promise<void> {
           process.exit(1);
         }
         await manager.deleteContactPoint(args[0], options);
+        break;
+
+      case 'deleteHumanConnection':
+        if (args.length !== 1) {
+          logError('deleteHumanConnection requires exactly one connectionId argument');
+          process.exit(1);
+        }
+        await manager.deleteHumanConnection(args[0], options);
+        break;
+
+      case 'completeMatch':
+        if (args.length !== 3) {
+          logError('completeMatch requires exactly three arguments: agentId person1Id person2Id');
+          process.exit(1);
+        }
+        await manager.completeMatch(args[0], args[1], args[2], options);
+        break;
+
+      case 'deleteUser':
+        if (args.length !== 1) {
+          logError('deleteUser requires exactly one userId argument');
+          process.exit(1);
+        }
+        await manager.deleteUser(args[0], options);
+        break;
+
+      case 'deleteByAgent':
+        if (args.length !== 1) {
+          logError('deleteByAgent requires exactly one agentId argument');
+          process.exit(1);
+        }
+        await manager.deleteByAgent(args[0], options);
+        break;
+
+      case 'deleteSinceDate':
+        if (args.length !== 1) {
+          logError('deleteSinceDate requires exactly one date argument (YYYY-MM-DD)');
+          process.exit(1);
+        }
+        // Parse date string to Unix timestamp
+        const dateStr = args[0];
+        const dateMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!dateMatch) {
+          logError('Invalid date format. Use YYYY-MM-DD (e.g., 2025-10-17)');
+          process.exit(1);
+        }
+        const timestamp = new Date(dateStr + 'T00:00:00.000Z').getTime();
+        if (isNaN(timestamp)) {
+          logError('Invalid date. Please provide a valid date in YYYY-MM-DD format');
+          process.exit(1);
+        }
+        await manager.deleteSinceDate(timestamp, options);
         break;
 
       case 'listPersons':

@@ -159,7 +159,9 @@ export const start = new Command()
       });
 
       // Start HTTP server
-      await server.start(options.port || 3000);
+      // Priority: CLI flag > SERVER_PORT env var > default 3000
+      const port = options.port || parseInt(process.env.SERVER_PORT || '3000', 10);
+      await server.start(port);
 
       // Handle project agents with their init functions
       if (projectAgents && projectAgents.length > 0) {

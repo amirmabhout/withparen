@@ -1,4 +1,4 @@
-import { Provider, IAgentRuntime, Memory, State, logger, ProviderResult, ServiceType } from '@elizaos/core';
+import { Provider, IAgentRuntime, Memory, State, logger, ProviderResult } from '@elizaos/core';
 import { PDAWalletService } from '../services/pdaWalletService';
 import { Connection, PublicKey } from '@solana/web3.js';
 
@@ -21,8 +21,8 @@ export const pdaWalletProvider: Provider = {
   description: 'Provides PDA wallet information for users',
   get: async (runtime: IAgentRuntime, message: Memory, state?: State): Promise<ProviderResult> => {
     try {
-      // Get PDA wallet service using ServiceType.WALLET
-      const pdaService = runtime.getService(ServiceType.WALLET) as PDAWalletService;
+      // Get PDA wallet service
+      const pdaService = runtime.getService('pda_wallet') as PDAWalletService;
       if (!pdaService) {
         logger.warn('[pdaWalletProvider] PDAWalletService not available');
         return {

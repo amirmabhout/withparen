@@ -7,6 +7,7 @@ import {
   type Media,
   type Memory,
   ModelType,
+  ServiceType,
   type UUID,
   createUniqueUuid,
   logger,
@@ -563,6 +564,204 @@ export class MessageManager {
         },
         'Error handling reaction'
       );
+    }
+  }
+
+  /**
+   * Handles voice messages from Telegram and transcribes them
+   * @param {Context} ctx - The context object containing the voice message
+   * @returns {Promise<void>}
+   */
+  public async handleVoiceMessage(ctx: Context): Promise<void> {
+    // Type guard to ensure voice message exists
+    if (!ctx.message || !('voice' in ctx.message) || !ctx.from) return;
+
+    const message = ctx.message;
+    const voice = message.voice;
+
+    logger.info(`Received voice message: duration=${voice.duration}s, size=${voice.file_size} bytes`);
+
+    try {
+      // Get transcription service
+      const transcriptionService = this.runtime.getService(ServiceType.TRANSCRIPTION);
+      if (!transcriptionService) {
+        logger.warn('Transcription service not available - voice messages cannot be processed');
+        await ctx.reply('Sorry, voice message transcription is not available at the moment.');
+        return;
+      }
+
+      // Download voice file from Telegram
+      logger.debug(`Downloading voice file: ${voice.file_id}`);
+      const fileLink = await this.bot.telegram.getFileLink(voice.file_id);
+      const response = await fetch(fileLink.toString());
+
+      if (!response.ok) {
+        throw new Error(`Failed to download voice file: ${response.statusText}`);
+      }
+
+      const audioBuffer = Buffer.from(await response.arrayBuffer());
+      logger.debug(`Voice file downloaded: ${audioBuffer.length} bytes`);
+
+      // Transcribe the audio
+      logger.info('Transcribing voice message...');
+      const transcriptionResult = await (transcriptionService as any).transcribeAudio(audioBuffer, {
+        language: ctx.from.language_code,
+      });
+
+      logger.success(`Voice transcribed: "${transcriptionResult.text}"`);
+
+      // Instead of calling handleMessage, emit MESSAGE_RECEIVED event directly
+      // This ensures the event reaches the plugin handlers properly
+
+      // Convert IDs to UUIDs (same as handleMessage)
+      const entityId = createUniqueUuid(this.runtime, ctx.from.id.toString()) as UUID;
+
+      const threadId =
+        'is_topic_message' in message && message.is_topic_message
+          ? message.message_thread_id?.toString()
+          : undefined;
+
+      const telegramRoomid = threadId ? `${ctx.chat.id}-${threadId}` : ctx.chat.id.toString();
+      const roomId = createUniqueUuid(this.runtime, telegramRoomid) as UUID;
+      const messageId = createUniqueUuid(this.runtime, message.message_id.toString());
+
+      // Get chat type and determine channel type
+      const chat = message.chat as Chat;
+      const channelType = getChannelType(chat);
+      const sourceId = createUniqueUuid(this.runtime, '' + chat.id);
+
+      // Ensure connection exists
+      await this.runtime.ensureConnection({
+        entityId,
+        roomId,
+        userName: ctx.from.username,
+        name: ctx.from.first_name,
+        source: 'telegram',
+        channelId: telegramRoomid,
+        serverId: undefined,
+        type: channelType,
+        worldId: createUniqueUuid(this.runtime, roomId) as UUID,
+        worldName: telegramRoomid,
+      });
+
+      // Create the memory object with transcribed text
+      const memory: Memory = {
+        id: messageId,
+        entityId,
+        agentId: this.runtime.agentId,
+        roomId,
+        content: {
+          text: transcriptionResult.text,
+          source: 'telegram',
+          channelType: channelType,
+        },
+        metadata: {
+          entityName: ctx.from.first_name,
+          entityUserName: ctx.from.username,
+          fromBot: ctx.from.is_bot,
+          fromId: chat.id,
+          sourceId,
+          type: 'message',
+          // Mark this as a transcribed voice message
+          isTranscribed: true,
+          originalVoiceMetadata: {
+            file_id: voice.file_id,
+            duration: voice.duration,
+            mime_type: voice.mime_type,
+            file_size: voice.file_size,
+          },
+        },
+        createdAt: message.date * 1000,
+      };
+
+      // Create callback for handling responses
+      const callback: HandlerCallback = async (content: Content, _files?: string[]) => {
+        try {
+          if (!content.text) return [];
+
+          let sentMessages: boolean | Message.TextMessage[] = false;
+
+          if (content?.channelType === 'DM') {
+            sentMessages = [];
+            if (ctx.from) {
+              const res = await this.bot.telegram.sendMessage(ctx.from.id, content.text);
+              sentMessages.push(res);
+            }
+          } else {
+            sentMessages = await this.sendMessageInChunks(ctx, content, message.message_id);
+          }
+
+          if (!Array.isArray(sentMessages)) return [];
+
+          const memories: Memory[] = [];
+          for (let i = 0; i < sentMessages.length; i++) {
+            const sentMessage = sentMessages[i];
+
+            const responseMemory: Memory = {
+              id: createUniqueUuid(this.runtime, sentMessage.message_id.toString()),
+              entityId: this.runtime.agentId,
+              agentId: this.runtime.agentId,
+              roomId,
+              content: {
+                ...content,
+                source: 'telegram',
+                text: sentMessage.text,
+                inReplyTo: messageId,
+                channelType: channelType,
+              },
+              createdAt: sentMessage.date * 1000,
+            };
+
+            await this.runtime.createMemory(responseMemory, 'messages');
+            memories.push(responseMemory);
+          }
+
+          return memories;
+        } catch (error) {
+          logger.error({ error }, 'Error in message callback');
+          return [];
+        }
+      };
+
+      logger.debug(`Emitting MESSAGE_RECEIVED event for transcribed voice: "${transcriptionResult.text}"`);
+
+      // Emit MESSAGE_RECEIVED event (this is what triggers the agent's response)
+      this.runtime.emitEvent(EventType.MESSAGE_RECEIVED, {
+        runtime: this.runtime,
+        message: memory,
+        callback,
+        source: 'telegram',
+      });
+
+      // Also emit the platform-specific event
+      this.runtime.emitEvent(TelegramEventTypes.MESSAGE_RECEIVED, {
+        runtime: this.runtime,
+        message: memory,
+        callback,
+        source: 'telegram',
+        ctx,
+        originalMessage: message,
+      } as TelegramMessageReceivedPayload);
+
+      logger.debug('Voice message events emitted successfully');
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error(
+        {
+          error: errorMessage,
+          originalError: error,
+          voiceFileId: voice.file_id,
+        },
+        'Error processing voice message'
+      );
+
+      // Notify user of the error
+      try {
+        await ctx.reply('Sorry, I had trouble understanding that voice message. Could you try again or send a text message?');
+      } catch (replyError) {
+        logger.error('Failed to send error reply:', replyError);
+      }
     }
   }
 

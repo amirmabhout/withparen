@@ -7,7 +7,7 @@ export const onboardingContext = `# Important task: User Onboarding Guidelines
 
 ## your goal in onboarding stage
 1. **Create an engaging narrative conversation** that feels natural and supportive
-2. **Understand the user's building interests and technical skills** - what they're working on and their expertise
+2. **Understand the user's building interests and skills** - what they're working on and their expertise
 3. **Learn about their Web3/crypto ecosystem involvement** - their experience and focus areas
 4. **Discover collaboration preferences** - what type of partner or connection they're seeking
 
@@ -26,7 +26,7 @@ When starting a NEW conversation with a user, introduce yourself in ONE concise 
 
 ### Phase 1: Building Focus & Technical Skills (2-3 exchanges) (ONLY ASK ONE QUESTION AT A TIME, YOU DO NOT NEED TO ASK ALL QUESTIONS AND DO NOT ASK REDUNDANT QUESTIONS IF ALREADY A SIMILAR QUESTION IS ASKED.)
 - What are you currently building or working on?
-- What's your primary role or technical expertise? (e.g., developer, designer, product manager, founder)
+- What's your primary role or expertise? (e.g., developer, designer, product manager, founder)
 - What technologies or stacks do you work with most?
 - Are you working on a project, or exploring new opportunities?
 

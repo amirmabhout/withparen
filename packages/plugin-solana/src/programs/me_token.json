@@ -1,0 +1,312 @@
+{
+  "address": "CbTbi8L4kmQeHNsCVJUVRH4PCWFYBvHq7vQqPaVd3SB3",
+  "metadata": {
+    "name": "me_token",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Personal ME token system with daily minting limits"
+  },
+  "instructions": [
+    {
+      "name": "mint_daily",
+      "docs": [
+        "Mint daily $ME tokens (max 24/day with 24-hour reset)"
+      ],
+      "discriminator": [
+        222,
+        242,
+        187,
+        128,
+        207,
+        18,
+        236,
+        247
+      ],
+      "accounts": [
+        {
+          "name": "user_me_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  95,
+                  109,
+                  101
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "user_id_hash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "me_mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "user_id_hash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_me_wallet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  95,
+                  119,
+                  97,
+                  108,
+                  108,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "user_id_hash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "user_id",
+          "type": "string"
+        },
+        {
+          "name": "user_id_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "register_and_mint_initial",
+      "docs": [
+        "Register a PDA and create their personal $ME token with initial mint"
+      ],
+      "discriminator": [
+        149,
+        218,
+        143,
+        80,
+        197,
+        88,
+        24,
+        39
+      ],
+      "accounts": [
+        {
+          "name": "user_me_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  95,
+                  109,
+                  101
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "user_id_hash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "me_mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "user_id_hash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_me_wallet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  95,
+                  119,
+                  97,
+                  108,
+                  108,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "user_id_hash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "user_id",
+          "type": "string"
+        },
+        {
+          "name": "user_id_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "UserMeAccount",
+      "discriminator": [
+        224,
+        57,
+        224,
+        7,
+        112,
+        158,
+        103,
+        123
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "DailyLimitReached",
+      "msg": "Daily minting limit of 24 $ME reached. Try again tomorrow."
+    },
+    {
+      "code": 6001,
+      "name": "UserIdTooLong",
+      "msg": "User ID too long (max 64 bytes)"
+    }
+  ],
+  "types": [
+    {
+      "name": "UserMeAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user_id",
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
+            }
+          },
+          {
+            "name": "me_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "last_mint_time",
+            "type": "i64"
+          },
+          {
+            "name": "daily_minted_today",
+            "type": "u64"
+          },
+          {
+            "name": "total_minted",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ]
+}

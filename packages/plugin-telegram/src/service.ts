@@ -288,6 +288,15 @@ export class TelegramService extends Service {
    * @private
    */
   private setupMessageHandlers(): void {
+    // Voice message handler - process before regular message handler
+    this.bot?.on('voice', async (ctx) => {
+      try {
+        await this.messageManager!.handleVoiceMessage(ctx);
+      } catch (error) {
+        logger.error({ error }, 'Error handling voice message');
+      }
+    });
+
     // Regular message handler
     this.bot?.on('message', async (ctx) => {
       try {

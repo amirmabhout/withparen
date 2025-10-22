@@ -1,0 +1,431 @@
+{
+  "address": "FhdroQrark3WFM6aSG1PpESmCXee4uvMxmYvRKD9FfTN",
+  "metadata": {
+    "name": "human_connection",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "HumanConnection - Lock ME tokens, exchange PINs, unlock MEMO rewards"
+  },
+  "instructions": [
+    {
+      "name": "initialize_connection",
+      "docs": [
+        "Initialize a connection between two users with PIN hashes",
+        "Locks 24 $ME from user A and stores PIN hashes for verification"
+      ],
+      "discriminator": [
+        119,
+        77,
+        251,
+        72,
+        87,
+        7,
+        90,
+        4
+      ],
+      "accounts": [
+        {
+          "name": "connection",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  110,
+                  101,
+                  99,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "connection_id_hash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_a_pda"
+        },
+        {
+          "name": "user_b_pda"
+        },
+        {
+          "name": "user_a_me_wallet",
+          "writable": true
+        },
+        {
+          "name": "escrow_me_wallet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "connection_id_hash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_a_me_mint"
+        },
+        {
+          "name": "user_a_authority",
+          "docs": [
+            "User A's authority (signer for token transfer)"
+          ],
+          "signer": true
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "connection_id",
+          "type": "string"
+        },
+        {
+          "name": "connection_id_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "user_a_id",
+          "type": "string"
+        },
+        {
+          "name": "user_b_id",
+          "type": "string"
+        },
+        {
+          "name": "pin_a_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "pin_b_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "unlock_with_pin",
+      "docs": [
+        "User submits the OTHER person's PIN to unlock their $MEMO reward",
+        "Contract hashes the submitted PIN and compares with stored hash"
+      ],
+      "discriminator": [
+        89,
+        167,
+        93,
+        248,
+        31,
+        176,
+        49,
+        160
+      ],
+      "accounts": [
+        {
+          "name": "connection",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  110,
+                  101,
+                  99,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "connection_id_hash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_pda"
+        },
+        {
+          "name": "memo_mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  109,
+                  111,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_memo_wallet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  109,
+                  111,
+                  95,
+                  119,
+                  97,
+                  108,
+                  108,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user_pda"
+              }
+            ]
+          }
+        },
+        {
+          "name": "agent_memo_wallet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  103,
+                  101,
+                  110,
+                  116,
+                  95,
+                  109,
+                  101,
+                  109,
+                  111,
+                  95,
+                  119,
+                  97,
+                  108,
+                  108,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "agent"
+              }
+            ]
+          }
+        },
+        {
+          "name": "agent"
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "connection_id",
+          "type": "string"
+        },
+        {
+          "name": "connection_id_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "submitted_pin",
+          "type": "string"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Connection",
+      "discriminator": [
+        209,
+        186,
+        115,
+        58,
+        36,
+        236,
+        179,
+        10
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidPin",
+      "msg": "Invalid PIN provided"
+    },
+    {
+      "code": 6001,
+      "name": "AlreadyUnlocked",
+      "msg": "You have already unlocked this connection"
+    },
+    {
+      "code": 6002,
+      "name": "UnauthorizedUser",
+      "msg": "Unauthorized user for this connection"
+    },
+    {
+      "code": 6003,
+      "name": "ConnectionIdTooLong",
+      "msg": "Connection ID too long"
+    }
+  ],
+  "types": [
+    {
+      "name": "Connection",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "connection_id",
+            "type": "string"
+          },
+          {
+            "name": "user_a",
+            "type": "pubkey"
+          },
+          {
+            "name": "user_b",
+            "type": "pubkey"
+          },
+          {
+            "name": "user_a_id",
+            "type": "string"
+          },
+          {
+            "name": "user_b_id",
+            "type": "string"
+          },
+          {
+            "name": "pin_a_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "pin_b_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "user_a_unlocked",
+            "type": "bool"
+          },
+          {
+            "name": "user_b_unlocked",
+            "type": "bool"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ]
+}

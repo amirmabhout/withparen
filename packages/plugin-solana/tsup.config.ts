@@ -28,5 +28,8 @@ export default defineConfig({
     'querystring',
     '@elizaos/core',
     'zod',
+    '@coral-xyz/anchor', // Externalize Anchor to prevent bundling
+    '@solana/web3.js', // Externalize Solana web3 library
+    '@solana/spl-token', // Externalize Solana SPL token library
   ],
 });

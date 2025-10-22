@@ -1,4 +1,4 @@
-import { Service, ServiceType, IAgentRuntime, logger } from '@elizaos/core';
+import { Service, IAgentRuntime, logger } from '@elizaos/core';
 import { PublicKey, Connection, Keypair, SystemProgram, Transaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
@@ -27,7 +27,7 @@ export interface UserPDAWallet {
  * Users get deterministic wallet addresses without managing private keys
  */
 export class PDAWalletService extends Service {
-  static serviceType = ServiceType.WALLET;
+  static serviceType = 'pda_wallet';
 
   capabilityDescription = 'Manages PDA (Program Derived Address) wallets for users';
 
@@ -187,6 +187,20 @@ export class PDAWalletService extends Service {
     } catch (error) {
       logger.error(`[PDAWalletService] Error getting balance for ${platform}:${userId}: ${error}`);
       return 0;
+    }
+  }
+
+  /**
+   * Get PDA wallet for user (wrapper for compatibility)
+   * Returns format expected by coordinateAction and submitPinAction
+   */
+  public async getPDAWallet(platform: string, userId: string): Promise<{ address: string } | null> {
+    try {
+      const address = await this.ensureUserWallet(platform, userId);
+      return { address };
+    } catch (error) {
+      logger.error(`[PDAWalletService] Error getting PDA wallet for ${platform}:${userId}: ${error}`);
+      return null;
     }
   }
 
