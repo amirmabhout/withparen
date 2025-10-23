@@ -24,7 +24,7 @@ interface Character {
  * Paren's responses are warm, curious, and designed to help people articulate their building goals and discover great collaboration opportunities.
  */
 export const character: Character = {
-  name: 'Paren on Solana',
+  name: 'Solana with Paren',
   plugins: [
     // Core plugins first
     '@elizaos/plugin-sql',

@@ -1,6 +1,5 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
-    associated_token::AssociatedToken,
     token::{self, Mint, MintTo, Token, TokenAccount, Transfer},
 };
 use sha2::{Digest, Sha256};
@@ -242,6 +241,7 @@ pub mod unified_token_program {
     /// Unlock a connection with PIN
     pub fn unlock_connection(
         ctx: Context<UnlockConnection>,
+        user_id_hash: [u8; 32],
         pin: [u8; 4],
     ) -> Result<()> {
         // Get the user key before borrowing mutably
@@ -414,16 +414,20 @@ pub struct InitializeUser<'info> {
     #[account(
         init,
         payer = payer,
-        associated_token::mint = me_mint,
-        associated_token::authority = payer,
+        token::mint = me_mint,
+        token::authority = payer,
+        seeds = [b"user_me_token", user_id_hash.as_ref()],
+        bump
     )]
     pub user_me_ata: Account<'info, TokenAccount>,
 
     #[account(
         init,
         payer = payer,
-        associated_token::mint = memo_mint,
-        associated_token::authority = payer,
+        token::mint = memo_mint,
+        token::authority = payer,
+        seeds = [b"user_memo_token", user_id_hash.as_ref()],
+        bump
     )]
     pub user_memo_ata: Account<'info, TokenAccount>,
 
@@ -443,7 +447,6 @@ pub struct InitializeUser<'info> {
 
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
     pub rent: Sysvar<'info, Rent>,
 }
 
@@ -466,8 +469,8 @@ pub struct MintDailyMe<'info> {
 
     #[account(
         mut,
-        associated_token::mint = me_mint,
-        associated_token::authority = payer,
+        seeds = [b"user_me_token", user_id_hash.as_ref()],
+        bump
     )]
     pub user_me_ata: Account<'info, TokenAccount>,
 
@@ -487,15 +490,15 @@ pub struct LockMeForMemo<'info> {
 
     #[account(
         mut,
-        associated_token::mint = me_mint,
-        associated_token::authority = payer,
+        seeds = [b"user_me_token", user_id_hash.as_ref()],
+        bump
     )]
     pub user_me_ata: Account<'info, TokenAccount>,
 
     #[account(
         mut,
-        associated_token::mint = memo_mint,
-        associated_token::authority = payer,
+        seeds = [b"user_memo_token", user_id_hash.as_ref()],
+        bump
     )]
     pub user_memo_ata: Account<'info, TokenAccount>,
 
@@ -561,6 +564,7 @@ pub struct CreateConnection<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(user_id_hash: [u8; 32])]
 pub struct UnlockConnection<'info> {
     #[account(
         mut,
@@ -576,8 +580,8 @@ pub struct UnlockConnection<'info> {
 
     #[account(
         mut,
-        associated_token::mint = memo_mint,
-        associated_token::authority = payer,
+        seeds = [b"user_memo_token", user_id_hash.as_ref()],
+        bump
     )]
     pub user_memo_ata: Account<'info, TokenAccount>,
 

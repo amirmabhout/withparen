@@ -221,31 +221,8 @@ export class SocketIORouter {
     }
 
     try {
-      // Check if this is a DM channel and emit ENTITY_JOINED for proper world setup
-      const isDmForWorldSetup = metadata?.isDm || metadata?.channelType === ChannelType.DM;
-      if (isDmForWorldSetup && senderId) {
-        logger.info(
-          `[SocketIO] Detected DM channel during message submission, emitting ENTITY_JOINED for proper world setup`
-        );
-
-        const runtime = this.elizaOS.getAgents()[0];
-        if (runtime) {
-          runtime.emitEvent(EventType.ENTITY_JOINED as any, {
-            entityId: senderId as UUID,
-            runtime,
-            worldId: serverId, // Use serverId as worldId identifier
-            roomId: channelId as UUID,
-            metadata: {
-              type: ChannelType.DM,
-              isDm: true,
-              ...metadata,
-            },
-            source: 'socketio_message',
-          });
-
-          logger.info(`[SocketIO] ENTITY_JOINED event emitted for DM channel setup: ${senderId}`);
-        }
-      }
+      // ENTITY_JOINED is already emitted during channel joining (handleChannelJoining)
+      // so we don't need to emit it again here to avoid creating duplicate person nodes
 
       // Ensure the channel exists before creating the message
       logger.info(

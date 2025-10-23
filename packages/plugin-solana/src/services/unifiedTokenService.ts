@@ -141,6 +141,34 @@ export function deriveMeMintPDA(
 }
 
 /**
+ * Derive user's ME token account PDA
+ */
+export function deriveUserMeTokenPDA(
+    userId: string,
+    programId: PublicKey = UNIFIED_TOKEN_PROGRAM_ID
+): [PublicKey, number] {
+    const userIdHash = hashUserId(userId);
+    return PublicKey.findProgramAddressSync(
+        [Buffer.from('user_me_token'), userIdHash],
+        programId
+    );
+}
+
+/**
+ * Derive user's MEMO token account PDA
+ */
+export function deriveUserMemoTokenPDA(
+    userId: string,
+    programId: PublicKey = UNIFIED_TOKEN_PROGRAM_ID
+): [PublicKey, number] {
+    const userIdHash = hashUserId(userId);
+    return PublicKey.findProgramAddressSync(
+        [Buffer.from('user_memo_token'), userIdHash],
+        programId
+    );
+}
+
+/**
  * Derive connection PDA
  */
 export function deriveConnectionPDA(
@@ -310,16 +338,9 @@ export class UnifiedTokenService extends Service {
         const [userAccount] = deriveUserAccountPDA(userId, this.programId);
         const [meMint] = deriveMeMintPDA(userId, this.programId);
 
-        // Derive ATAs
-        const userMeAta = await getAssociatedTokenAddress(
-            meMint,
-            signer.publicKey
-        );
-
-        const userMemoAta = await getAssociatedTokenAddress(
-            this.memoMint,
-            signer.publicKey
-        );
+        // Derive PDA-based token accounts
+        const [userMeAta] = deriveUserMeTokenPDA(userId, this.programId);
+        const [userMemoAta] = deriveUserMemoTokenPDA(userId, this.programId);
 
         logger.debug(`[UnifiedTokenService] User Account: ${userAccount.toString()}`);
         logger.debug(`[UnifiedTokenService] ME Mint: ${meMint.toString()}`);
@@ -331,6 +352,17 @@ export class UnifiedTokenService extends Service {
             const accountInfo = await this.connection.getAccountInfo(userAccount);
             if (accountInfo) {
                 logger.info(`[UnifiedTokenService] User ${userId} already initialized`);
+
+                // Additional safety check: Verify ME ATA owner matches
+                try {
+                    const meAtaInfo = await this.connection.getAccountInfo(userMeAta);
+                    if (meAtaInfo) {
+                        logger.debug(`[UnifiedTokenService] ME ATA already exists for user ${userId}`);
+                    }
+                } catch (ataError) {
+                    logger.warn(`[UnifiedTokenService] User account exists but ME ATA missing - possible initialization issue. This may require manual recovery.`);
+                }
+
                 return 'already_initialized';
             }
         } catch (err) {
@@ -354,7 +386,6 @@ export class UnifiedTokenService extends Service {
             { pubkey: signer.publicKey, isSigner: true, isWritable: true },
             { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
             { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-            { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
             { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
         ];
 
@@ -402,7 +433,7 @@ export class UnifiedTokenService extends Service {
         const userIdHash = Array.from(hashUserId(userId));
         const [userAccount] = deriveUserAccountPDA(userId, this.programId);
         const [meMint] = deriveMeMintPDA(userId, this.programId);
-        const userMeAta = await getAssociatedTokenAddress(meMint, signer.publicKey);
+        const [userMeAta] = deriveUserMeTokenPDA(userId, this.programId);
 
         const tx = await this.program.methods
             .mintDailyMe(userId, userIdHash)
@@ -443,8 +474,8 @@ export class UnifiedTokenService extends Service {
         const userIdHash = Array.from(hashUserId(userId));
         const [userAccount] = deriveUserAccountPDA(userId, this.programId);
         const [meMint] = deriveMeMintPDA(userId, this.programId);
-        const userMeAta = await getAssociatedTokenAddress(meMint, signer.publicKey);
-        const userMemoAta = await getAssociatedTokenAddress(this.memoMint, signer.publicKey);
+        const [userMeAta] = deriveUserMeTokenPDA(userId, this.programId);
+        const [userMemoAta] = deriveUserMemoTokenPDA(userId, this.programId);
 
         const tx = await this.program.methods
             .lockMeForMemo(userIdHash, new BN(amount))
@@ -561,7 +592,7 @@ export class UnifiedTokenService extends Service {
 
         const [connectionAccount] = deriveConnectionPDA(connectionId, this.programId);
         const [userAccount] = deriveUserAccountPDA(userId, this.programId);
-        const userMemoAta = await getAssociatedTokenAddress(this.memoMint, signer.publicKey);
+        const [userMemoAta] = deriveUserMemoTokenPDA(userId, this.programId);
 
         // Convert PIN string to bytes
         const pinBytes = Array.from(Buffer.from(pin, 'utf8').slice(0, 4));

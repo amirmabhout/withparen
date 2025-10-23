@@ -420,7 +420,24 @@ const messageReceivedHandler = async ({
         // Initialize user with Unified Token Program (creates user account + mints initial 48 ME)
         try {
           const platform = message.content?.source || 'telegram';
-          const fullUserId = `${platform}:${message.entityId}`;
+
+          // CRITICAL FIX: Use original author_id from message metadata, not the transformed entityId
+          // message.entityId is a deterministic UUID created from author_id + agentId
+          // We need the original author_id to match the entity created in ENTITY_JOINED event
+          // Note: message.metadata is at the top level of the Memory object, not inside content
+          const originalAuthorId = (message.metadata as any)?.raw?.senderId || message.entityId;
+          const fullUserId = `${platform}:${originalAuthorId}`;
+
+          logger.debug(
+            `[discover-connection] Message structure - ` +
+            `metadata exists: ${!!message.metadata}, ` +
+            `raw exists: ${!!(message.metadata as any)?.raw}, ` +
+            `senderId: ${(message.metadata as any)?.raw?.senderId}`
+          );
+
+          logger.info(
+            `[discover-connection] Entity ID mapping - transformed: ${message.entityId}, original: ${originalAuthorId}`
+          );
 
           // Get UnifiedTokenService
           const unifiedTokenService = runtime.getService<UnifiedTokenService>('UNIFIED_TOKEN');
@@ -1228,6 +1245,7 @@ const syncSingleUser = async (
   try {
     const entity = await runtime.getEntityById(entityId);
     logger.info(`[discover-connection] Syncing user: ${entity?.metadata?.username || entityId}`);
+    logger.debug(`[discover-connection] syncSingleUser - entityId: ${entityId}, source: ${source}, channelId: ${channelId}`);
 
     // Ensure we're not using WORLD type and that we have a valid channelId
     if (!channelId) {
