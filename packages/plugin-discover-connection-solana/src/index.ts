@@ -42,6 +42,7 @@ import { messageHandlerTemplate } from './utils/promptTemplates.ts';
 import { TaskService } from './services/task.ts';
 import { MemgraphService } from './services/memgraph.ts';
 import type { AccountNode } from './utils/graphSchema.js';
+import type { UnifiedTokenService } from '@elizaos/plugin-solana';
 
 export * from './actions/index.ts';
 export * from './evaluators/index.ts';
@@ -416,64 +417,29 @@ const messageReceivedHandler = async ({
           `[discover-connection] Processing message: ${truncateToCompleteSentence(message.content.text || '', 50)}...`
         );
 
-        // Create or ensure PDA wallet for user
+        // Initialize user with Unified Token Program (creates user account + mints initial 48 ME)
         try {
-          // Check if Solana service is available
-          const solanaService = runtime.getService('chain_solana');
-          if (solanaService && 'createPDAWallet' in solanaService) {
-            const platform = message.content?.source || 'telegram';
-            const userId = message.entityId;
+          const platform = message.content?.source || 'telegram';
+          const fullUserId = `${platform}:${message.entityId}`;
 
-            // Create PDA wallet if it doesn't exist
-            const walletAddress = await (solanaService as any).createPDAWallet(platform, userId);
-            logger.info(`[discover-connection] User ${userId} on ${platform} has PDA wallet: ${walletAddress}`);
+          // Get UnifiedTokenService
+          const unifiedTokenService = runtime.getService<UnifiedTokenService>('UNIFIED_TOKEN');
+          if (unifiedTokenService && 'initializeUser' in unifiedTokenService) {
+            logger.info(`[discover-connection] Initializing user ${fullUserId}...`);
+            const signature = await unifiedTokenService.initializeUser(fullUserId);
 
-            // Store wallet address in memory for quick access
-            await runtime.createMemory({
-              entityId: message.entityId,
-              agentId: runtime.agentId,
-              roomId: message.roomId,
-              content: {
-                type: 'pda_wallet',
-                walletAddress,
-                platform,
-                userId,
-                createdAt: Date.now(),
-                text: `PDA wallet created for ${platform}:${userId}: ${walletAddress}`
-              },
-            }, 'pda_wallets').catch(err => {
-              // Don't fail the message processing if memory storage fails
-              logger.warn(`[discover-connection] Failed to store PDA wallet in memory: ${err}`);
-            });
-
-            // Register user for ME tokens (mint initial 48 $ME)
-            try {
-              const tokenService = runtime.getService('TOKEN');
-              if (tokenService && 'registerUser' in tokenService) {
-                const agentPrivateKey = runtime.getSetting('SOLANA_PRIVATE_KEY') || runtime.getSetting('WALLET_PRIVATE_KEY');
-                if (agentPrivateKey) {
-                  const { Keypair } = await import('@solana/web3.js');
-                  const bs58 = await import('bs58');
-                  const payerKeypair = Keypair.fromSecretKey(bs58.default.decode(agentPrivateKey));
-
-                  const signature = await (tokenService as any).registerUser(userId, payerKeypair);
-                  logger.info(`[discover-connection] Registered user ${userId} for ME tokens (48 $ME minted). Tx: ${signature}`);
-                } else {
-                  logger.warn('[discover-connection] No agent private key configured for ME token registration');
-                }
-              } else {
-                logger.debug('[discover-connection] TokenService not available for ME token registration');
-              }
-            } catch (meError) {
-              logger.error(`[discover-connection] Failed to register user for ME tokens: ${meError}`);
-              // Continue even if ME token registration fails
+            if (signature === 'already_initialized') {
+              logger.info(`[discover-connection] User ${fullUserId} already initialized`);
+            } else {
+              logger.info(`[discover-connection] ✓ User ${fullUserId} initialized with 48 $ME`);
+              logger.info(`[discover-connection] Transaction: https://explorer.solana.com/tx/${signature}?cluster=devnet`);
             }
           } else {
-            logger.debug('[discover-connection] Solana service not available or PDA methods not found');
+            logger.warn('[discover-connection] UnifiedTokenService not available');
           }
-        } catch (error) {
-          logger.error(`[discover-connection] Failed to create PDA wallet: ${error}`);
-          // Continue processing message even if wallet creation fails
+        } catch (error: any) {
+          logger.error(`[discover-connection] Failed to initialize user: ${error?.message || String(error)}`);
+          // Continue processing message even if initialization fails
         }
 
         // DEBUG: Log user match information at message start

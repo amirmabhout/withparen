@@ -3,28 +3,36 @@ import { executeSwap } from './actions/swap';
 import transferToken from './actions/transfer';
 import { SOLANA_SERVICE_NAME } from './constants';
 import { walletProvider } from './providers/wallet';
-import { pdaWalletProvider } from './providers/pdaWalletProvider';
+import { userTokensProvider } from './providers/userTokens';
 import { SolanaService } from './service';
-import { PDAWalletService } from './services/pdaWalletService';
-import { TokenService } from './services/tokenService';
+import { UnifiedTokenService } from './services/unifiedTokenService';
 
-// Export PDA functionality and TokenService for other plugins to use
-export { PDAWalletService } from './services/pdaWalletService';
-export { TokenService } from './services/tokenService';
-export { pdaWalletProvider } from './providers/pdaWalletProvider';
+// Export Unified Token Service for other plugins to use
+export { UnifiedTokenService } from './services/unifiedTokenService';
 export { SolanaService } from './service';
 
-// Export token program IDs for use by other plugins
-export { ME_TOKEN_PROGRAM_ID } from './programs/me-token';
-export { HUMAN_CONNECTION_PROGRAM_ID } from './programs/human-connection';
+// Export helper functions for PDA derivation
+export {
+    hashUserId,
+    hashPin,
+    deriveGlobalStatePDA,
+    deriveMemoMintPDA,
+    deriveMeEscrowPDA,
+    deriveUserAccountPDA,
+    deriveMeMintPDA,
+    deriveConnectionPDA,
+} from './services/unifiedTokenService';
+
+// Export types
+export type { UserBalances, ConnectionInfo } from './services/unifiedTokenService';
 
 export const solanaPlugin: Plugin = {
   name: SOLANA_SERVICE_NAME,
-  description: 'Solana Plugin for Eliza with PDA wallet and token management support',
+  description: 'Solana Plugin for Eliza with Unified Token Program support',
   actions: [],
   evaluators: [],
-  providers: [pdaWalletProvider],
-  services: [SolanaService, PDAWalletService, TokenService],
+  providers: [userTokensProvider],
+  services: [SolanaService, UnifiedTokenService],
   init: async (_, runtime: IAgentRuntime) => {
     console.log('solana init');
 

@@ -191,6 +191,7 @@ standalone.ts
 
 packages/plugin-deepen-connection
 packages/plugin-discover-connection
+packages/plugin-matchmaking
 packages/agentseren
 packages/agentbantabawithparen
 packages/agentcicwithparen

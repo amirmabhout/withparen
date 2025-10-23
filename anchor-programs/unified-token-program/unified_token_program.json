@@ -1,0 +1,164 @@
+{
+  "version": "0.1.0",
+  "metadata": {"address": "GXnod1W71vzjuFkXHxwQ2dkBe7t1auJMtwMQYL67ytVt"},
+  "name": "unified_token_program",
+  "instructions": [
+    {
+      "name": "initializeGlobal",
+      "accounts": [
+        { "name": "globalState", "isMut": true, "isSigner": false },
+        { "name": "memoMint", "isMut": true, "isSigner": false },
+        { "name": "meEscrow", "isMut": true, "isSigner": false },
+        { "name": "admin", "isMut": true, "isSigner": true },
+        { "name": "systemProgram", "isMut": false, "isSigner": false },
+        { "name": "tokenProgram", "isMut": false, "isSigner": false },
+        { "name": "rent", "isMut": false, "isSigner": false }
+      ],
+      "args": []
+    },
+    {
+      "name": "initializeUser",
+      "accounts": [
+        { "name": "userAccount", "isMut": true, "isSigner": false },
+        { "name": "meMint", "isMut": true, "isSigner": false },
+        { "name": "userMeAta", "isMut": true, "isSigner": false },
+        { "name": "userMemoAta", "isMut": true, "isSigner": false },
+        { "name": "globalState", "isMut": true, "isSigner": false },
+        { "name": "memoMint", "isMut": false, "isSigner": false },
+        { "name": "payer", "isMut": true, "isSigner": true },
+        { "name": "systemProgram", "isMut": false, "isSigner": false },
+        { "name": "tokenProgram", "isMut": false, "isSigner": false },
+        { "name": "associatedTokenProgram", "isMut": false, "isSigner": false },
+        { "name": "rent", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "userId", "type": "string" },
+        { "name": "userIdHash", "type": { "array": ["u8", 32] } }
+      ]
+    },
+    {
+      "name": "mintDailyMe",
+      "accounts": [
+        { "name": "userAccount", "isMut": true, "isSigner": false },
+        { "name": "meMint", "isMut": true, "isSigner": false },
+        { "name": "userMeAta", "isMut": true, "isSigner": false },
+        { "name": "payer", "isMut": false, "isSigner": true },
+        { "name": "tokenProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "userId", "type": "string" },
+        { "name": "userIdHash", "type": { "array": ["u8", 32] } }
+      ]
+    },
+    {
+      "name": "lockMeForMemo",
+      "accounts": [
+        { "name": "userAccount", "isMut": true, "isSigner": false },
+        { "name": "userMeAta", "isMut": true, "isSigner": false },
+        { "name": "userMemoAta", "isMut": true, "isSigner": false },
+        { "name": "globalState", "isMut": false, "isSigner": false },
+        { "name": "memoMint", "isMut": true, "isSigner": false },
+        { "name": "meEscrow", "isMut": true, "isSigner": false },
+        { "name": "meMint", "isMut": false, "isSigner": false },
+        { "name": "payer", "isMut": false, "isSigner": true },
+        { "name": "tokenProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "userIdHash", "type": { "array": ["u8", 32] } },
+        { "name": "amount", "type": "u64" }
+      ]
+    },
+    {
+      "name": "createConnection",
+      "accounts": [
+        { "name": "connectionAccount", "isMut": true, "isSigner": false },
+        { "name": "userAAccount", "isMut": true, "isSigner": false },
+        { "name": "userBAccount", "isMut": true, "isSigner": false },
+        { "name": "globalState", "isMut": true, "isSigner": false },
+        { "name": "payer", "isMut": true, "isSigner": true },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "connectionId", "type": "string" },
+        { "name": "userAId", "type": "string" },
+        { "name": "userBId", "type": "string" },
+        { "name": "pinAHash", "type": { "array": ["u8", 32] } },
+        { "name": "pinBHash", "type": { "array": ["u8", 32] } }
+      ]
+    },
+    {
+      "name": "unlockConnection",
+      "accounts": [
+        { "name": "connectionAccount", "isMut": true, "isSigner": false },
+        { "name": "userAccount", "isMut": true, "isSigner": false },
+        { "name": "userMemoAta", "isMut": true, "isSigner": false },
+        { "name": "globalState", "isMut": false, "isSigner": false },
+        { "name": "memoMint", "isMut": true, "isSigner": false },
+        { "name": "payer", "isMut": false, "isSigner": true },
+        { "name": "tokenProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "pin", "type": { "array": ["u8", 4] } }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "GlobalState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "memoMint", "type": "publicKey" },
+          { "name": "meEscrow", "type": "publicKey" },
+          { "name": "admin", "type": "publicKey" },
+          { "name": "totalUsers", "type": "u64" },
+          { "name": "totalConnections", "type": "u64" }
+        ]
+      }
+    },
+    {
+      "name": "UserAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "userId", "type": { "array": ["u8", 64] } },
+          { "name": "meMint", "type": "publicKey" },
+          { "name": "lastMintTime", "type": "i64" },
+          { "name": "dailyMintedToday", "type": "u64" },
+          { "name": "totalMeMinted", "type": "u64" },
+          { "name": "totalMeLocked", "type": "u64" },
+          { "name": "totalMemoEarned", "type": "u64" },
+          { "name": "connectionsCount", "type": "u64" },
+          { "name": "bump", "type": "u8" }
+        ]
+      }
+    },
+    {
+      "name": "ConnectionAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "connectionId", "type": { "array": ["u8", 64] } },
+          { "name": "userA", "type": "publicKey" },
+          { "name": "userB", "type": "publicKey" },
+          { "name": "pinAHash", "type": { "array": ["u8", 32] } },
+          { "name": "pinBHash", "type": { "array": ["u8", 32] } },
+          { "name": "userAUnlocked", "type": "bool" },
+          { "name": "userBUnlocked", "type": "bool" },
+          { "name": "createdAt", "type": "i64" },
+          { "name": "bump", "type": "u8" }
+        ]
+      }
+    }
+  ],
+  "errors": [
+    { "code": 6000, "name": "DailyLimitReached", "msg": "Daily minting limit of 24 ME reached. Try again tomorrow." },
+    { "code": 6001, "name": "UserIdTooLong", "msg": "User ID too long (max 64 bytes)" },
+    { "code": 6002, "name": "InvalidAmount", "msg": "Invalid amount - must be greater than 0" },
+    { "code": 6003, "name": "InvalidPin", "msg": "Invalid PIN" },
+    { "code": 6004, "name": "UnauthorizedUser", "msg": "Unauthorized user for this connection" },
+    { "code": 6005, "name": "AlreadyUnlocked", "msg": "Already unlocked" },
+    { "code": 6006, "name": "ConnectionFullyUnlocked", "msg": "Connection already fully unlocked" },
+    { "code": 6007, "name": "SameUserConnection", "msg": "Cannot create connection with same user" }
+  ]
+}

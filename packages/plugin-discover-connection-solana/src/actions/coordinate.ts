@@ -22,6 +22,7 @@ import {
   parseToISO,
   getCurrentISO,
 } from '../utils/timeHelpers.js';
+import type { UnifiedTokenService } from '@elizaos/plugin-solana';
 
 /**
  * Helper function to format message memories into readable conversation history
@@ -381,73 +382,50 @@ export const coordinateAction: Action = {
         !activeMatch.connectionId
       ) {
         try {
-          logger.info(`[coordinate] Initializing HumanConnection for match ${user1Id} -> ${user2Id}`);
+          logger.info(`[coordinate] Creating connection for match ${user1Id} -> ${user2Id}`);
 
-          // Get TokenService
-          const tokenService = runtime.getService('TOKEN');
-          if (!tokenService || !('createHumanConnection' in tokenService)) {
-            logger.error('[coordinate] TokenService not available, skipping HumanConnection initialization');
+          // Get UnifiedTokenService
+          const unifiedTokenService = runtime.getService<UnifiedTokenService>('UNIFIED_TOKEN');
+          if (!unifiedTokenService || !('createConnection' in unifiedTokenService)) {
+            logger.error('[coordinate] UnifiedTokenService not available, skipping connection creation');
           } else {
-            // Get PDA wallet addresses for both users
-            const pdaWalletService = runtime.getService('pda_wallet');
-            if (!pdaWalletService || !('getPDAWallet' in pdaWalletService)) {
-              logger.error('[coordinate] PDAWalletService not available, skipping HumanConnection initialization');
-            } else {
-              // Get PDA addresses (format: platform:userId)
-              const platform = 'telegram'; // Default platform, could be dynamic based on user source
-              const user1PdaResult = await (pdaWalletService as any).getPDAWallet(platform, user1Id);
-              const user2PdaResult = await (pdaWalletService as any).getPDAWallet(platform, user2Id);
+            // Format user IDs (assume telegram platform)
+            const platform = 'telegram';
+            const fullUser1Id = `${platform}:${user1Id}`;
+            const fullUser2Id = `${platform}:${user2Id}`;
 
-              if (!user1PdaResult?.address || !user2PdaResult?.address) {
-                logger.error('[coordinate] Failed to get PDA wallet addresses');
-              } else {
-                logger.info(`[coordinate] PDA wallets - User1: ${user1PdaResult.address}, User2: ${user2PdaResult.address}`);
+            // Generate random 4-digit PINs
+            const pinA = Math.floor(1000 + Math.random() * 9000).toString();
+            const pinB = Math.floor(1000 + Math.random() * 9000).toString();
 
-                // Get payer keypair from agent wallet
-                const agentPrivateKey = runtime.getSetting('SOLANA_PRIVATE_KEY') || runtime.getSetting('WALLET_PRIVATE_KEY');
-                if (!agentPrivateKey) {
-                  logger.error('[coordinate] No agent private key configured');
-                } else {
-                  const { Keypair } = await import('@solana/web3.js');
-                  const { PublicKey } = await import('@solana/web3.js');
-                  const bs58 = await import('bs58');
+            // Create connection ID
+            const connectionId = `${fullUser1Id}-${fullUser2Id}`;
 
-                  const payerKeypair = Keypair.fromSecretKey(bs58.default.decode(agentPrivateKey));
-                  const user1Pda = new PublicKey(user1PdaResult.address);
-                  const user2Pda = new PublicKey(user2PdaResult.address);
+            // Create connection on-chain
+            const tx = await unifiedTokenService.createConnection(
+              connectionId,
+              fullUser1Id,
+              fullUser2Id,
+              pinA,
+              pinB
+            );
 
-                  // Import ME_TOKEN_PROGRAM_ID
-                  const { ME_TOKEN_PROGRAM_ID } = await import('@elizaos/plugin-solana');
+            connectionData = {
+              connectionId,
+              pinA,
+              pinB,
+              pdaWalletA: fullUser1Id, // Store full user ID for reference
+              pdaWalletB: fullUser2Id,
+            };
 
-                  // Create HumanConnection on-chain
-                  const result = await (tokenService as any).createHumanConnection(
-                    user1Id,
-                    user2Id,
-                    user1Pda,
-                    user2Pda,
-                    payerKeypair, // userAAuthority
-                    payerKeypair, // payer
-                    ME_TOKEN_PROGRAM_ID
-                  );
-
-                  connectionData = {
-                    connectionId: result.connectionId,
-                    pinA: result.pinA,
-                    pinB: result.pinB,
-                    pdaWalletA: user1PdaResult.address,
-                    pdaWalletB: user2PdaResult.address,
-                  };
-
-                  logger.info(`[coordinate] HumanConnection created: ${result.connectionId}`);
-                  logger.info(`[coordinate] User A (${user1Id}) gets PIN B: ${result.pinB}`);
-                  logger.info(`[coordinate] User B (${user2Id}) gets PIN A: ${result.pinA}`);
-                }
-              }
-            }
+            logger.info(`[coordinate] ✓ Connection created: ${connectionId}`);
+            logger.info(`[coordinate] User A (${user1Id}) gets PIN B: ${pinB}`);
+            logger.info(`[coordinate] User B (${user2Id}) gets PIN A: ${pinA}`);
+            logger.info(`[coordinate] Transaction: https://explorer.solana.com/tx/${tx}?cluster=devnet`);
           }
-        } catch (error) {
-          logger.error(`[coordinate] Failed to create HumanConnection: ${error}`);
-          // Continue with match coordination even if HumanConnection fails
+        } catch (error: any) {
+          logger.error(`[coordinate] Failed to create connection: ${error?.message || String(error)}`);
+          // Continue with match coordination even if connection creation fails
         }
       }
 

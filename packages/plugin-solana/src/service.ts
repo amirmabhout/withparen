@@ -17,7 +17,6 @@ import BigNumber from 'bignumber.js';
 import { SOLANA_SERVICE_NAME, SOLANA_WALLET_DATA_CACHE_KEY } from './constants';
 import { getWalletKey, KeypairResult } from './keypairUtils';
 import type { Item, Prices, WalletPortfolio } from './types';
-import { PDAWalletService } from './services/pdaWalletService';
 import bs58 from 'bs58';
 import nacl from "tweetnacl";
 
@@ -74,7 +73,6 @@ export class SolanaService extends Service {
   private publicKey: PublicKey | null = null;
   private exchangeRegistry: Record<number, any> = {};
   private subscriptions: Map<string, number> = new Map();
-  private pdaWalletService: PDAWalletService | null = null;
 
   jupiterService: any | null = null; // Disabled - only needed for swap functionality
 
@@ -858,64 +856,6 @@ export class SolanaService extends Service {
     }
 
     /**
-     * Creates or gets a PDA wallet for a user based on platform and user ID
-     * @param {string} platform - Platform name (e.g., 'telegram', 'discord')
-     * @param {string} userId - User's platform-specific ID
-     * @returns {Promise<string>} The PDA wallet address
-     */
-    public async createPDAWallet(platform: string, userId: string): Promise<string> {
-      try {
-        if (!this.pdaWalletService) {
-          this.pdaWalletService = new PDAWalletService(this.runtime);
-          logger.info('[SolanaService] Initialized PDAWalletService');
-        }
-
-        const walletAddress = await this.pdaWalletService.ensureUserWallet(platform, userId);
-        logger.info(`[SolanaService] PDA wallet for ${platform}:${userId}: ${walletAddress}`);
-        return walletAddress;
-      } catch (error) {
-        logger.error(`[SolanaService] Error creating PDA wallet: ${error}`);
-        throw error;
-      }
-    }
-
-    /**
-     * Gets the PDA wallet address for a user (doesn't create if not exists)
-     * @param {string} platform - Platform name (e.g., 'telegram', 'discord')
-     * @param {string} userId - User's platform-specific ID
-     * @returns {Promise<string | null>} The PDA wallet address or null if not exists
-     */
-    public async getPDAWalletAddress(platform: string, userId: string): Promise<string | null> {
-      try {
-        if (!this.pdaWalletService) {
-          this.pdaWalletService = new PDAWalletService(this.runtime);
-        }
-
-        return await this.pdaWalletService.getUserWalletAddress(platform, userId);
-      } catch (error) {
-        logger.error(`[SolanaService] Error getting PDA wallet address: ${error}`);
-        return null;
-      }
-    }
-
-    /**
-     * Gets the balance of a PDA wallet
-     * @param {string} platform - Platform name (e.g., 'telegram', 'discord')
-     * @param {string} userId - User's platform-specific ID
-     * @returns {Promise<number>} The wallet balance in SOL
-     */
-    public async getPDAWalletBalance(platform: string, userId: string): Promise<number> {
-      try {
-        if (!this.pdaWalletService) {
-          this.pdaWalletService = new PDAWalletService(this.runtime);
-        }
-
-        return await this.pdaWalletService.getWalletBalance(platform, userId);
-      } catch (error) {
-        logger.error(`[SolanaService] Error getting PDA wallet balance: ${error}`);
-        return 0;
-      }
-    }
 
 /*
   for (const t of haveTokens) {
