@@ -450,12 +450,110 @@ export const coordinateAction: Action = {
             const fullUser1Id = `${platform}:${user1Id}`;
             const fullUser2Id = `${platform}:${user2Id}`;
 
+            // Check if both users have Solana accounts initialized and stored in Memgraph
+            const user1Node = await memgraphService.getPersonNode(user1Id);
+            const user2Node = await memgraphService.getPersonNode(user2Id);
+
+            // Ensure both users have on-chain accounts
+            if (!user1Node?.solana || !user2Node?.solana) {
+              const missingUser = !user1Node?.solana ? user1Id : user2Id;
+              const missingUserLabel = !user1Node?.solana ? 'User A' : 'User B';
+              logger.warn(
+                `[coordinate] ${missingUserLabel} (${missingUser}) Solana account not found in Memgraph - ensuring initialization`
+              );
+
+              // Ensure both users are initialized on-chain
+              try {
+                const user1InitResult = await unifiedTokenService.initializeUser(fullUser1Id);
+                if (user1InitResult !== 'already_initialized') {
+                  logger.info(`[coordinate] ✓ User A (${user1Id}) initialized with 48 $ME`);
+
+                  // Store User A's addresses if just initialized
+                  const {
+                    deriveUserAccountPDA,
+                    deriveMeMintPDA,
+                    deriveUserMeTokenPDA,
+                    deriveUserMemoTokenPDA,
+                    deriveMemoMintPDA,
+                  } = await import('@elizaos/plugin-solana');
+
+                  const [userAccountPDA] = deriveUserAccountPDA(fullUser1Id);
+                  const [meMintPDA] = deriveMeMintPDA(fullUser1Id);
+                  const [userMeATA] = deriveUserMeTokenPDA(fullUser1Id);
+                  const [userMemoATA] = deriveUserMemoTokenPDA(fullUser1Id);
+                  const [memoMintPDA] = deriveMemoMintPDA();
+
+                  await memgraphService.updatePersonSolanaAddresses(user1Id, {
+                    userAccountPDA: userAccountPDA.toBase58(),
+                    meMintPDA: meMintPDA.toBase58(),
+                    userMeATA: userMeATA.toBase58(),
+                    userMemoATA: userMemoATA.toBase58(),
+                    memoMintPDA: memoMintPDA.toBase58(),
+                    initializedAt: Date.now(),
+                  });
+                } else {
+                  logger.info(`[coordinate] User A (${user1Id}) already initialized on-chain`);
+                }
+
+                const user2InitResult = await unifiedTokenService.initializeUser(fullUser2Id);
+                if (user2InitResult !== 'already_initialized') {
+                  logger.info(`[coordinate] ✓ User B (${user2Id}) initialized with 48 $ME`);
+
+                  // Store User B's addresses if just initialized
+                  const {
+                    deriveUserAccountPDA,
+                    deriveMeMintPDA,
+                    deriveUserMeTokenPDA,
+                    deriveUserMemoTokenPDA,
+                    deriveMemoMintPDA,
+                  } = await import('@elizaos/plugin-solana');
+
+                  const [userAccountPDA] = deriveUserAccountPDA(fullUser2Id);
+                  const [meMintPDA] = deriveMeMintPDA(fullUser2Id);
+                  const [userMeATA] = deriveUserMeTokenPDA(fullUser2Id);
+                  const [userMemoATA] = deriveUserMemoTokenPDA(fullUser2Id);
+                  const [memoMintPDA] = deriveMemoMintPDA();
+
+                  await memgraphService.updatePersonSolanaAddresses(user2Id, {
+                    userAccountPDA: userAccountPDA.toBase58(),
+                    meMintPDA: meMintPDA.toBase58(),
+                    userMeATA: userMeATA.toBase58(),
+                    userMemoATA: userMemoATA.toBase58(),
+                    memoMintPDA: memoMintPDA.toBase58(),
+                    initializedAt: Date.now(),
+                  });
+                } else {
+                  logger.info(`[coordinate] User B (${user2Id}) already initialized on-chain`);
+                }
+              } catch (initError: any) {
+                logger.error(
+                  `[coordinate] Failed to ensure user initialization: ${initError?.message || String(initError)}`
+                );
+                throw new Error(
+                  `User initialization failed: ${initError?.message || 'Unknown error'}`
+                );
+              }
+            } else {
+              logger.info(
+                `[coordinate] Both users have Solana accounts stored in Memgraph - proceeding with connection creation`
+              );
+            }
+
             // Generate random 4-digit PINs
             const pinA = Math.floor(1000 + Math.random() * 9000).toString();
             const pinB = Math.floor(1000 + Math.random() * 9000).toString();
 
-            // Create connection ID
-            const connectionId = `${fullUser1Id}-${fullUser2Id}`;
+            // Create deterministic connection ID using hash (fits in 32 byte seed limit)
+            // Solana PDA seeds have a 32-byte limit, so we hash the full connection string
+            const fullConnectionString = `${fullUser1Id}-${fullUser2Id}`;
+            const crypto = await import('crypto');
+            const connectionIdHash = crypto
+              .createHash('sha256')
+              .update(fullConnectionString)
+              .digest('hex')
+              .substring(0, 32); // Take first 32 chars of hex (16 bytes when converted back)
+
+            const connectionId = connectionIdHash;
 
             // Create connection on-chain
             const tx = await unifiedTokenService.createConnection(
@@ -467,7 +565,8 @@ export const coordinateAction: Action = {
             );
 
             connectionData = {
-              connectionId,
+              connectionId, // Hashed version for on-chain
+              fullConnectionString, // Original for display/debugging
               pinA,
               pinB,
               pdaWalletA: fullUser1Id, // Store full user ID for reference
@@ -475,6 +574,7 @@ export const coordinateAction: Action = {
             };
 
             logger.info(`[coordinate] ✓ Connection created: ${connectionId}`);
+            logger.info(`[coordinate] Full connection string: ${fullConnectionString}`);
             logger.info(`[coordinate] User A (${user1Id}) gets PIN B: ${pinB}`);
             logger.info(`[coordinate] User B (${user2Id}) gets PIN A: ${pinA}`);
             logger.info(

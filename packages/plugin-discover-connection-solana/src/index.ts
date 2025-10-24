@@ -452,6 +452,43 @@ const messageReceivedHandler = async ({
               logger.info(
                 `[discover-connection] Transaction: https://explorer.solana.com/tx/${signature}?cluster=devnet`
               );
+
+              // Store Solana PDA/ATA addresses in Memgraph after successful initialization
+              try {
+                const {
+                  deriveUserAccountPDA,
+                  deriveMeMintPDA,
+                  deriveUserMeTokenPDA,
+                  deriveUserMemoTokenPDA,
+                  deriveMemoMintPDA,
+                } = await import('@elizaos/plugin-solana');
+
+                const [userAccountPDA] = deriveUserAccountPDA(fullUserId);
+                const [meMintPDA] = deriveMeMintPDA(fullUserId);
+                const [userMeATA] = deriveUserMeTokenPDA(fullUserId);
+                const [userMemoATA] = deriveUserMemoTokenPDA(fullUserId);
+                const [memoMintPDA] = deriveMemoMintPDA();
+
+                const memgraphService = runtime.getService('memgraph') as MemgraphService;
+                if (memgraphService) {
+                  await memgraphService.updatePersonSolanaAddresses(message.entityId, {
+                    userAccountPDA: userAccountPDA.toBase58(),
+                    meMintPDA: meMintPDA.toBase58(),
+                    userMeATA: userMeATA.toBase58(),
+                    userMemoATA: userMemoATA.toBase58(),
+                    memoMintPDA: memoMintPDA.toBase58(),
+                    initializedAt: Date.now(),
+                  });
+                  logger.info(
+                    `[discover-connection] Stored Solana addresses for ${message.entityId} in Memgraph`
+                  );
+                }
+              } catch (storeError: any) {
+                logger.error(
+                  `[discover-connection] Failed to store Solana addresses: ${storeError?.message || String(storeError)}`
+                );
+                // Continue - non-critical, can derive later if needed
+              }
             }
           } else {
             logger.warn('[discover-connection] UnifiedTokenService not available');
@@ -562,17 +599,35 @@ const messageReceivedHandler = async ({
           let responseContent: Content | null = null;
 
           if (userStatus === 'matched') {
-            // User is matched - bypass LLM and route directly to COORDINATE action
-            logger.debug(
-              '[discover-connection] User is matched, routing directly to COORDINATE action'
-            );
-            responseContent = {
-              thought: 'User is in matched status, coordinating their active match',
-              actions: ['COORDINATE'],
-              providers: [],
-              text: '', // Will be filled by COORDINATE handler
-              simple: false,
-            };
+            // Check if user is submitting a PIN (4-digit code)
+            const text = message.content?.text || '';
+            const pinPattern = /\b\d{4}\b/;
+
+            if (pinPattern.test(text)) {
+              // User is submitting a PIN - route to SUBMIT_PIN action
+              logger.debug(
+                '[discover-connection] User is matched and submitting PIN, routing to SUBMIT_PIN'
+              );
+              responseContent = {
+                thought: 'User is submitting PIN to unlock rewards after meeting their match',
+                actions: ['SUBMIT_PIN'],
+                providers: [],
+                text: '',
+                simple: false,
+              };
+            } else {
+              // User is matched - route to COORDINATE action for coordination
+              logger.debug(
+                '[discover-connection] User is matched, routing directly to COORDINATE action'
+              );
+              responseContent = {
+                thought: 'User is in matched status, coordinating their active match',
+                actions: ['COORDINATE'],
+                providers: [],
+                text: '', // Will be filled by COORDINATE handler
+                simple: false,
+              };
+            }
           } else {
             // Continue with normal LLM-based action selection...
             // Note: PERSONA_MEMORY and CONNECTION_MEMORY removed - plugin-memory handles this
@@ -1661,8 +1716,18 @@ const events = {
         return;
       }
 
+      // CRITICAL FIX: Transform entityId to match what MESSAGE_RECEIVED will use
+      // ElizaOS core transforms entity IDs using createUniqueUuid(runtime, entityId)
+      // for messages. We must use the same transformation here to prevent duplicate
+      // Person nodes in Memgraph (one with original ID, one with transformed ID).
+      const transformedEntityId = createUniqueUuid(payload.runtime, payload.entityId);
+
+      logger.debug(
+        `[discover-connection] ENTITY_JOINED - Original ID: ${payload.entityId}, Transformed ID: ${transformedEntityId}`
+      );
+
       await syncSingleUser(
-        payload.entityId,
+        transformedEntityId,
         payload.runtime,
         payload.worldId,
         payload.roomId,

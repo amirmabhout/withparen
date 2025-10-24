@@ -20,6 +20,8 @@ export {
     deriveMeEscrowPDA,
     deriveUserAccountPDA,
     deriveMeMintPDA,
+    deriveUserMeTokenPDA,
+    deriveUserMemoTokenPDA,
     deriveConnectionPDA,
 } from './services/unifiedTokenService';
 

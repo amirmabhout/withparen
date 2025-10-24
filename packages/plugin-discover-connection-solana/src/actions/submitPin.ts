@@ -80,9 +80,9 @@ export const submitPinAction: Action = {
         };
       }
 
-      // Get TokenService
-      const tokenService = runtime.getService('TOKEN');
-      if (!tokenService || !('submitPin' in tokenService)) {
+      // Get UnifiedTokenService
+      const tokenService = runtime.getService('UNIFIED_TOKEN');
+      if (!tokenService || !('unlockConnection' in tokenService)) {
         const errorText = 'Token service is currently unavailable. Please try again later.';
         if (callback) {
           await callback({ text: errorText, actions: ['REPLY'] });
@@ -90,21 +90,7 @@ export const submitPinAction: Action = {
         return {
           text: errorText,
           success: false,
-          error: new Error('TokenService not available'),
-        };
-      }
-
-      // Get PDAWalletService
-      const pdaWalletService = runtime.getService('pda_wallet');
-      if (!pdaWalletService || !('getPDAWallet' in pdaWalletService)) {
-        const errorText = 'Wallet service is currently unavailable. Please try again later.';
-        if (callback) {
-          await callback({ text: errorText, actions: ['REPLY'] });
-        }
-        return {
-          text: errorText,
-          success: false,
-          error: new Error('PDAWalletService not available'),
+          error: new Error('UnifiedTokenService not available'),
         };
       }
 
@@ -151,20 +137,39 @@ export const submitPinAction: Action = {
       const activeMatch = acceptedMatches[0];
       const connectionId = activeMatch.connectionId!;
 
-      // Get user's PDA wallet
-      const platform = 'telegram'; // Default platform
-      const pdaResult = await (pdaWalletService as any).getPDAWallet(platform, message.entityId);
-      if (!pdaResult?.address) {
-        const errorText = 'Could not find your wallet. Please contact support.';
+      // Get user's Solana PDA from Memgraph
+      // Note: Person nodes in Memgraph use SHORT form entity IDs (without platform prefix)
+      const userNode = await memgraphService.getPersonNode(message.entityId);
+
+      // Parse solana field if it's a JSON string
+      if (userNode && typeof userNode.solana === 'string') {
+        try {
+          userNode.solana = JSON.parse(userNode.solana);
+        } catch (parseError) {
+          logger.error(
+            `[submitPin] Failed to parse solana data for user ${message.entityId}: ${parseError}`
+          );
+        }
+      }
+
+      if (!userNode?.solana?.userAccountPDA) {
+        const errorText = 'Your Solana account is not initialized. Please contact support.';
+        logger.error(`[submitPin] User ${message.entityId} has no Solana account in Memgraph`);
         if (callback) {
           await callback({ text: errorText, actions: ['REPLY'] });
         }
         return {
           text: errorText,
           success: false,
-          error: new Error('PDA wallet not found'),
+          error: new Error('User Solana account not initialized in Memgraph'),
         };
       }
+
+      logger.info(`[submitPin] Retrieved user PDA from Memgraph for ${message.entityId}: ${userNode.solana.userAccountPDA}`);
+
+      // Construct full user ID for unlockConnection call (needs platform prefix)
+      const platform = 'telegram';
+      const fullUserId = `${platform}:${message.entityId}`;
 
       // Get payer keypair from agent wallet
       const agentPrivateKey =
@@ -181,20 +186,19 @@ export const submitPinAction: Action = {
         };
       }
 
-      const { Keypair, PublicKey } = await import('@solana/web3.js');
+      const { Keypair } = await import('@solana/web3.js');
       const bs58 = await import('bs58');
 
       const signerKeypair = Keypair.fromSecretKey(bs58.default.decode(agentPrivateKey));
-      const userPda = new PublicKey(pdaResult.address);
 
       // Submit PIN to unlock rewards
       logger.info(`[submitPin] Submitting PIN for connection ${connectionId}`);
 
       try {
-        const result = await (tokenService as any).submitPin(
+        const result = await (tokenService as any).unlockConnection(
           connectionId,
+          fullUserId, // Full user ID (e.g., "telegram:123456")
           submittedPin,
-          userPda,
           signerKeypair
         );
 

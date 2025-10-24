@@ -193,9 +193,11 @@ packages/plugin-deepen-connection
 packages/plugin-discover-connection
 packages/plugin-matchmaking
 packages/agentseren
+packages/agentparen
 packages/agentbantabawithparen
 packages/agentcicwithparen
 packages/agentaethoswithparen
+packages/plugin-discover-connection-solana/src/utils
 
 
 # Anchor/Solana specific

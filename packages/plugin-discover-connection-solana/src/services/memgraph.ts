@@ -1291,6 +1291,45 @@ export class MemgraphService extends Service {
   }
 
   /**
+   * Update Person node with Solana PDA/ATA addresses after on-chain initialization
+   */
+  async updatePersonSolanaAddresses(
+    personId: UUID,
+    solanaData: {
+      userAccountPDA: string;
+      meMintPDA: string;
+      userMeATA: string;
+      userMemoATA: string;
+      memoMintPDA: string;
+      initializedAt: number;
+    }
+  ): Promise<boolean> {
+    if (!this.isConnected) {
+      logger.warn(
+        `[memgraph] Service not connected, skipping Solana addresses update for ${personId}`
+      );
+      return false;
+    }
+
+    return await this.withSession(async (session) => {
+      const query = `
+        MATCH (p:Person {entityid: $personId})
+        SET p.solana = $solanaData,
+            p.updatedAt = timestamp()
+        RETURN p
+      `;
+
+      await session.run(query, {
+        personId,
+        solanaData: JSON.stringify(solanaData),
+      });
+
+      logger.info(`[memgraph] Updated Solana addresses for Person ${personId}`);
+      return true;
+    });
+  }
+
+  /**
    * Sync a match between two users with MATCHED_WITH relationship
    */
   async syncMatch(
@@ -1620,6 +1659,7 @@ export class MemgraphService extends Service {
           name: node.properties.name,
           userStatus: node.properties.userStatus,
           metadata: JSON.parse(node.properties.metadata || '{}'),
+          solana: node.properties.solana || undefined,
           createdAt: node.properties.createdAt,
           updatedAt: node.properties.updatedAt,
         } as PersonNode;
@@ -2740,6 +2780,7 @@ export class MemgraphService extends Service {
             updatedAt: rel.updatedAt || undefined,
             proposalSentAt: rel.proposalSentAt || undefined,
             reminders: rel.reminders || undefined,
+            connectionId: rel.connectionId || undefined, // Connection ID for on-chain PIN verification
           };
         });
 

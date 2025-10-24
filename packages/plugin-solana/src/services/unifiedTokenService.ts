@@ -572,48 +572,108 @@ export class UnifiedTokenService extends Service {
 
     /**
      * Unlock a connection with PIN
-     * TODO: Implement with manual instruction building (no Anchor Program)
      */
     async unlockConnection(
         connectionId: string,
         userId: string,
         pin: string,
         payerKeypair?: Keypair
-    ): Promise<string> {
+    ): Promise<{ signature: string; memoReward: number; bothUnlocked: boolean }> {
         await this.ensureInitialized();
-        throw new Error('[UnifiedTokenService] unlockConnection not yet implemented - requires manual instruction building');
-        /* TODO: Build instruction manually without Anchor
-        logger.info(`[UnifiedTokenService] Unlocking connection: ${connectionId}`);
+        logger.info(`[UnifiedTokenService] Unlocking connection: ${connectionId} for user: ${userId}`);
 
         const signer = payerKeypair || this.payerKeypair;
         if (!signer) {
             throw new Error('No keypair available for unlocking connection');
         }
 
+        // Derive all required PDAs
         const [connectionAccount] = deriveConnectionPDA(connectionId, this.programId);
         const [userAccount] = deriveUserAccountPDA(userId, this.programId);
         const [userMemoAta] = deriveUserMemoTokenPDA(userId, this.programId);
+        const [globalState] = deriveGlobalStatePDA(this.programId);
+        const [memoMint] = deriveMemoMintPDA(this.programId);
+        const userIdHash = hashUserId(userId);
 
-        // Convert PIN string to bytes
-        const pinBytes = Array.from(Buffer.from(pin, 'utf8').slice(0, 4));
+        // Validate PIN format (must be 4 digits)
+        if (!/^\d{4}$/.test(pin)) {
+            throw new Error('PIN must be exactly 4 digits');
+        }
 
-        const tx = await this.program.methods
-            .unlockConnection(pinBytes)
-            .accounts({
-                connectionAccount,
-                userAccount,
-                userMemoAta,
-                globalState: this.globalState,
-                memoMint: this.memoMint,
-                payer: signer.publicKey,
-                tokenProgram: TOKEN_PROGRAM_ID,
-            })
-            .signers([signer])
-            .rpc();
+        // Convert PIN string to 4-byte array
+        const pinBytes = Buffer.from(pin, 'utf8').slice(0, 4);
 
-        logger.info(`[UnifiedTokenService] ✓ Connection unlocked! Rewarded ${CONNECTION_MEMO_REWARD} MEMO. Tx: ${tx}`);
-        return tx;
-        */
+        // Build instruction data: discriminator + user_id_hash + pin
+        const discriminator = getInstructionDiscriminator('unlock_connection');
+        const instructionData = Buffer.concat([
+            discriminator,              // 8 bytes
+            encodeU8Array32(userIdHash),  // 32 bytes
+            pinBytes,                   // 4 bytes
+        ]);
+
+        logger.debug(`[UnifiedTokenService] Instruction data length: ${instructionData.length} bytes`);
+
+        // Build accounts array (order must match Rust program)
+        const keys = [
+            { pubkey: connectionAccount, isSigner: false, isWritable: true },
+            { pubkey: userAccount, isSigner: false, isWritable: true },
+            { pubkey: userMemoAta, isSigner: false, isWritable: true },
+            { pubkey: globalState, isSigner: false, isWritable: false },
+            { pubkey: memoMint, isSigner: false, isWritable: true },
+            { pubkey: signer.publicKey, isSigner: true, isWritable: false },
+            { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        ];
+
+        // Create instruction
+        const instruction = new TransactionInstruction({
+            keys,
+            programId: this.programId,
+            data: instructionData,
+        });
+
+        // Create and send transaction
+        const transaction = new Transaction().add(instruction);
+        transaction.recentBlockhash = (await this.connection.getLatestBlockhash()).blockhash;
+        transaction.feePayer = signer.publicKey;
+
+        logger.info(`[UnifiedTokenService] Sending unlock transaction...`);
+        const signature = await sendAndConfirmTransaction(
+            this.connection,
+            transaction,
+            [signer],
+            {
+                commitment: 'confirmed',
+                skipPreflight: false,
+            }
+        );
+
+        logger.info(`[UnifiedTokenService] ✓ Connection unlocked! Rewarded ${CONNECTION_MEMO_REWARD} MEMO. Tx: ${signature}`);
+
+        // Fetch connection account to check if both users have unlocked
+        let bothUnlocked = false;
+        try {
+            const connectionAccountInfo = await this.connection.getAccountInfo(connectionAccount);
+            if (connectionAccountInfo) {
+                // ConnectionAccount layout: discriminator(8) + connection_id(64) + user_a(32) + user_b(32) +
+                //                           pin_a_hash(32) + pin_b_hash(32) + user_a_unlocked(1) + user_b_unlocked(1) + ...
+                const data = connectionAccountInfo.data;
+                const userAUnlocked = data[8 + 64 + 32 + 32 + 32 + 32] === 1;
+                const userBUnlocked = data[8 + 64 + 32 + 32 + 32 + 32 + 1] === 1;
+                bothUnlocked = userAUnlocked && userBUnlocked;
+
+                if (bothUnlocked) {
+                    logger.info(`[UnifiedTokenService] 🎉 Both users have unlocked! Connection fully complete.`);
+                }
+            }
+        } catch (fetchError) {
+            logger.warn(`[UnifiedTokenService] Could not fetch connection account to check both unlocked status: ${fetchError}`);
+        }
+
+        return {
+            signature,
+            memoReward: CONNECTION_MEMO_REWARD,
+            bothUnlocked,
+        };
     }
 
     /**
