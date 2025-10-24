@@ -11,17 +11,14 @@ import {
   parseKeyValueXml,
 } from '@elizaos/core';
 
-import { MatchStatus } from '../services/userStatusService.js';
+import { MatchStatus, UserStatusService, UserStatus } from '../services/userStatusService.js';
 import { MemgraphService } from '../services/memgraph.js';
 import {
   buildCoordinationPrompt,
   type CoordinationTemplateContext,
 } from '../utils/coordinationTemplate.js';
 import { getUserInfo } from '../utils/userUtils.js';
-import {
-  parseToISO,
-  getCurrentISO,
-} from '../utils/timeHelpers.js';
+import { parseToISO, getCurrentISO } from '../utils/timeHelpers.js';
 import type { UnifiedTokenService } from '@elizaos/plugin-solana';
 
 /**
@@ -67,26 +64,20 @@ export const coordinateAction: Action = {
 
   validate: async (runtime: IAgentRuntime, message: Memory): Promise<boolean> => {
     try {
-      // Check if user has any active MATCHED_WITH relationship from Memgraph
-      const memgraphService = runtime.getService('memgraph') as MemgraphService;
-      if (!memgraphService) {
-        logger.warn(`[coordinate] Memgraph service not available for validation`);
-        return false;
+      // Check user status - only MATCHED users can coordinate
+      const userStatusService = new UserStatusService(runtime);
+      const userStatus = await userStatusService.getUserStatus(message.entityId);
+
+      // Only allow coordinate for MATCHED users (users with an active match)
+      if (userStatus === UserStatus.MATCHED) {
+        logger.debug(`[coordinate] User ${message.entityId} has MATCHED status, validation passed`);
+        return true;
       }
 
-      const allMatches = await memgraphService.getAllMatches(message.entityId);
-
-      const activeStatuses = [
-        MatchStatus.MATCH_FOUND,
-        MatchStatus.PROPOSAL_SENT,
-        MatchStatus.ACCEPTED,
-      ];
-
-      const activeMatches = allMatches.filter((match) =>
-        activeStatuses.includes(match.status as any)
+      logger.debug(
+        `[coordinate] User ${message.entityId} has ${userStatus} status, validation failed`
       );
-
-      return activeMatches.length > 0;
+      return false;
     } catch (error) {
       logger.error(`[coordinate] Error validating coordinate action: ${error}`);
       return false;
@@ -189,23 +180,50 @@ export const coordinateAction: Action = {
         ? formatMessages(otherUserMessages, otherUserInfo.displayName)
         : formatMessages(currentUserMessages, currentUserInfo.displayName);
 
-      // Format existing feedback for template
+      // Extract feedback by user (separate arrays like clues)
+      const user1FeedbackArray = activeMatch.user1Feedback || [];
+      const user2FeedbackArray = activeMatch.user2Feedback || [];
+
+      // Format feedback for display
+      const initiatorFeedback =
+        user1FeedbackArray.length > 0
+          ? user1FeedbackArray.map((fb: any) => fb.text).join('; ')
+          : 'Not provided yet';
+
+      const matchedFeedback =
+        user2FeedbackArray.length > 0
+          ? user2FeedbackArray.map((fb: any) => fb.text).join('; ')
+          : 'Not provided yet';
+
+      // Check if users have provided feedback (>= 1 entry = sufficient)
+      // IMPORTANT: Current user's feedback status reflects EXISTING state (before this message)
+      // This tells the template whether the current user already gave feedback previously
+      const currentUserProvidedFeedback = isInitiator
+        ? user1FeedbackArray.length >= 1
+        : user2FeedbackArray.length >= 1;
+
+      // IMPORTANT: Other user's feedback status also reflects EXISTING state
+      // If other user has >= 1 feedback AND current user is providing new feedback now,
+      // then after processing, BOTH will have feedback and match should transition to completed
+      const otherUserProvidedFeedback = isInitiator
+        ? user2FeedbackArray.length >= 1
+        : user1FeedbackArray.length >= 1;
+
+      // Legacy format for backward compatibility (deprecated)
       const existingFeedback =
-        activeMatch.feedback && activeMatch.feedback.length > 0
-          ? activeMatch.feedback
-              .map((fb: any) => {
-                const userId = fb.userId;
-                const userName =
-                  userId === user1Id
-                    ? isInitiator
-                      ? 'You'
-                      : otherUserInfo.displayName
-                    : isInitiator
-                      ? otherUserInfo.displayName
-                      : 'You';
-                return `${userName}: "${fb.text}"`;
-              })
-              .join('\n')
+        user1FeedbackArray.length > 0 || user2FeedbackArray.length > 0
+          ? [
+              ...(user1FeedbackArray.length > 0
+                ? [
+                    `${isInitiator ? 'You' : otherUserInfo.displayName}: "${user1FeedbackArray.map((fb: any) => fb.text).join(', ')}"`,
+                  ]
+                : []),
+              ...(user2FeedbackArray.length > 0
+                ? [
+                    `${isInitiator ? otherUserInfo.displayName : 'You'}: "${user2FeedbackArray.map((fb: any) => fb.text).join(', ')}"`,
+                  ]
+                : []),
+            ].join('\n')
           : 'No feedback provided yet';
 
       // Format clues for display - get latest clue from each user's array
@@ -213,13 +231,15 @@ export const coordinateAction: Action = {
       const user2CluesArray = activeMatch.user2Clues || [];
 
       // Get all clues as comma-separated list or use latest single clue
-      const user1ClueText = user1CluesArray.length > 0
-        ? user1CluesArray.map(c => c.text).join(', ')
-        : activeMatch.user1Clue || 'Not provided';
+      const user1ClueText =
+        user1CluesArray.length > 0
+          ? user1CluesArray.map((c) => c.text).join(', ')
+          : activeMatch.user1Clue || 'Not provided';
 
-      const user2ClueText = user2CluesArray.length > 0
-        ? user2CluesArray.map(c => c.text).join(', ')
-        : activeMatch.user2Clue || 'Not provided';
+      const user2ClueText =
+        user2CluesArray.length > 0
+          ? user2CluesArray.map((c) => c.text).join(', ')
+          : activeMatch.user2Clue || 'Not provided';
 
       // Get current date/time for LLM context
       const nowDate = new Date();
@@ -265,6 +285,12 @@ export const coordinateAction: Action = {
         // Current interaction
         userMessage: message.content.text || '',
         existingFeedback: existingFeedback,
+
+        // Feedback properties (clear attribution like clues)
+        initiatorFeedback: initiatorFeedback,
+        matchedFeedback: matchedFeedback,
+        currentUserProvidedFeedback: currentUserProvidedFeedback,
+        otherUserProvidedFeedback: otherUserProvidedFeedback,
       };
 
       const prompt = buildCoordinationPrompt(
@@ -290,7 +316,7 @@ export const coordinateAction: Action = {
       }
 
       // Extract parsed values
-      const newStatus = (parsed.newStatus || activeMatch.status) as string;
+      let newStatus = (parsed.newStatus || activeMatch.status) as string;
       let proposedTime = parsed.proposedTime || activeMatch.proposedTime;
 
       // Validate and ensure proposedTime is in ISO format if it's being set/updated
@@ -300,39 +326,67 @@ export const coordinateAction: Action = {
           proposedTime = isoTime;
           logger.info(`[coordinate] Converted proposedTime to ISO: ${proposedTime}`);
         } else {
-          logger.warn(`[coordinate] Failed to parse proposedTime to ISO, keeping as-is: ${parsed.proposedTime}`);
+          logger.warn(
+            `[coordinate] Failed to parse proposedTime to ISO, keeping as-is: ${parsed.proposedTime}`
+          );
         }
       }
 
-      const venue = parsed.venue || activeMatch.venue || 'Bantabaa Restaurant';
+      const venue = parsed.venue || activeMatch.venue;
       const clue = parsed.clue;
       const feedback = parsed.feedback;
       const messageToUser = parsed.messageToUser || 'Processing your request...';
       const messageToOther = parsed.messageToOther;
 
-      // Process feedback if provided
-      let updatedFeedbackArray = activeMatch.feedback || [];
-      if (feedback) {
-        // Check if current user already provided feedback
-        const existingFeedbackFromUser = updatedFeedbackArray.find(
-          (fb: any) => fb.userId === currentUserId
-        );
+      // Process feedback if provided (separate arrays per user, like clues)
+      let updatedUser1Feedback = activeMatch.user1Feedback || [];
+      let updatedUser2Feedback = activeMatch.user2Feedback || [];
 
-        if (!existingFeedbackFromUser) {
-          // Add new feedback from current user
-          updatedFeedbackArray = [
-            ...updatedFeedbackArray,
-            {
-              userId: currentUserId,
-              text: feedback,
-              timestamp: Date.now(),
-            },
-          ];
-          logger.info(`[coordinate] Added feedback from user ${currentUserId}`);
-        } else {
+      if (feedback) {
+        const feedbackEntry = {
+          text: feedback,
+          timestamp: Date.now(),
+        };
+
+        const userStatusService = new UserStatusService(runtime);
+
+        if (isInitiator) {
+          // Add feedback from user1 (initiator)
+          updatedUser1Feedback = [...updatedUser1Feedback, feedbackEntry];
           logger.info(
-            `[coordinate] User ${currentUserId} already provided feedback, skipping duplicate`
+            `[coordinate] Added feedback for user1: ${feedback} (total: ${updatedUser1Feedback.length})`
           );
+
+          // Transition user1 to ACTIVE immediately when they provide feedback
+          if (updatedUser1Feedback.length >= 1) {
+            await userStatusService.transitionUserStatus(user1Id, UserStatus.ACTIVE);
+            logger.info(
+              `[coordinate] Transitioned user1 ${user1Id} to ACTIVE after providing feedback`
+            );
+          }
+        } else {
+          // Add feedback from user2 (matched user)
+          updatedUser2Feedback = [...updatedUser2Feedback, feedbackEntry];
+          logger.info(
+            `[coordinate] Added feedback for user2: ${feedback} (total: ${updatedUser2Feedback.length})`
+          );
+
+          // Transition user2 to ACTIVE immediately when they provide feedback
+          if (updatedUser2Feedback.length >= 1) {
+            await userStatusService.transitionUserStatus(user2Id, UserStatus.ACTIVE);
+            logger.info(
+              `[coordinate] Transitioned user2 ${user2Id} to ACTIVE after providing feedback`
+            );
+          }
+        }
+
+        // Check if BOTH users have provided feedback (>= 1 entry each)
+        // If so, override newStatus to transition match to completed
+        if (updatedUser1Feedback.length >= 1 && updatedUser2Feedback.length >= 1) {
+          logger.info(
+            `[coordinate] Both users have provided feedback - overriding status to COMPLETED`
+          );
+          newStatus = MatchStatus.COMPLETED;
         }
       }
 
@@ -350,7 +404,7 @@ export const coordinateAction: Action = {
       if (clue) {
         const clueEntry = {
           text: clue,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         };
 
         if (isInitiator) {
@@ -387,7 +441,9 @@ export const coordinateAction: Action = {
           // Get UnifiedTokenService
           const unifiedTokenService = runtime.getService<UnifiedTokenService>('UNIFIED_TOKEN');
           if (!unifiedTokenService || !('createConnection' in unifiedTokenService)) {
-            logger.error('[coordinate] UnifiedTokenService not available, skipping connection creation');
+            logger.error(
+              '[coordinate] UnifiedTokenService not available, skipping connection creation'
+            );
           } else {
             // Format user IDs (assume telegram platform)
             const platform = 'telegram';
@@ -421,10 +477,14 @@ export const coordinateAction: Action = {
             logger.info(`[coordinate] ✓ Connection created: ${connectionId}`);
             logger.info(`[coordinate] User A (${user1Id}) gets PIN B: ${pinB}`);
             logger.info(`[coordinate] User B (${user2Id}) gets PIN A: ${pinA}`);
-            logger.info(`[coordinate] Transaction: https://explorer.solana.com/tx/${tx}?cluster=devnet`);
+            logger.info(
+              `[coordinate] Transaction: https://explorer.solana.com/tx/${tx}?cluster=devnet`
+            );
           }
         } catch (error: any) {
-          logger.error(`[coordinate] Failed to create connection: ${error?.message || String(error)}`);
+          logger.error(
+            `[coordinate] Failed to create connection: ${error?.message || String(error)}`
+          );
           // Continue with match coordination even if connection creation fails
         }
       }
@@ -434,7 +494,10 @@ export const coordinateAction: Action = {
         status: newStatus,
         venue,
         proposedTime: proposedTime || activeMatch.proposedTime,
-        feedback: updatedFeedbackArray,
+        user1Feedback:
+          updatedUser1Feedback.length > 0 ? updatedUser1Feedback : activeMatch.user1Feedback,
+        user2Feedback:
+          updatedUser2Feedback.length > 0 ? updatedUser2Feedback : activeMatch.user2Feedback,
         proposalSentAt,
         user1Clues: updatedUser1Clues.length > 0 ? updatedUser1Clues : activeMatch.user1Clues,
         user2Clues: updatedUser2Clues.length > 0 ? updatedUser2Clues : activeMatch.user2Clues,
@@ -511,7 +574,8 @@ export const coordinateAction: Action = {
           clue, // Latest clue added
           user1Clues: updatedUser1Clues,
           user2Clues: updatedUser2Clues,
-          feedback: updatedFeedbackArray,
+          user1Feedback: updatedUser1Feedback,
+          user2Feedback: updatedUser2Feedback,
           currentUserId,
           otherUserId,
         },

@@ -15,8 +15,21 @@ import type { Action, ActionExample, IAgentRuntime, Memory, ActionResult } from 
 export const noneAction: Action = {
   name: 'NONE',
   similes: ['NO_ACTION', 'NO_RESPONSE', 'NO_REACTION'],
-  validate: async (_runtime: IAgentRuntime, _message: Memory) => {
-    return true;
+  validate: async (runtime: IAgentRuntime, message: Memory) => {
+    // Don't allow NONE action for matched users - they should use COORDINATE
+    try {
+      const { UserStatusService } = await import('../services/userStatusService.js');
+      const userStatusService = new UserStatusService(runtime);
+      const userStatus = await userStatusService.getUserStatus(message.entityId);
+
+      if (userStatus === 'matched') {
+        return false; // Matched users must use COORDINATE, not NONE
+      }
+      return true;
+    } catch (error) {
+      // If we can't check status, allow NONE to avoid breaking the flow
+      return true;
+    }
   },
   description:
     'Respond but perform no additional action. This is the default if the agent is speaking and not doing anything additional.',

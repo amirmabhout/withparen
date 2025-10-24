@@ -19,7 +19,7 @@ import { MemgraphService } from '../services/memgraph.js';
 export const submitPinAction: Action = {
   name: 'SUBMIT_PIN',
   description:
-    'Allows users to submit their match partner\'s PIN to unlock MEMO token rewards after meeting IRL',
+    "Allows users to submit their match partner's PIN to unlock MEMO token rewards after meeting IRL",
   similes: ['PIN', 'UNLOCK', 'SUBMIT_CODE', 'ENTER_PIN', 'VERIFY_MEETING', 'CLAIM_REWARD'],
   examples: [] as ActionExample[][],
 
@@ -226,7 +226,8 @@ export const submitPinAction: Action = {
         let errorMessage = 'Failed to submit PIN. ';
 
         if (submitError.message?.includes('Invalid PIN')) {
-          errorMessage += 'The PIN you entered is incorrect. Please check with your match and try again.';
+          errorMessage +=
+            'The PIN you entered is incorrect. Please check with your match and try again.';
         } else if (submitError.message?.includes('Already unlocked')) {
           errorMessage += 'You have already unlocked this connection!';
         } else if (submitError.message?.includes('Unauthorized')) {

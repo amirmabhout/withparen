@@ -163,8 +163,8 @@ export class MemgraphService extends Service {
               if (level === 'error') {
                 logger.error(`[memgraph] Neo4j driver: ${message}`);
               }
-            }
-          }
+            },
+          },
         }
       );
 
@@ -259,10 +259,7 @@ export class MemgraphService extends Service {
         setTimeout(() => reject(new Error('Health check timeout')), 5000)
       );
 
-      await Promise.race([
-        session.run('RETURN 1 as health'),
-        timeoutPromise
-      ]);
+      await Promise.race([session.run('RETURN 1 as health'), timeoutPromise]);
 
       await session.close();
 
@@ -412,10 +409,7 @@ export class MemgraphService extends Service {
         setTimeout(() => reject(new Error('Database operation timeout')), 30000)
       );
 
-      const result = await Promise.race([
-        operation(session),
-        timeoutPromise
-      ]);
+      const result = await Promise.race([operation(session), timeoutPromise]);
 
       return result;
     } catch (error) {
@@ -2704,15 +2698,27 @@ export class MemgraphService extends Service {
           const toUserId = record.get('toUserId');
 
           // Handle migration from single clues to arrays
-          const user1Clues = rel.user1Clues || (rel.user1Clue ? [{
-            text: rel.user1Clue,
-            timestamp: rel.updatedAt || rel.createdAt || Date.now()
-          }] : undefined);
+          const user1Clues =
+            rel.user1Clues ||
+            (rel.user1Clue
+              ? [
+                  {
+                    text: rel.user1Clue,
+                    timestamp: rel.updatedAt || rel.createdAt || Date.now(),
+                  },
+                ]
+              : undefined);
 
-          const user2Clues = rel.user2Clues || (rel.user2Clue ? [{
-            text: rel.user2Clue,
-            timestamp: rel.updatedAt || rel.createdAt || Date.now()
-          }] : undefined);
+          const user2Clues =
+            rel.user2Clues ||
+            (rel.user2Clue
+              ? [
+                  {
+                    text: rel.user2Clue,
+                    timestamp: rel.updatedAt || rel.createdAt || Date.now(),
+                  },
+                ]
+              : undefined);
 
           return {
             type: 'MATCHED_WITH',
@@ -2772,15 +2778,27 @@ export class MemgraphService extends Service {
       const rel = result.records[0].get('r').properties;
 
       // Handle migration from single clues to arrays
-      const user1Clues = rel.user1Clues || (rel.user1Clue ? [{
-        text: rel.user1Clue,
-        timestamp: rel.updatedAt || rel.createdAt || Date.now()
-      }] : undefined);
+      const user1Clues =
+        rel.user1Clues ||
+        (rel.user1Clue
+          ? [
+              {
+                text: rel.user1Clue,
+                timestamp: rel.updatedAt || rel.createdAt || Date.now(),
+              },
+            ]
+          : undefined);
 
-      const user2Clues = rel.user2Clues || (rel.user2Clue ? [{
-        text: rel.user2Clue,
-        timestamp: rel.updatedAt || rel.createdAt || Date.now()
-      }] : undefined);
+      const user2Clues =
+        rel.user2Clues ||
+        (rel.user2Clue
+          ? [
+              {
+                text: rel.user2Clue,
+                timestamp: rel.updatedAt || rel.createdAt || Date.now(),
+              },
+            ]
+          : undefined);
 
       return {
         type: 'MATCHED_WITH',
@@ -3027,15 +3045,27 @@ export class MemgraphService extends Service {
           const toUserId = record.get('toUserId');
 
           // Handle migration from single clues to arrays
-          const user1Clues = rel.user1Clues || (rel.user1Clue ? [{
-            text: rel.user1Clue,
-            timestamp: rel.updatedAt || rel.createdAt || Date.now()
-          }] : undefined);
+          const user1Clues =
+            rel.user1Clues ||
+            (rel.user1Clue
+              ? [
+                  {
+                    text: rel.user1Clue,
+                    timestamp: rel.updatedAt || rel.createdAt || Date.now(),
+                  },
+                ]
+              : undefined);
 
-          const user2Clues = rel.user2Clues || (rel.user2Clue ? [{
-            text: rel.user2Clue,
-            timestamp: rel.updatedAt || rel.createdAt || Date.now()
-          }] : undefined);
+          const user2Clues =
+            rel.user2Clues ||
+            (rel.user2Clue
+              ? [
+                  {
+                    text: rel.user2Clue,
+                    timestamp: rel.updatedAt || rel.createdAt || Date.now(),
+                  },
+                ]
+              : undefined);
 
           return {
             from: fromUserId,
@@ -3132,15 +3162,27 @@ export class MemgraphService extends Service {
             }
 
             // Handle migration from single clues to arrays
-            const user1Clues = rel.user1Clues || (rel.user1Clue ? [{
-              text: rel.user1Clue,
-              timestamp: rel.updatedAt || rel.createdAt || Date.now()
-            }] : undefined);
+            const user1Clues =
+              rel.user1Clues ||
+              (rel.user1Clue
+                ? [
+                    {
+                      text: rel.user1Clue,
+                      timestamp: rel.updatedAt || rel.createdAt || Date.now(),
+                    },
+                  ]
+                : undefined);
 
-            const user2Clues = rel.user2Clues || (rel.user2Clue ? [{
-              text: rel.user2Clue,
-              timestamp: rel.updatedAt || rel.createdAt || Date.now()
-            }] : undefined);
+            const user2Clues =
+              rel.user2Clues ||
+              (rel.user2Clue
+                ? [
+                    {
+                      text: rel.user2Clue,
+                      timestamp: rel.updatedAt || rel.createdAt || Date.now(),
+                    },
+                  ]
+                : undefined);
 
             return {
               from: fromUserId,
@@ -3317,42 +3359,77 @@ export class MemgraphService extends Service {
       return false;
     }
 
-    return (
-      (await this.withSession(async (session) => {
-        // Build SET clause dynamically from properties
-        const setStatements: string[] = ['r.updatedAt = $updatedAt'];
-        const params: any = {
-          fromUserId,
-          toUserId,
-          updatedAt: Date.now(),
-        };
+    const result = await this.withSession(async (session) => {
+      // Build SET clause dynamically from properties
+      const setStatements: string[] = ['r.updatedAt = $updatedAt'];
+      const params: any = {
+        fromUserId,
+        toUserId,
+        updatedAt: Date.now(),
+      };
 
-        for (const [key, value] of Object.entries(properties)) {
-          if (value !== undefined) {
-            setStatements.push(`r.${key} = $${key}`);
-            params[key] = value;
-          }
+      for (const [key, value] of Object.entries(properties)) {
+        if (value !== undefined) {
+          setStatements.push(`r.${key} = $${key}`);
+          params[key] = value;
         }
+      }
 
-        const query = `
-          MATCH (p1:Person {entityid: $fromUserId})-[r:MATCHED_WITH]->(p2:Person {entityid: $toUserId})
-          SET ${setStatements.join(', ')}
-          RETURN r
-        `;
+      const query = `
+        MATCH (p1:Person {entityid: $fromUserId})-[r:MATCHED_WITH]->(p2:Person {entityid: $toUserId})
+        SET ${setStatements.join(', ')}
+        RETURN r
+      `;
 
-        const result = await session.run(query, params);
+      const queryResult = await session.run(query, params);
 
-        if (result.records.length > 0) {
+      if (queryResult.records.length > 0) {
+        logger.info(
+          `[memgraph] Updated match properties: ${fromUserId} -> ${toUserId} (${Object.keys(properties).join(', ')})`
+        );
+        return true;
+      }
+
+      logger.warn(`[memgraph] Match relationship not found: ${fromUserId} -> ${toUserId}`);
+      return false;
+    });
+
+    if (!result) {
+      return false;
+    }
+
+    // NOTE: User status transitions are managed by the coordinate handler based on feedback
+    // We do NOT automatically set user status here to avoid overwriting explicit status transitions
+    // The coordinate handler:
+    // - Sets users to 'matched' when match is first created
+    // - Transitions to 'active' when feedback is provided
+    // - Transitions to 'active' when match ends (completed, declined, cancelled, expired)
+    if (properties.status) {
+      const newStatus = properties.status;
+
+      // When match ends, set both users back to 'active' so they can be matched again
+      const endedStatuses = [
+        'completed',
+        'declined',
+        'cancelled',
+        'expired_no_proposal',
+        'expired_no_response',
+      ];
+      if (endedStatuses.includes(newStatus)) {
+        try {
+          await this.updatePersonStatus(fromUserId, 'active');
+          await this.updatePersonStatus(toUserId, 'active');
           logger.info(
-            `[memgraph] Updated match properties: ${fromUserId} -> ${toUserId} (${Object.keys(properties).join(', ')})`
+            `[memgraph] Reset both users to 'active' status after match ended: ${fromUserId}, ${toUserId}`
           );
-          return true;
+        } catch (error) {
+          logger.error(`[memgraph] Failed to reset user statuses to 'active': ${error}`);
+          // Don't fail the whole operation if status update fails
         }
+      }
+    }
 
-        logger.warn(`[memgraph] Match relationship not found: ${fromUserId} -> ${toUserId}`);
-        return false;
-      })) || false
-    );
+    return result;
   }
 
   /**

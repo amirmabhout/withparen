@@ -40,6 +40,9 @@ export const matchStateProvider: Provider = {
           compatibilityScore: match.compatibilityScore || 0,
           createdAt: match.createdAt,
           proposalInitiator: match.from, // From is always the initiator
+          proposedTime: match.proposedTime, // Include proposed meeting time
+          user1Feedback: match.user1Feedback || [], // Initiator's feedback array
+          user2Feedback: match.user2Feedback || [], // Matched user's feedback array
         },
         createdAt: match.createdAt,
       }));
@@ -224,10 +227,40 @@ export const matchStateProvider: Provider = {
       if (matchStatusCategories.accepted.length > 0) {
         statusSummary += `## Accepted Connections: ${matchStatusCategories.accepted.length}\n`;
         statusSummary += `Status Meaning: These connections have been accepted and should be active.\n`;
+
+        // Check for meetings that need feedback
+        const now = Date.now();
+        let needsFeedbackCount = 0;
+
         matchStatusCategories.accepted.forEach((match, index) => {
-          statusSummary += `  ${index + 1}. Accepted with ${match.otherUserId} (Score: ${match.compatibilityScore})\n`;
+          const matchData = match.content || {};
+          const proposedTime = matchData.proposedTime;
+          const user1Feedback = matchData.user1Feedback || [];
+          const user2Feedback = matchData.user2Feedback || [];
+
+          // Determine which feedback array belongs to current user
+          const isInitiator = matchData.user1Id === userId;
+          const currentUserFeedback = isInitiator ? user1Feedback : user2Feedback;
+          const userProvidedFeedback = currentUserFeedback.length >= 1;
+
+          // Check if meeting time has passed and user hasn't provided feedback
+          let feedbackPrompt = '';
+          if (proposedTime) {
+            const meetingTime = new Date(proposedTime).getTime();
+            if (now > meetingTime && !userProvidedFeedback) {
+              feedbackPrompt = ' - ⏰ MEETING COMPLETE: Please provide feedback!';
+              needsFeedbackCount++;
+            }
+          }
+
+          statusSummary += `  ${index + 1}. Accepted with ${match.otherUserId} (Score: ${match.compatibilityScore})${feedbackPrompt}\n`;
         });
         statusSummary += '\n';
+
+        // Add feedback prompt if needed
+        if (needsFeedbackCount > 0) {
+          statusSummary += `📝 **${needsFeedbackCount} meeting(s) need your feedback!** Share how it went to help improve future matches.\n\n`;
+        }
       }
 
       if (matchStatusCategories.connected.length > 0) {
@@ -281,6 +314,30 @@ export const matchStateProvider: Provider = {
 
       // Add recommended actions section
       statusSummary += `## Recommended Actions\n`;
+
+      // Check for completed meetings needing feedback (HIGHEST PRIORITY)
+      const now = Date.now();
+      const meetingsNeedingFeedback = matchStatusCategories.accepted.filter((match) => {
+        const matchData = match.content || {};
+        const proposedTime = matchData.proposedTime;
+        const user1Feedback = matchData.user1Feedback || [];
+        const user2Feedback = matchData.user2Feedback || [];
+
+        // Determine which feedback array belongs to current user
+        const isInitiator = matchData.user1Id === userId;
+        const currentUserFeedback = isInitiator ? user1Feedback : user2Feedback;
+        const userProvidedFeedback = currentUserFeedback.length >= 1;
+
+        if (proposedTime) {
+          const meetingTime = new Date(proposedTime).getTime();
+          return now > meetingTime && !userProvidedFeedback;
+        }
+        return false;
+      });
+
+      if (meetingsNeedingFeedback.length > 0) {
+        statusSummary += `- **📝 PROVIDE FEEDBACK**: You have ${meetingsNeedingFeedback.length} completed meeting(s) awaiting your feedback. Share how it went to help improve future matches!\n`;
+      }
 
       // Priority: Introduction requests received (highest priority)
       if (introductionCategories.received.length > 0) {

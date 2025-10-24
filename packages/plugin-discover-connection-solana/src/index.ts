@@ -430,9 +430,9 @@ const messageReceivedHandler = async ({
 
           logger.debug(
             `[discover-connection] Message structure - ` +
-            `metadata exists: ${!!message.metadata}, ` +
-            `raw exists: ${!!(message.metadata as any)?.raw}, ` +
-            `senderId: ${(message.metadata as any)?.raw?.senderId}`
+              `metadata exists: ${!!message.metadata}, ` +
+              `raw exists: ${!!(message.metadata as any)?.raw}, ` +
+              `senderId: ${(message.metadata as any)?.raw?.senderId}`
           );
 
           logger.info(
@@ -449,13 +449,17 @@ const messageReceivedHandler = async ({
               logger.info(`[discover-connection] User ${fullUserId} already initialized`);
             } else {
               logger.info(`[discover-connection] ✓ User ${fullUserId} initialized with 48 $ME`);
-              logger.info(`[discover-connection] Transaction: https://explorer.solana.com/tx/${signature}?cluster=devnet`);
+              logger.info(
+                `[discover-connection] Transaction: https://explorer.solana.com/tx/${signature}?cluster=devnet`
+              );
             }
           } else {
             logger.warn('[discover-connection] UnifiedTokenService not available');
           }
         } catch (error: any) {
-          logger.error(`[discover-connection] Failed to initialize user: ${error?.message || String(error)}`);
+          logger.error(
+            `[discover-connection] Failed to initialize user: ${error?.message || String(error)}`
+          );
           // Continue processing message even if initialization fails
         }
 
@@ -550,58 +554,79 @@ const messageReceivedHandler = async ({
         console.log('shouldSkipShouldRespond', shouldSkipShouldRespond);
 
         if (shouldRespond) {
-          // Continue with normal LLM-based action selection...
-          // Note: PERSONA_MEMORY and CONNECTION_MEMORY removed - plugin-memory handles this
-          state = await runtime.composeState(message, [
-            'ACTIONS'
-          ]);
-          if (!state.values.actionNames) {
-            logger.warn('actionNames data missing from state, even though it was requested');
-          }
-
-          const prompt = composePromptFromState({
-            state,
-            template: runtime.character.templates?.messageHandlerTemplate || messageHandlerTemplate,
-          });
+          // Check if user is matched - if so, skip action selection and go directly to COORDINATE
+          const { UserStatusService } = await import('./services/userStatusService.js');
+          const userStatusService = new UserStatusService(runtime);
+          const userStatus = await userStatusService.getUserStatus(message.entityId);
 
           let responseContent: Content | null = null;
 
-          // Retry if missing required fields
-          let retries = 0;
-          const maxRetries = 3;
-
-          while (retries < maxRetries && (!responseContent?.thought || !responseContent?.actions)) {
-            let response = await runtime.useModel(ModelType.TEXT_LARGE, {
-              prompt,
-            });
-
-            logger.debug(`[discover-connection] *** Raw LLM Response ***\n${response}`);
-
-            // Attempt to parse the XML response
-            const parsedXml = parseKeyValueXml(response);
+          if (userStatus === 'matched') {
+            // User is matched - bypass LLM and route directly to COORDINATE action
             logger.debug(
-              `[discover-connection] *** Parsed XML Content ***\n${JSON.stringify(parsedXml)}`
+              '[discover-connection] User is matched, routing directly to COORDINATE action'
             );
-
-            // Map parsed XML to Content type, handling potential missing fields
-            if (parsedXml) {
-              responseContent = {
-                ...parsedXml,
-                thought: parsedXml.thought || '',
-                actions: parsedXml.actions || ['IGNORE'],
-                providers: parsedXml.providers || [],
-                text: parsedXml.text || '',
-                simple: parsedXml.simple || false,
-              };
-            } else {
-              responseContent = null;
+            responseContent = {
+              thought: 'User is in matched status, coordinating their active match',
+              actions: ['COORDINATE'],
+              providers: [],
+              text: '', // Will be filled by COORDINATE handler
+              simple: false,
+            };
+          } else {
+            // Continue with normal LLM-based action selection...
+            // Note: PERSONA_MEMORY and CONNECTION_MEMORY removed - plugin-memory handles this
+            state = await runtime.composeState(message, ['ACTIONS']);
+            if (!state.values.actionNames) {
+              logger.warn('actionNames data missing from state, even though it was requested');
             }
 
-            retries++;
-            if (!responseContent?.thought || !responseContent?.actions) {
-              logger.warn(
-                `[discover-connection] *** Missing required fields (thought or actions), retrying... *** response: ${JSON.stringify(response)} parsedXml: ${JSON.stringify(parsedXml)} responseContent: ${JSON.stringify(responseContent)}`
+            const prompt = composePromptFromState({
+              state,
+              template:
+                runtime.character.templates?.messageHandlerTemplate || messageHandlerTemplate,
+            });
+
+            // Retry if missing required fields
+            let retries = 0;
+            const maxRetries = 3;
+
+            while (
+              retries < maxRetries &&
+              (!responseContent?.thought || !responseContent?.actions)
+            ) {
+              let response = await runtime.useModel(ModelType.TEXT_LARGE, {
+                prompt,
+              });
+
+              logger.debug(`[discover-connection] *** Raw LLM Response ***\n${response}`);
+
+              // Attempt to parse the XML response
+              const parsedXml = parseKeyValueXml(response);
+              logger.debug(
+                `[discover-connection] *** Parsed XML Content ***\n${JSON.stringify(parsedXml)}`
               );
+
+              // Map parsed XML to Content type, handling potential missing fields
+              if (parsedXml) {
+                responseContent = {
+                  ...parsedXml,
+                  thought: parsedXml.thought || '',
+                  actions: parsedXml.actions || ['IGNORE'],
+                  providers: parsedXml.providers || [],
+                  text: parsedXml.text || '',
+                  simple: parsedXml.simple || false,
+                };
+              } else {
+                responseContent = null;
+              }
+
+              retries++;
+              if (!responseContent?.thought || !responseContent?.actions) {
+                logger.warn(
+                  `[discover-connection] *** Missing required fields (thought or actions), retrying... *** response: ${JSON.stringify(response)} parsedXml: ${JSON.stringify(parsedXml)} responseContent: ${JSON.stringify(responseContent)}`
+                );
+              }
             }
           }
 
@@ -1245,7 +1270,9 @@ const syncSingleUser = async (
   try {
     const entity = await runtime.getEntityById(entityId);
     logger.info(`[discover-connection] Syncing user: ${entity?.metadata?.username || entityId}`);
-    logger.debug(`[discover-connection] syncSingleUser - entityId: ${entityId}, source: ${source}, channelId: ${channelId}`);
+    logger.debug(
+      `[discover-connection] syncSingleUser - entityId: ${entityId}, source: ${source}, channelId: ${channelId}`
+    );
 
     // Ensure we're not using WORLD type and that we have a valid channelId
     if (!channelId) {
@@ -1705,7 +1732,6 @@ const baseActions = [
   actions.findMatchAction,
   actions.coordinateAction,
   actions.submitPinAction,
-  actions.ignoreAction,
   actions.noneAction,
 ];
 

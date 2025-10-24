@@ -635,6 +635,67 @@ class MemgraphManager {
     });
   }
 
+  async deleteMatch(person1Id: string, person2Id: string, options: CLIOptions): Promise<boolean> {
+    logInfo(`${options.dryRun ? 'DRY RUN: ' : ''}Deleting MATCHED_WITH relationship`);
+    logInfo(`  Person 1: ${person1Id}`);
+    logInfo(`  Person 2: ${person2Id}`);
+
+    return await this.withSession(async (session) => {
+      // Find the MATCHED_WITH relationship
+      const findQuery = `
+        MATCH (p1:Person)-[r:MATCHED_WITH]-(p2:Person)
+        WHERE (p1.entityid = $person1Id OR p1.id = $person1Id)
+          AND (p2.entityid = $person2Id OR p2.id = $person2Id)
+        RETURN p1, p2, r
+      `;
+
+      const findResult = await session.run(findQuery, { person1Id, person2Id });
+
+      if (findResult.records.length === 0) {
+        logError(`No MATCHED_WITH relationship found between persons ${person1Id} and ${person2Id}`);
+        return false;
+      }
+
+      const record = findResult.records[0];
+      const p1 = record.get('p1');
+      const p2 = record.get('p2');
+      const rel = record.get('r');
+
+      logInfo(`\nFound match:`);
+      logInfo(`  ${p1.properties.name || 'Unnamed'} (${p1.properties.entityid})`);
+      logInfo(`  <-> ${p2.properties.name || 'Unnamed'} (${p2.properties.entityid})`);
+      logInfo(`  Status: ${rel.properties.status || 'N/A'}`);
+      logInfo(`  Agent: ${rel.properties.agentFacilitated || 'N/A'}`);
+      logInfo(`  Proposed time: ${rel.properties.proposedTime || 'N/A'}`);
+      logInfo(`  Venue: ${rel.properties.venue || 'Not set'}`);
+
+      if (options.dryRun) {
+        logWarning('DRY RUN: Would delete this MATCHED_WITH relationship');
+        return true;
+      }
+
+      // Delete the MATCHED_WITH relationship
+      const deleteQuery = `
+        MATCH (p1:Person)-[r:MATCHED_WITH]-(p2:Person)
+        WHERE (p1.entityid = $person1Id OR p1.id = $person1Id)
+          AND (p2.entityid = $person2Id OR p2.id = $person2Id)
+        DELETE r
+        RETURN count(r) as deletedCount
+      `;
+
+      const deleteResult = await session.run(deleteQuery, { person1Id, person2Id });
+      const deletedCount = deleteResult.records[0].get('deletedCount').toNumber();
+
+      if (deletedCount > 0) {
+        logSuccess(`✓ Deleted MATCHED_WITH relationship between ${p1.properties.name || 'Unnamed'} and ${p2.properties.name || 'Unnamed'}`);
+        return true;
+      } else {
+        logError('Failed to delete MATCHED_WITH relationship');
+        return false;
+      }
+    });
+  }
+
   async deleteUser(userId: string, options: CLIOptions): Promise<boolean> {
     logInfo(`${options.dryRun ? 'DRY RUN: ' : ''}Deleting user with userId: ${userId}`);
 
@@ -2279,6 +2340,7 @@ function showHelp(): void {
   log(colorize('cyan', '  deleteContactPoint <agentId>') + ' Delete ContactPoint nodes by agentId');
   log(colorize('cyan', '  deleteHumanConnection <id>') + ' Delete a HumanConnection node by connectionId');
   log(colorize('cyan', '  deleteUser <userId>') + '      Delete a user node by userId');
+  log(colorize('cyan', '  deleteMatch <person1Id> <person2Id>') + ' Delete MATCHED_WITH relationship between two persons');
   log(colorize('cyan', '  completeMatch <agentId> <person1Id> <person2Id>') + ' Mark MATCHED_WITH relationship as completed');
   log(colorize('cyan', '  deleteByAgent <agentId>') + '    Delete all nodes created by specific agent');
   log(colorize('cyan', '  deleteSinceDate <YYYY-MM-DD>') + ' Delete all nodes/relationships created since date');
@@ -2312,6 +2374,7 @@ function showHelp(): void {
   log('  bun scripts/updateMemgraph.ts deleteContactPoint 85dd8272-625b-053b-9c7d-d49cd0bbdde8');
   log('  bun scripts/updateMemgraph.ts deleteHumanConnection "7360b4fb-ba3b-0eb8-aaac-9f9040ab4dd1_1760690724296"');
   log('  bun scripts/updateMemgraph.ts deleteUser "7360b4fb-ba3b-0eb8-aaac-9f9040ab4dd1"');
+  log('  bun scripts/updateMemgraph.ts deleteMatch 563f13ee-159b-0e2d-a3b1-c6a1640cc306 d724a4a0-c93f-0fc3-8621-6209bcc474b2');
   log('  bun scripts/updateMemgraph.ts completeMatch 85dd8272-625b-053b-9c7d-d49cd0bbdde8 77bb6613-9c78-0319-830c-dc3353e517d7 1bdf179d-cb47-038e-9c41-b15853bcd63a');
   log('  bun scripts/updateMemgraph.ts deleteByAgent 85dd8272-625b-053b-9c7d-d49cd0bbdde8 --dry-run');
   log('  bun scripts/updateMemgraph.ts deleteSinceDate 2025-10-17 --dry-run --verbose');
@@ -2363,6 +2426,14 @@ async function main(): Promise<void> {
           process.exit(1);
         }
         await manager.deleteHumanConnection(args[0], options);
+        break;
+
+      case 'deleteMatch':
+        if (args.length !== 2) {
+          logError('deleteMatch requires exactly two arguments: person1Id person2Id');
+          process.exit(1);
+        }
+        await manager.deleteMatch(args[0], args[1], options);
         break;
 
       case 'completeMatch':

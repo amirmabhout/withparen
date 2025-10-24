@@ -91,7 +91,7 @@ describe('Coordination Template Tests', () => {
         ...baseContext,
         status: MatchStatus.PROPOSAL_SENT,
         isInitiator: false,
-        userMessage: 'sounds good, I\'ll be wearing a green hat',
+        userMessage: "sounds good, I'll be wearing a green hat",
       });
 
       expect(prompt).toContain('You received a proposal');
@@ -150,7 +150,9 @@ describe('Coordination Template Tests', () => {
 
       // Check updated rules
       expect(prompt).toContain('Keep messages warm, friendly, and context-appropriate');
-      expect(prompt).toContain('Extract and save clues, venue and proposed times whenever mentioned');
+      expect(prompt).toContain(
+        'Extract and save clues, venue and proposed times whenever mentioned'
+      );
       expect(prompt).toContain('Only transition to completed if BOTH users provided feedback');
     });
   });

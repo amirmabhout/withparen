@@ -42,32 +42,20 @@ export const findMatchAction: Action = {
 
   validate: async (runtime: IAgentRuntime, message: Memory): Promise<boolean> => {
     try {
-      // Check for pending matches from Memgraph
-      const memgraphService = runtime.getService('memgraph') as MemgraphService;
-      if (!memgraphService) {
-        logger.warn(`[find-match] Memgraph service not available for validation`);
-        return true; // Allow action to proceed and handle error in handler
-      }
+      // Check user status - only ONBOARDING and ACTIVE users can find matches
+      const userStatusService = new UserStatusService(runtime);
+      const userStatus = await userStatusService.getUserStatus(message.entityId);
 
-      const userMatches = await memgraphService.getAllMatches(message.entityId);
-
-      // Check for active matches (any status except completed/declined/cancelled)
-      const activeStatuses = [
-        MatchStatus.MATCH_FOUND,
-        MatchStatus.PROPOSAL_SENT,
-        MatchStatus.ACCEPTED,
-      ];
-
-      const activeMatches = userMatches.filter((match) =>
-        activeStatuses.includes(match.status as any)
-      );
-
-      // If user has active matches, don't allow more FIND_MATCH calls
-      // They should use COORDINATE to manage existing match
-      if (activeMatches.length > 0) {
+      // Allow findMatch for ONBOARDING and ACTIVE users
+      // Reject for MATCHED users (they already have an active match)
+      if (userStatus === UserStatus.MATCHED) {
+        logger.debug(`[find-match] User ${message.entityId} has MATCHED status, validation failed`);
         return false;
       }
 
+      logger.debug(
+        `[find-match] User ${message.entityId} has ${userStatus} status, validation passed`
+      );
       return true;
     } catch (error) {
       logger.error(`[discover-connection] Error validating find match action: ${error}`);
@@ -652,11 +640,9 @@ Looking for: ${matchConnectionContext.length > 0 ? matchConnectionContext[0].con
             `[discover-connection] Created match in Memgraph: ${message.entityId} -> ${matchedUserId} status="${matchStatus}"`
           );
 
-          // Transition user to ACTIVE status after finding a match
-          const userStatusService = new UserStatusService(runtime);
-          await userStatusService.transitionUserStatus(message.entityId, UserStatus.ACTIVE);
+          // Both users are now set to MATCHED status by syncMatch() call above
           logger.info(
-            `[discover-connection] Set user ${message.entityId} to ACTIVE status after finding match`
+            `[discover-connection] Both users ${message.entityId} and ${matchedUserId} set to MATCHED status`
           );
         } else {
           logger.info(
